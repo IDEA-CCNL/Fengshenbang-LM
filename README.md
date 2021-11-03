@@ -1,7 +1,7 @@
 # Fengshenbang-LM
 封神榜-LM是IDEA认知计算中心主导的基础大模型开源计划,我们计划从模型结构、模型规模、应用领域三个维度去开发基础大模型，并逐步开源我们最新的研究成果。
 
-目前已经开源了杨戬系列模型和雷震子系列模型，后续还会陆续开源姜子牙、周文王、周武王、闻仲、金吒、木吒、哪吒、申公豹、比干、增长天王（魔礼青）、持国天王（魔礼海）、多闻天王（魔礼红）、广目天王（魔礼寿）等系列。 
+目前已经开源了二郎神系列模型和雷震子系列模型，后续还会陆续开源姜子牙、周文王、周武王、闻仲、金吒、木吒、哪吒、申公豹、比干、增长天王（魔礼青）、持国天王（魔礼海）、多闻天王（魔礼红）、广目天王（魔礼寿）等系列。 
   
 ## 二郎神系列
 BERT结构，训练过程融入知识，下游任务
@@ -9,11 +9,11 @@ BERT结构，训练过程融入知识，下游任务
 二郎神-xlarge: 13亿参数
 
 ### 模型下载地址
-提供下载地址
+[二郎神-1.3B]
 
 ### 使用示例
 提供下载
-```
+``` python
 from transformers import MegatronBertConfig, MegatronBertModel
 from transformers import BertTokenizer
 import torch
@@ -38,15 +38,15 @@ BERT结构，训练过程同时考虑LM和MLM任务，采用roformer位置编码
 
 雷震子-base： 1亿参数
 
-雷震子-xlarge: 13亿参数 
+雷震子-1.3B: 13亿参数 
 
 ### 模型下载地址
-提供下载地址
+[雷震子-1.3B]
 
 ### 使用示例
 模型加载方法
 
-```
+``` python
 from roformer.modeling_roformer import RoFormerModel            #从本仓库提供的roformer文件中导入roformer模型
 from roformer.configuration_roformer import RoFormerConfig
 from transformers import BertTokenizer
