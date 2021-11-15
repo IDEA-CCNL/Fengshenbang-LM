@@ -5,12 +5,10 @@
   
 ## 二郎神系列
 Encoder结构，训练过程融入知识，增加有监督任务二次预训练。
-目前中文开源中最大的BERT结构模型，FewCLUE总分登顶榜一，CHID(成语填空)、TNEWS(新闻分类)超过人类，CHID (成语填空) 、CSLDCP(学科文献分类)、OCNLI(自然语言推理)单任务第一
+
+二郎神-1.3B: 13亿参数，目前中文开源中最大的BERT结构模型，FewCLUE总分登顶榜一，CHID(成语填空)、TNEWS(新闻分类)超过人类，CHID (成语填空) 、CSLDCP(学科文献分类)、OCNLI(自然语言推理)单任务第一
 ![image](https://user-images.githubusercontent.com/4384420/141752311-d15c2a7f-cd83-4e9e-99a5-cb931088845e.png)
 
-
-
-二郎神-1.3B: 13亿参数
 
 ### 模型下载地址
 [二郎神-1.3B]
