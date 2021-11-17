@@ -18,7 +18,6 @@ Encoder结构，训练过程融入知识，增加有监督任务二次预训练�
 ``` python
 from transformers import MegatronBertConfig, MegatronBertModel
 from transformers import BertTokenizer
-import torch
 
 model_pretrained_weight_path='/home/'  #模型的权重路径
 tokenizer = BertTokenizer.from_pretrained(model_pretrained_weight_path)
@@ -75,15 +74,14 @@ python example/pretraining.py " \
 
 
 ### 模型下载地址
-[周文王-1.3B](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E5%91%A8%E6%96%87%E7%8E%8B-1.3B.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668225200&Signature=5azS%2BtqThr0MiFtWULwM2tE/Tug%3D)
-
+[周文王-1.3B](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E5%91%A8%E6%96%87%E7%8E%8B-1.3B.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668225200&Signature=5azS%2BtqThr0MiFtWULwM2tE/Tug%3D)<br>
+[周文王-110M](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E5%91%A8%E6%96%87%E7%8E%8B-110M.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668249599&Signature=e32GpUhDTbyVrnrFW022WJNTDDQ%3D)
 ### 模型加载
 由于HuggingFace没有现成的双任务RoFormer模型结构。因此需要从本仓库model文件夹中提供的脚本导入。导入示例如下：
 ``` python
 from model.roformer.modeling_roformer import RoFormerModel            #从本仓库提供的roformer文件中导入roformer模型
 from model.roformer.configuration_roformer import RoFormerConfig
 from transformers import BertTokenizer
-import torch
 
 model_pretrained_weight_path='./home/'  #预训练模型权重路径
 tokenizer = BertTokenizer.from_pretrained(model_pretrained_weight_path)
@@ -114,7 +112,7 @@ python example/finetune.py " \
 ### 下游效果
 
 #### 自然语言理解
-使用周文王-1.3B模型进行自然语言理解任务时，需要将token_type全部设置为0
+使用周文王-1.3B模型进行自然语言理解任务时，需要将token_type全部设置为0。周文王的下游任务表现如下：
 
 |     模型   | afqmc    |  tnews  | iflytek    |  ocnli  |  cmnli  | wsc  | csl  |
 | :--------:    | :-----:  | :----:  | :-----:   | :----: | :----: | :----: | :----: |
@@ -122,8 +120,16 @@ python example/finetune.py " \
 | 周文王-1.3B | 0.7463     |   0.6036    | 0.6288     |   0.7654   | 0.7741    | 0.8849    | 0. 8777   |
 
 #### 自然语言生成
-使用周文王-1.3B模型进行自然语言生成任务时，需要将token_type全部设置为1
+使用周文王-1.3B模型进行自然语言生成任务时，需要将token_type全部设置为1。周文王的生成例子如下：
 
+```
+ input:清华大学位于
+ output:清华大学位于北京市海淀区，是中国著名的学府，也是全球最受欢迎的大学之一。
+
+ input:深圳是
+ output: 深圳是国家经济、金融、科技的龙头，创造繁荣的城市。
+
+ ```
 
 
 
