@@ -86,3 +86,6 @@ transformer结构
 
 ## FAQ
 
+## License
+
+[Apache License 2.0](LICENSE)
