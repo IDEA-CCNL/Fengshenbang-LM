@@ -132,12 +132,32 @@ python example/finetune.py " \
 #### 自然语言生成
 使用周文王-1.3B模型进行自然语言生成任务时，需要将token_type全部设置为1。周文王的生成例子如下：
 
-```
- input:清华大学位于
- output:清华大学位于北京市海淀区，是中国著名的学府，也是全球最受欢迎的大学之一。
+```python
+from model.roformer.modeling_roformer import RoFormerModel
+from transformers import AutoTokenizer
+import torch
+import numpy as np
 
- input:深圳是
- output: 深圳是国家经济、金融、科技的龙头，创造繁荣的城市。
+sentence = '清华大学位于'
+max_length = 32
+model_pretrained_weight_path = '/home/'  # 预训练模型权重路径
+
+tokenizer = AutoTokenizer.from_pretrained(model_pretrained_weight_path)
+model = RoFormerModel.from_pretrained(model_pretrained_weight_path)
+
+for i in range(max_length):
+    encode = torch.tensor(
+        [[tokenizer.cls_token_id]+tokenizer.encode(sentence, add_special_tokens=False)]).long()
+    logits = model(encode)[0]
+    logits = torch.nn.functional.linear(
+        logits, model.embeddings.word_embeddings.weight)
+    logits = torch.nn.functional.softmax(
+        logits, dim=-1).cpu().detach().numpy()[0]
+    sentence = sentence + \
+        tokenizer.decode(int(np.random.choice(logits.shape[1], p=logits[-1])))
+    if sentence[-1] == '。':
+        break
+print(sentence)
 
  ```
 
