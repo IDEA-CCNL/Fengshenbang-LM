@@ -22,7 +22,7 @@ parser.add_argument("--dev_data_path", type=str, help="test file")
 parser.add_argument("--test_data_path", type=str, help="test file")
 parser.add_argument("--pretrained_model_path", type=str,
                     help="pretrained_model_path")
-parser.add_argument("--model_type", type=str, default="bert", help="bert")
+parser.add_argument("--model_type", type=str, default="megatron", help="megatron or roformer")
 parser.add_argument("--checkpoints", type=str, help="checkpoint")
 parser.add_argument("--batch_size", type=int, default=32, help="batch_size")
 parser.add_argument("--max_length", type=int, default=512, help="max_length")
