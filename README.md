@@ -95,7 +95,7 @@ from transformers import BertTokenizer
 
 model_pretrained_weight_path = './home/'  #预训练模型权重路径
 tokenizer = BertTokenizer.from_pretrained(model_pretrained_weight_path)
-config = model = RoFormerConfig.from_pretrained(model_pretrained_weight_path)
+config = RoFormerConfig.from_pretrained(model_pretrained_weight_path)
 model = RoFormerModel.from_pretrained(model_pretrained_weight_path)
 ```
 
