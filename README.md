@@ -3,10 +3,10 @@
 预训练大模型是认知智能和自然语言的基础设施。不同的模型结构，不同的模型尺寸，再加上不同的专业领域，预训练大模型构成了一个巨大的空间。大模型训练需要昂贵的算力和高技术人才，训练一个适用于各自领域任务的大模型对小团队和小公司来说是巨大的挑战。在这个空间中，目前只填充了为数不多的模型，这些模型中，又只有少数是开源的。
 
 为了全方面建设中文自然语言的基础设施，沈向洋院士在IDEA研究院宣布，我们开启一个“封神榜”大模型开源计划。
-*我们将覆盖不同的模型结构、不同的模型尺寸、不同的专业领域，全谱系的开放多个大模型系列。
-*我们也会持续的对这些模型进行升级，持续在模型规模、知识融入、监督任务辅助等方向不断优化，保持最新的训练数据和最新的训练算法，让这些大模型始终居于领先地位。
-*我们也希望各个公司、高校、机构跟我们合作，一起共建大模型开源体系。
-*希望我们的一起努力，可以推动中文认知智能和自然语言的深入发展和产业落地。
+* 我们将覆盖不同的模型结构、不同的模型尺寸、不同的专业领域，全谱系的开放多个大模型系列。
+* 我们也会持续的对这些模型进行升级，持续在模型规模、知识融入、监督任务辅助等方向不断优化，保持最新的训练数据和最新的训练算法，让这些大模型始终居于领先地位。
+* 我们也希望各个公司、高校、机构跟我们合作，一起共建大模型开源体系。
+* 希望我们的一起努力，可以推动中文认知智能和自然语言的深入发展和产业落地。
 
 ![avatar](models.png)
   
@@ -171,22 +171,15 @@ for sentence in output:
 ### 模型下载地址
 [闻仲-3.5B](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E9%97%BB%E4%BB%B2-3.5B.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668225244&Signature=1HSpdcstUw2DMuiOufYRRN8fPio%3D)
 
-### 模型下载
-[闻仲-3.5B](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E9%97%BB%E4%BB%B2-3.5B.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668225244&Signature=1HSpdcstUw2DMuiOufYRRN8fPio%3D)
-
 
 ## 燃灯
 Transformer结构为主的编解码语言模型，7.7亿参数的燃灯-7.7B大模型，采用280G数据，16张A100训练14天。
-
 
 ## 余元
 医学领域的余元系列，35亿参数余元-3.5B大模型，采用50G的医疗领域数据和知识，在已有的通用模型基础上继续训练，256张A100训练28小时，应用于医学领域的生成和判定任务。
 
 
 ### 模型下载地址
-[余元-3.5B](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E4%BD%99%E5%85%83-3.5B.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668225231&Signature=C8Ai5VAyd4/ZPPWnIjEXi0wP1U8%3D)
-
-### 模型下载
 [余元-3.5B](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E4%BD%99%E5%85%83-3.5B.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668225231&Signature=C8Ai5VAyd4/ZPPWnIjEXi0wP1U8%3D)
 
 ## FAQ
