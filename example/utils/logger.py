@@ -48,4 +48,5 @@ console_handler.setFormatter(
         datefmt='%Y-%m-%d %H:%M:%S')
 )
 logger.addHandler(console_handler)
+ 
 
