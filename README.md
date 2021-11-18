@@ -26,10 +26,10 @@ Encoder结构为主的双向语言模型，专注于解决各种自然语言理�
 from transformers import MegatronBertConfig, MegatronBertModel
 from transformers import BertTokenizer
 
-model_pretrained_weight_path='/home/'  #模型的权重路径
+model_pretrained_weight_path = '/home/'  #模型的权重路径
 tokenizer = BertTokenizer.from_pretrained(model_pretrained_weight_path)
-config=MegatronBertConfig.from_pretrained(model_pretrained_weight_path)
-model=MegatronBertModel.from_pretrained(model_pretrained_weight_path)
+config = MegatronBertConfig.from_pretrained(model_pretrained_weight_path)
+model = MegatronBertModel.from_pretrained(model_pretrained_weight_path)
 
 ```
 ### 使用示例
@@ -93,7 +93,7 @@ from model.roformer.modeling_roformer import RoFormerModel            #从本仓
 from model.roformer.configuration_roformer import RoFormerConfig
 from transformers import BertTokenizer
 
-model_pretrained_weight_path='./home/'  #预训练模型权重路径
+model_pretrained_weight_path = './home/'  #预训练模型权重路径
 tokenizer = BertTokenizer.from_pretrained(model_pretrained_weight_path)
 config = model = RoFormerConfig.from_pretrained(model_pretrained_weight_path)
 model = RoFormerModel.from_pretrained(model_pretrained_weight_path)
