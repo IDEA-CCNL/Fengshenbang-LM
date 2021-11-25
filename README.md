@@ -168,29 +168,26 @@ print(sentence)
 Decoder结构为主的单向语言模型，是一系列强大的生成模型。
 35亿参数的闻仲-3.5B大模型，采用100G数据，256张A100训练28小时。
 
-### 使用示例
-``` python
-import torch
-from transformers import GPT2Tokenizer, GPT2LMHeadModel
-model_pretrained_weight_path='/home/'  #模型的权重路径
-tokenizer = GPT2Tokenizer.from_pretrained(model_pretrained_weight_path)
-model = GPT2LMHeadModel.from_pretrained(model_pretrained_weight_path)
-device = torch.device("cuda:6")
-model.to(device)
-model.eval()
-model.half()
-text = "北京是中国的首都"
-encoded_input = torch.tensor([tokenizer.encode(text)]).to(device)
-output = model.generate(input_ids=encoded_input, max_length=32, num_return_sequences=1)
-for sentence in output:
-    sentence = sentence.tolist()
-    text = tokenizer.decode(sentence, clean_up_tokenization_spaces=True)
-    print(text)
-
-```
-
 ### 模型下载地址
 [Huggingface 闻仲-3.5B](https://huggingface.co/IDEA-CCNL/Wenzhong-3.5B)
+
+### load model
+```python 
+from transformers import GPT2Tokenizer, GPT2Model
+tokenizer = GPT2Tokenizer.from_pretrained('IDEA-CCNL/Wenzhong-3.5B')
+model = GPT2Model.from_pretrained('IDEA-CCNL/Wenzhong-3.5B')
+text = "Replace me by any text you'd like."
+encoded_input = tokenizer(text, return_tensors='pt')
+output = model(**encoded_input)
+```
+### generation
+```python
+from transformers import pipeline, set_seed
+set_seed(55)
+generator = pipeline('text-generation', model='IDEA-CCNL/Wenzhong-3.5B')
+generator("北京位于", max_length=30, num_return_sequences=1)
+
+```
 
 
 ## 燃灯
@@ -201,7 +198,25 @@ Transformer结构为主的编解码语言模型，7.7亿参数的燃灯-7.7B大�
 
 
 ### 模型下载地址
-[Huggingface 余元-3.5B](https://huggingface.co/IDEA-CCNL/Yuyuan-3.5BD)
+[Huggingface 余元-3.5B](https://huggingface.co/IDEA-CCNL/Yuyuan-3.5B)
+
+### load model
+```python 
+from transformers import GPT2Tokenizer, GPT2Model
+tokenizer = GPT2Tokenizer.from_pretrained('IDEA-CCNL/Yuyuan-3.5B')
+model = GPT2Model.from_pretrained('IDEA-CCNL/Yuyuan-3.5B')
+text = "Replace me by any text you'd like."
+encoded_input = tokenizer(text, return_tensors='pt')
+output = model(**encoded_input)
+```
+### generation
+```python
+from transformers import pipeline, set_seed
+set_seed(55)
+generator = pipeline('text-generation', model='IDEA-CCNL/Yuyuan-3.5B')
+generator("北京位于", max_length=30, num_return_sequences=1)
+
+```
 
 ## FAQ
 
