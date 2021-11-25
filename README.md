@@ -87,8 +87,8 @@ IDEA研究院认知计算中心联合追一科技有限公司的新结构大模�
 
 ### 模型下载地址
 
-[周文王-1.3B](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E5%91%A8%E6%96%87%E7%8E%8B-1.3B.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668225200&Signature=5azS%2BtqThr0MiFtWULwM2tE/Tug%3D)<br>
-[周文王-110M](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E5%91%A8%E6%96%87%E7%8E%8B-110M.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668249599&Signature=e32GpUhDTbyVrnrFW022WJNTDDQ%3D)
+[周文王-1.3B](https://huggingface.co/IDEA-CCNL/Zhouwenwang-1.3B)<br>
+[周文王-110M](https://huggingface.co/IDEA-CCNL/Zhouwenwang-110M)
 ### 模型加载
 由于HuggingFace没有现成的双任务RoFormer模型结构。因此需要从本仓库model文件夹中提供的脚本导入。导入示例如下：
 
