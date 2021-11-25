@@ -23,7 +23,7 @@ Encoder结构为主的双向语言模型，专注于解决各种自然语言理�
 
 
 ### 模型下载地址
-[二郎神-1.3B](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E4%BA%8C%E9%83%8E%E7%A5%9E-1.3B.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668225215&Signature=aCDiVHK6xIiLnrLTWLa2ysKRcRY%3D)
+[二郎神-1.3B](https://huggingface.co/IDEA-CCNL/Erlangshen-1.3B)
 
 ### 模型加载
 ``` python
