@@ -36,7 +36,7 @@ model = MegatronBertModel.from_pretrained("IDEA-CCNL/Erlangshen-1.3B")
 
 ```
 ### 使用示例
-为了便于开发者快速使用我们的开源模型，这里提供了一个下游任务的finetune示例脚本，使用的[CLUE](https://github.com/CLUEbenchmark/CLUE)上的afqmc语义匹配任务数据，运行脚本如下。其中data_path为数据路径，afqmc任务数据的[下载地址](https://github.com/CLUEbenchmark/CLUE)，PRETRAINED_MODEL_PATH为预训练模型的路径。你可以从HuggingFace把模型下载到本地路径，然后令PRETRAINED_MODEL_PATH等于你的模型存储路径。若你不想下载模型，可以令`PRETRAINED_MODEL_PATH="IDEA-CCNL/Erlangshen-1.3B"`，提供的脚本会自动下载模型到本地。
+为了便于开发者快速使用我们的开源模型，这里提供了一个下游任务的finetune示例脚本，使用的[CLUE](https://github.com/CLUEbenchmark/CLUE)上的afqmc语义匹配任务数据，运行脚本如下。其中DATA_PATH为数据路径，afqmc任务数据的[下载地址](https://github.com/CLUEbenchmark/CLUE)，PRETRAINED_MODEL_PATH为预训练模型的路径。你可以从HuggingFace把模型下载到本地路径，然后令PRETRAINED_MODEL_PATH等于你的模型存储路径。若你不想下载模型，可以令`PRETRAINED_MODEL_PATH="IDEA-CCNL/Erlangshen-1.3B"`，提供的脚本会自动下载模型到本地。
 ``` sh
 python example/finetune.py " \
         --train_data_path $TRAIN_DATA_PATH \
