@@ -205,6 +205,9 @@ Transformer结构为主的编解码语言模型，7.7亿参数的燃灯-7.7B大�
 
 ## FAQ
 
+## 联系我们
+![avartar](contactus.png)
+
 ## License
 
 [Apache License 2.0](LICENSE)
