@@ -185,7 +185,7 @@ output = model(**encoded_input)
 from transformers import pipeline, set_seed
 set_seed(55)
 generator = pipeline('text-generation', model='IDEA-CCNL/Wenzhong-3.5B')
-generator("北京位于", max_length=30, num_return_sequences=1)
+generator("Diabetics should not eat", max_length=30, num_return_sequences=1)
 
 ```
 
