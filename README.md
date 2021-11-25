@@ -23,7 +23,7 @@ Encoder结构为主的双向语言模型，专注于解决各种自然语言理�
 
 
 ### 模型下载地址
-[二郎神-1.3B](https://huggingface.co/IDEA-CCNL/Erlangshen-1.3B)
+[Huggingface 二郎神-1.3B](https://huggingface.co/IDEA-CCNL/Erlangshen-1.3B)
 
 ### 模型加载
 ``` python
@@ -86,8 +86,8 @@ IDEA研究院认知计算中心联合追一科技有限公司的新结构大模�
 
 ### 模型下载地址
 
-[周文王-1.3B](https://huggingface.co/IDEA-CCNL/Zhouwenwang-1.3B)<br>
-[周文王-110M](https://huggingface.co/IDEA-CCNL/Zhouwenwang-110M)
+[Huggingface 周文王-1.3B](https://huggingface.co/IDEA-CCNL/Zhouwenwang-1.3B)<br>
+[Huggingface 周文王-110M](https://huggingface.co/IDEA-CCNL/Zhouwenwang-110M)
 ### 模型加载
 由于我们现在的周文王结构是在追一科技之前的roformer结构进行的修改，而HuggingFace还没有周文王的模型结构。因此需要从本仓库导入![avatar](model)文件夹到你自己的工程根目录下。导入之后，即可按照下面的脚本从huggingface下载并加载对应的模型：
 
@@ -190,7 +190,7 @@ for sentence in output:
 ```
 
 ### 模型下载地址
-[闻仲-3.5B](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E9%97%BB%E4%BB%B2-3.5B.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668225244&Signature=1HSpdcstUw2DMuiOufYRRN8fPio%3D)
+[Huggingface 闻仲-3.5B](https://huggingface.co/IDEA-CCNL/Wenzhong-3.5B)
 
 
 ## 燃灯
@@ -201,7 +201,7 @@ Transformer结构为主的编解码语言模型，7.7亿参数的燃灯-7.7B大�
 
 
 ### 模型下载地址
-[余元-3.5B](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E4%BD%99%E5%85%83-3.5B.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668225231&Signature=C8Ai5VAyd4/ZPPWnIjEXi0wP1U8%3D)
+[Huggingface 余元-3.5B](https://huggingface.co/IDEA-CCNL/Yuyuan-3.5BD)
 
 ## FAQ
 
