@@ -30,10 +30,9 @@ Encoder结构为主的双向语言模型，专注于解决各种自然语言理�
 from transformers import MegatronBertConfig, MegatronBertModel
 from transformers import BertTokenizer
 
-model_pretrained_weight_path = '/home/'  #模型的权重路径
-tokenizer = BertTokenizer.from_pretrained(model_pretrained_weight_path)
-config = MegatronBertConfig.from_pretrained(model_pretrained_weight_path)
-model = MegatronBertModel.from_pretrained(model_pretrained_weight_path)
+tokenizer = BertTokenizer.from_pretrained("IDEA-CCNL/Erlangshen-1.3B")
+config = MegatronBertConfig.from_pretrained("IDEA-CCNL/Erlangshen-1.3B")
+model = MegatronBertModel.from_pretrained("IDEA-CCNL/Erlangshen-1.3B")
 
 ```
 ### 使用示例
@@ -90,17 +89,16 @@ IDEA研究院认知计算中心联合追一科技有限公司的新结构大模�
 [周文王-1.3B](https://huggingface.co/IDEA-CCNL/Zhouwenwang-1.3B)<br>
 [周文王-110M](https://huggingface.co/IDEA-CCNL/Zhouwenwang-110M)
 ### 模型加载
-由于HuggingFace没有现成的双任务RoFormer模型结构。因此需要从本仓库model文件夹中提供的脚本导入。导入示例如下：
+由于我们现在的周文王结构是在追一科技之前的roformer结构进行的修改，而HuggingFace还没有周文王的模型结构。因此需要从本仓库导入![avatar](model)文件夹到你自己的工程根目录下。导入之后，即可按照下面的脚本从huggingface下载并加载对应的模型：
 
 ``` python
 from model.roformer.modeling_roformer import RoFormerModel            #从本仓库提供的roformer文件中导入roformer模型
 from model.roformer.configuration_roformer import RoFormerConfig
 from transformers import BertTokenizer
 
-model_pretrained_weight_path = './home/'  #预训练模型权重路径
-tokenizer = BertTokenizer.from_pretrained(model_pretrained_weight_path)
-config = RoFormerConfig.from_pretrained(model_pretrained_weight_path)
-model = RoFormerModel.from_pretrained(model_pretrained_weight_path)
+tokenizer = BertTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
+config = RoFormerConfig.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
+model = RoFormerModel.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
 ```
 
 
@@ -144,10 +142,9 @@ import numpy as np
 
 sentence = '清华大学位于'
 max_length = 32
-model_pretrained_weight_path = '/home/'  # 预训练模型权重路径
 
-tokenizer = AutoTokenizer.from_pretrained(model_pretrained_weight_path)
-model = RoFormerModel.from_pretrained(model_pretrained_weight_path)
+tokenizer = AutoTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
+model = RoFormerModel.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
 
 for i in range(max_length):
     encode = torch.tensor(
