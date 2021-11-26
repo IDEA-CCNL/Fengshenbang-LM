@@ -223,8 +223,15 @@ generator("Diabetics should not eat", max_length=30, num_return_sequences=1)
 
 ```
 
-## FAQ
-
+## 引用
+```
+@misc{Fengshenbang-LM,
+  title={Fengshenbang-LM},
+  author={IDEA-CCNL},
+  year={2021},
+  howpublished={\url{https://github.com/IDEA-CCNL/Fengshenbang-LM}},
+}
+```
 ## 联系我们
 ![avartar](contactus.png)
 
