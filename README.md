@@ -1,14 +1,20 @@
 # Fengshenbang-LM
-封神榜-LM是IDEA认知计算中心主导的基础大模型开源计划,我们计划从模型结构、模型尺寸、专业领域三个维度去开发基础大模型，并逐步开源我们最新的研究成果。
-预训练大模型是认知智能和自然语言的基础设施。不同的模型结构，不同的模型尺寸，再加上不同的专业领域，预训练大模型构成了一个巨大的空间。大模型训练需要昂贵的算力和高技术人才，训练一个适用于各自领域任务的大模型对小团队和小公司来说是巨大的挑战。在这个空间中，目前只填充了为数不多的模型，这些模型中，又只有少数是开源的。
+最近两年，预训练逐渐成为整个认知智能的基础，自然语言和计算机视觉的算法全方面的依赖于预训练模型来构建。
 
-为了全方面建设中文自然语言的基础设施，沈向洋院士在IDEA研究院宣布，我们开启一个“封神榜”大模型开源计划。
-*我们将覆盖不同的模型结构、不同的模型尺寸、不同的专业领域，全谱系的开放多个大模型系列。
-*我们也会持续的对这些模型进行升级，持续在模型规模、知识融入、监督任务辅助等方向不断优化，保持最新的训练数据和最新的训练算法，让这些大模型始终居于领先地位。
-*我们也希望各个公司、高校、机构跟我们合作，一起共建大模型开源体系。
-*希望我们的一起努力，可以推动中文认知智能和自然语言的深入发展和产业落地。
+预训练模型的规模从最初的1亿参数BERT到一千多亿参数的GTP-3，正在以每年10倍的速度增加。针对不同的下游任务，我们需要不同的结构，不同的尺寸和不同的专业领域的预训练模型。
+这个世界需要更多更大的模型。但是，有限的算力资源是限制整个领域进一步发展的瓶颈。尤其是高校、小公司和一些传统公司，根本不具备足够的算力来训练和使用大规模预训练模型。这些都阻碍了整个人工智能技术更进一步的落地。
 
-![avatar](models.png)
+这个世界需要一个答案。
+
+IDEA研究院正式宣布，我们开启 “封神榜”大模型开源计划。在这个计划中，我们全方面的开源一系列的自然语言预训练大模型，它们将覆盖不同的模型结构、不同的模型尺寸、不同的专业领域。而且我们承诺，我们将对这些模型做持续的升级，不断融合最新的数据和最新的训练算法。通过我们IDEA研究院的努力，我们打造中文认知智能的通用基础设施，避免重复建设，我们为全社会节省算力。
+
+![avatar](pic1.png)
+
+同时，我们也希望各个公司、高校、机构加入到这个开源计划中，一起共建大模型开源体系。未来，当我们需要一个新的预训练模型，都应该是首先从这些开源大模型中选取一个最接近的，做继续训练，然后再把新的模型开源回这个体系。这样，每个人用最少的算力，就能得到自己的模型，同时这个开源大模型体系也能越来越大。
+
+![avatar](pic2.png)
+
+为了更好的体验，拥抱开源社区，封神榜的所有模型都转化并同步到了Huggingface社区，你可以通过几行代码就能轻松使用封神榜的所有模型，欢迎来[IDEA-CCNL的huggingface社区](https://huggingface.co/IDEA-CCNL)下载。
   
 ## 二郎神系列
 
@@ -19,21 +25,20 @@ Encoder结构为主的双向语言模型，专注于解决各种自然语言理�
 
 
 ### 模型下载地址
-[二郎神-1.3B](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E4%BA%8C%E9%83%8E%E7%A5%9E-1.3B.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668225215&Signature=aCDiVHK6xIiLnrLTWLa2ysKRcRY%3D)
+[Huggingface 二郎神-1.3B](https://huggingface.co/IDEA-CCNL/Erlangshen-1.3B)
 
 ### 模型加载
 ``` python
 from transformers import MegatronBertConfig, MegatronBertModel
 from transformers import BertTokenizer
 
-model_pretrained_weight_path = '/home/'  #模型的权重路径
-tokenizer = BertTokenizer.from_pretrained(model_pretrained_weight_path)
-config = MegatronBertConfig.from_pretrained(model_pretrained_weight_path)
-model = MegatronBertModel.from_pretrained(model_pretrained_weight_path)
+tokenizer = BertTokenizer.from_pretrained("IDEA-CCNL/Erlangshen-1.3B")
+config = MegatronBertConfig.from_pretrained("IDEA-CCNL/Erlangshen-1.3B")
+model = MegatronBertModel.from_pretrained("IDEA-CCNL/Erlangshen-1.3B")
 
 ```
 ### 使用示例
-为了便于开发者快速使用我们的开源模型，这里提供了一个下游任务的finetune示例脚本，使用的[CLUE](https://github.com/CLUEbenchmark/CLUE)上的afqmc语义匹配任务数据，运行脚本如下。其中data_path为数据路径，afqmc任务数据的[下载地址](https://github.com/CLUEbenchmark/CLUE)，pretrained_model_path为预训练模型的路径。
+为了便于开发者快速使用我们的开源模型，这里提供了一个下游任务的finetune示例脚本，使用的[CLUE](https://github.com/CLUEbenchmark/CLUE)上的afqmc语义匹配任务数据，运行脚本如下。其中DATA_PATH为数据路径，afqmc任务数据的[下载地址](https://github.com/CLUEbenchmark/CLUE)，PRETRAINED_MODEL_PATH为预训练模型的路径。你可以从HuggingFace把模型下载到本地路径，然后令PRETRAINED_MODEL_PATH等于你的模型存储路径。若你不想下载模型，可以令`PRETRAINED_MODEL_PATH="IDEA-CCNL/Erlangshen-1.3B"`，提供的脚本会自动下载模型到本地。
 ``` sh
 python example/finetune.py " \
         --train_data_path $TRAIN_DATA_PATH \
@@ -83,20 +88,19 @@ IDEA研究院认知计算中心联合追一科技有限公司的新结构大模�
 
 ### 模型下载地址
 
-[周文王-1.3B](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E5%91%A8%E6%96%87%E7%8E%8B-1.3B.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668225200&Signature=5azS%2BtqThr0MiFtWULwM2tE/Tug%3D)<br>
-[周文王-110M](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E5%91%A8%E6%96%87%E7%8E%8B-110M.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668249599&Signature=e32GpUhDTbyVrnrFW022WJNTDDQ%3D)
+[Huggingface 周文王-1.3B](https://huggingface.co/IDEA-CCNL/Zhouwenwang-1.3B)<br>
+[Huggingface 周文王-110M](https://huggingface.co/IDEA-CCNL/Zhouwenwang-110M)
 ### 模型加载
-由于HuggingFace没有现成的双任务RoFormer模型结构。因此需要从本仓库model文件夹中提供的脚本导入。导入示例如下：
+由于我们现在的周文王结构是在追一科技之前的roformer结构进行的修改，而HuggingFace还没有周文王的模型结构。因此需要从本仓库导入[model](model)文件夹到你自己的工程根目录下。导入之后，即可按照下面的脚本从huggingface下载并加载对应的模型：
 
 ``` python
 from model.roformer.modeling_roformer import RoFormerModel            #从本仓库提供的roformer文件中导入roformer模型
 from model.roformer.configuration_roformer import RoFormerConfig
 from transformers import BertTokenizer
 
-model_pretrained_weight_path = './home/'  #预训练模型权重路径
-tokenizer = BertTokenizer.from_pretrained(model_pretrained_weight_path)
-config = RoFormerConfig.from_pretrained(model_pretrained_weight_path)
-model = RoFormerModel.from_pretrained(model_pretrained_weight_path)
+tokenizer = BertTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
+config = RoFormerConfig.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
+model = RoFormerModel.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
 ```
 
 
@@ -140,10 +144,9 @@ import numpy as np
 
 sentence = '清华大学位于'
 max_length = 32
-model_pretrained_weight_path = '/home/'  # 预训练模型权重路径
 
-tokenizer = AutoTokenizer.from_pretrained(model_pretrained_weight_path)
-model = RoFormerModel.from_pretrained(model_pretrained_weight_path)
+tokenizer = AutoTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
+model = RoFormerModel.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
 
 for i in range(max_length):
     encode = torch.tensor(
@@ -167,49 +170,70 @@ print(sentence)
 Decoder结构为主的单向语言模型，是一系列强大的生成模型。
 35亿参数的闻仲-3.5B大模型，采用100G数据，256张A100训练28小时。
 
-### 使用示例
-``` python
-import torch
-from transformers import GPT2Tokenizer, GPT2LMHeadModel
-model_pretrained_weight_path='/home/'  #模型的权重路径
-tokenizer = GPT2Tokenizer.from_pretrained(model_pretrained_weight_path)
-model = GPT2LMHeadModel.from_pretrained(model_pretrained_weight_path)
-device = torch.device("cuda:6")
-model.to(device)
-model.eval()
-model.half()
-text = "北京是中国的首都"
-encoded_input = torch.tensor([tokenizer.encode(text)]).to(device)
-output = model.generate(input_ids=encoded_input, max_length=32, num_return_sequences=1)
-for sentence in output:
-    sentence = sentence.tolist()
-    text = tokenizer.decode(sentence, clean_up_tokenization_spaces=True)
-    print(text)
+### 模型下载地址
+[Huggingface 闻仲-3.5B](https://huggingface.co/IDEA-CCNL/Wenzhong-3.5B)
+
+### load model
+```python 
+from transformers import GPT2Tokenizer, GPT2Model
+tokenizer = GPT2Tokenizer.from_pretrained('IDEA-CCNL/Wenzhong-3.5B')
+model = GPT2Model.from_pretrained('IDEA-CCNL/Wenzhong-3.5B')
+text = "Replace me by any text you'd like."
+encoded_input = tokenizer(text, return_tensors='pt')
+output = model(**encoded_input)
+```
+### generation
+```python
+from transformers import pipeline, set_seed
+set_seed(55)
+generator = pipeline('text-generation', model='IDEA-CCNL/Wenzhong-3.5B')
+generator("北京是中国的", max_length=30, num_return_sequences=1)
 
 ```
-
-### 模型下载地址
-[闻仲-3.5B](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E9%97%BB%E4%BB%B2-3.5B.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668225244&Signature=1HSpdcstUw2DMuiOufYRRN8fPio%3D)
-
-### 模型下载
-[闻仲-3.5B](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E9%97%BB%E4%BB%B2-3.5B.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668225244&Signature=1HSpdcstUw2DMuiOufYRRN8fPio%3D)
 
 
 ## 燃灯
 Transformer结构为主的编解码语言模型，7.7亿参数的燃灯-7.7B大模型，采用280G数据，16张A100训练14天。
-
+即将开源，敬请期待。。。
 
 ## 余元
-医学领域的余元系列，35亿参数余元-3.5B大模型，采用50G的医疗领域数据和知识，在已有的通用模型基础上继续训练，256张A100训练28小时，应用于医学领域的生成和判定任务。
+医学领域的余元系列，35亿参数余元-3.5B大模型，采用50G的医疗领域数据和知识，在已有的通用模型基础上继续训练，32张A100训练7天，是目前最大的开源GPT2医疗大模型。我们的模型在医学领域的事实判断中具有近90%的准确率。
+
+我们利用余元-3.5B大模型实现事实判断，医学问答。更多的可能性等着你去发现。
 
 
 ### 模型下载地址
-[余元-3.5B](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E4%BD%99%E5%85%83-3.5B.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668225231&Signature=C8Ai5VAyd4/ZPPWnIjEXi0wP1U8%3D)
+[Huggingface 余元-3.5B](https://huggingface.co/IDEA-CCNL/Yuyuan-3.5B)
 
-### 模型下载
-[余元-3.5B](https://big-models.obs.cn-north-4.myhuaweicloud.com:443/%E4%BD%99%E5%85%83-3.5B.zip?AccessKeyId=UFREDVP4MG5MSSDPRU0V&Expires=1668225231&Signature=C8Ai5VAyd4/ZPPWnIjEXi0wP1U8%3D)
+### load model
+```python 
+from transformers import GPT2Tokenizer, GPT2Model
+tokenizer = GPT2Tokenizer.from_pretrained('IDEA-CCNL/Yuyuan-3.5B')
+model = GPT2Model.from_pretrained('IDEA-CCNL/Yuyuan-3.5B')
+text = "Replace me by any text you'd like."
+encoded_input = tokenizer(text, return_tensors='pt')
+output = model(**encoded_input)
+```
+### generation
+```python
+from transformers import pipeline, set_seed
+set_seed(55)
+generator = pipeline('text-generation', model='IDEA-CCNL/Yuyuan-3.5B')
+generator("Diabetics should not eat", max_length=30, num_return_sequences=1)
 
-## FAQ
+```
+
+## 引用
+```
+@misc{Fengshenbang-LM,
+  title={Fengshenbang-LM},
+  author={IDEA-CCNL},
+  year={2021},
+  howpublished={\url{https://github.com/IDEA-CCNL/Fengshenbang-LM}},
+}
+```
+## 联系我们
+![avartar](contactus.png)
 
 ## License
 
