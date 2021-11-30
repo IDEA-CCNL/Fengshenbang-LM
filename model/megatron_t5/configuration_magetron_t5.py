@@ -238,3 +238,4 @@ class T5OnnxConfig(OnnxConfigWithPast):
             return flatten_output
 
         return super().flatten_output_collection_property(name, field)
+        
