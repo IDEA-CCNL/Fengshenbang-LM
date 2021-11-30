@@ -1,12 +1,12 @@
 # coding=utf-8
-# Copyright 2018 Mesh TensorFlow authors, T5 Authors and HuggingFace Inc. team.
-#
+# Copyright 2021 The IDEA Authors. All rights reserved.
+
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
+
 #     http://www.apache.org/licenses/LICENSE-2.0
-#
+
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -252,7 +252,7 @@ class T5LayerNorm(nn.Module):
 class T5DenseReluDense(nn.Module):
     def __init__(self, config):
         super().__init__()
-        #TODO -> bias=False -> bias=True
+        #@IDEA modified -> bias=False -> bias=True
         self.wi = nn.Linear(config.d_model, config.d_ff, bias=True)
         self.wo = nn.Linear(config.d_ff, config.d_model, bias=True)
         self.dropout = nn.Dropout(config.dropout_rate)
@@ -268,7 +268,7 @@ class T5DenseReluDense(nn.Module):
 class T5DenseGeluDense(nn.Module):
     def __init__(self, config):
         super().__init__()
-        #TODO -> bias=False -> bias=True
+        #@IDEA modified -> bias=False -> bias=True
         self.wi = nn.Linear(config.d_model, config.d_ff, bias=True)
         self.wo = nn.Linear(config.d_ff, config.d_model, bias=True)
         self.dropout = nn.Dropout(config.dropout_rate)
@@ -284,7 +284,7 @@ class T5DenseGeluDense(nn.Module):
 class T5DenseGatedGeluDense(nn.Module):
     def __init__(self, config):
         super().__init__()
-        #TODO -> bias=False -> bias=True
+        #@IDEA modified -> bias=False -> bias=True
         self.wi_0 = nn.Linear(config.d_model, config.d_ff, bias=True)
         self.wi_1 = nn.Linear(config.d_model, config.d_ff, bias=True)
         self.wo = nn.Linear(config.d_ff, config.d_model, bias=True)
@@ -303,7 +303,7 @@ class T5DenseGatedGeluDense(nn.Module):
 class T5LayerFF(nn.Module):
     def __init__(self, config):
         super().__init__()
-        #TODO -> T5LayerNorm -> nn.LayerNorm
+        #@IDEA modified -> T5LayerNorm -> nn.LayerNorm
         # self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.layer_norm = nn.LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         if config.feed_forward_proj == "relu":
@@ -338,7 +338,7 @@ class T5Attention(nn.Module):
         self.inner_dim = self.n_heads * self.key_value_proj_dim
 
         # Mesh TensorFlow initialization to avoid scaling before softmax
-        #TODO -> bias=False -> bias=True
+        #@IDEA modified -> bias=False -> bias=True
 
         self.q = nn.Linear(self.d_model, self.inner_dim, bias=True)
         self.k = nn.Linear(self.d_model, self.inner_dim, bias=True)
@@ -527,7 +527,7 @@ class T5Attention(nn.Module):
             if mask is not None:
                 position_bias = position_bias + mask  # (batch_size, n_heads, seq_length, key_length)
 
-        #TODO -> delete scores += position_bias, use absolute positional
+        #@IDEA modified -> delete scores += position_bias, use absolute positional
         # scores += position_bias
         scores = scores / math.sqrt(self.key_value_proj_dim)
 
@@ -563,7 +563,7 @@ class T5LayerSelfAttention(nn.Module):
         super().__init__()
         
 
-        #TODO -> T5LayerNorm -> nn.LayerNorm
+        #@IDEA modified -> T5LayerNorm -> nn.LayerNorm
         # self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.layer_norm = nn.LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.SelfAttention = T5Attention(config, has_relative_attention_bias=has_relative_attention_bias)
@@ -599,7 +599,7 @@ class T5LayerSelfAttention(nn.Module):
 class T5LayerCrossAttention(nn.Module):
     def __init__(self, config):
         super().__init__()
-        #TODO -> T5LayerNorm -> nn.LayerNorm
+        #@IDEA modified -> T5LayerNorm -> nn.LayerNorm
         # self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.layer_norm = nn.LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         
@@ -640,7 +640,7 @@ class T5Block(nn.Module):
     def __init__(self, config, has_relative_attention_bias=False):
         super().__init__()
         self.is_decoder = config.is_decoder
-        #TODO -> 
+        #@IDEA modified -> 
         # self.layer = nn.ModuleList()
         # self.layer.append(T5LayerSelfAttention(config, has_relative_attention_bias=has_relative_attention_bias))
         # if self.is_decoder:
@@ -686,7 +686,7 @@ class T5Block(nn.Module):
         else:
             self_attn_past_key_value, cross_attn_past_key_value = None, None
 
-        #TODO -> self.layer[0] -> self.T5LayerSelfAttention
+        #@IDEA modified -> self.layer[0] -> self.T5LayerSelfAttention
         self_attention_outputs = self.T5LayerSelfAttention(
             hidden_states,
             attention_mask=attention_mask,
@@ -712,7 +712,7 @@ class T5Block(nn.Module):
                 query_length = present_key_value_state[0].shape[2]
             else:
                 query_length = None
-            #TODO -> self.layer[1] -> self.T5LayerCrossAttention
+            #@IDEA modified -> self.layer[1] -> self.T5LayerCrossAttention
             cross_attention_outputs = self.T5LayerCrossAttention(
                 hidden_states,
                 key_value_states=encoder_hidden_states,
@@ -739,7 +739,7 @@ class T5Block(nn.Module):
             attention_outputs = attention_outputs + cross_attention_outputs[2:]
 
         # Apply Feed Forward layer
-        #TODO -> self.layer[-1] -> self.T5LayerFF
+        #@IDEA modified -> self.layer[-1] -> self.T5LayerFF
         hidden_states = self.T5LayerFF(hidden_states)
 
         # clamp inf values to enable fp16 training
@@ -788,7 +788,7 @@ class T5PreTrainedModel(PreTrainedModel):
         elif isinstance(module, (T5Model, T5ForConditionalGeneration, T5EncoderModel)):
             # Mesh TensorFlow embeddings initialization
             # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/layers.py#L1624
-            #TODO -> module.shared.weight -> module.shared.word_embeddings.weight
+            #@IDEA modified -> module.shared.weight -> module.shared.word_embeddings.weight
             # module.shared.weight.data.normal_(mean=0.0, std=factor * 1.0)
             module.shared.word_embeddings.weight.data.normal_(mean=0.0, std=factor * 1.0)
             module.shared.position_embeddings.weight.data.normal_(mean=0.0, std=factor * 1.0)
@@ -911,11 +911,11 @@ class T5Stack(T5PreTrainedModel):
         self.embed_tokens = embed_tokens
         self.is_decoder = config.is_decoder
 
-        #TODO -> has_relative_attention_bias=bool(i == 0)) for i in range(config.num_layers) -> has_relative_attention_bias=False
+        #@IDEA modified -> has_relative_attention_bias=bool(i == 0)) for i in range(config.num_layers) -> has_relative_attention_bias=False
         self.block = nn.ModuleList(
             [T5Block(config, has_relative_attention_bias=False) for _ in range(config.num_layers)]
         )
-        #TODO -> T5LayerNorm -> nn.LayerNorm
+        #@IDEA modified -> T5LayerNorm -> nn.LayerNorm
         # self.final_layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.final_layer_norm = nn.LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
 
@@ -1011,7 +1011,7 @@ class T5Stack(T5PreTrainedModel):
 
         if inputs_embeds is None:
             assert self.embed_tokens is not None, "You have to initialize the model with valid token embeddings"
-            # TODO -> self.embed_tokens(input_ids=input_ids) -> self.embed_tokens(input_ids=input_ids,osition_ids=position_ids,)
+            #@IDEA modified -> self.embed_tokens(input_ids=input_ids) -> self.embed_tokens(input_ids=input_ids,osition_ids=position_ids,)
             # inputs_embeds = self.embed_tokens(input_ids=input_ids)
             inputs_embeds = self.embed_tokens(input_ids=input_ids)
 
@@ -1393,7 +1393,7 @@ class T5Model(T5PreTrainedModel):
 
     def __init__(self, config: T5Config):
         super().__init__(config)
-        #TODO -> nn.Embedding -> T5Embeddings
+        #@IDEA modified -> nn.Embedding -> T5Embeddings
         # self.shared = nn.Embedding(config.vocab_size, config.d_model)
         self.shared = T5Embeddings(config)
 
@@ -1583,7 +1583,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         super().__init__(config)
         self.model_dim = config.d_model
 
-        #TODO -> nn.Embedding -> T5Embeddings
+        #@IDEA modified -> nn.Embedding -> T5Embeddings
         # self.shared = nn.Embedding(config.vocab_size, config.d_model)
         self.shared = T5Embeddings(config)
 
@@ -1599,7 +1599,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         decoder_config.num_layers = config.num_decoder_layers
         self.decoder = T5Stack(decoder_config, self.shared)
 
-        #TODO -> add self.lm_head_bias
+        #@IDEA modified -> add self.lm_head_bias
         self.lm_head_bias = torch.nn.Parameter(torch.zeros(config.vocab_size))
 
         self.init_weights()
@@ -1786,7 +1786,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
         if labels is not None:
             loss_fct = CrossEntropyLoss(ignore_index=-100)
             loss = loss_fct(lm_logits.view(-1, lm_logits.size(-1)), labels.view(-1))
-            # TODO(thom): Add z_loss https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/layers.py#L666
+            #@IDEA modified(thom): Add z_loss https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/layers.py#L666
 
         if not return_dict:
             output = (lm_logits,) + decoder_outputs[1:] + encoder_outputs
@@ -1871,7 +1871,7 @@ class T5EncoderModel(T5PreTrainedModel):
 
     def __init__(self, config: T5Config):
         super().__init__(config)
-        #TODO -> nn.Embedding -> T5Embeddings
+        #@IDEA modified -> nn.Embedding -> T5Embeddings
         # self.shared = nn.Embedding(config.vocab_size, config.d_model)
         self.shared = T5Embeddings(config)
 

@@ -1,12 +1,12 @@
 # coding=utf-8
-# Copyright 2018 The Google AI Language Team Authors and The HuggingFace Inc. team.
-#
+# Copyright 2021 The IDEA Authors. All rights reserved.
+
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
+
 #     http://www.apache.org/licenses/LICENSE-2.0
-#
+
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -113,7 +113,7 @@ def whitespace_tokenize(text):
     tokens = text.split()
     return tokens
 
-
+#@IDEA modified BertTokenizer -> T5Tokenizer
 class T5Tokenizer(PreTrainedTokenizer):
     r"""
     Construct a BERT tokenizer. Based on WordPiece.

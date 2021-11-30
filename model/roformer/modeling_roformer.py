@@ -148,7 +148,7 @@ class RoFormerEmbeddings(nn.Module):
         super().__init__()
         self.word_embeddings = nn.Embedding(config.vocab_size, config.hidden_size, padding_idx=config.pad_token_id)
 
-        # TODO -> roformer removed the position_embedding, and add the totary position embedding in the self_attention_layer
+        #@IDEA modified -> roformer removed the position_embedding, and add the totary position embedding in the self_attention_layer
         # self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)
 
         self.token_type_embeddings = nn.Embedding(config.type_vocab_size, config.hidden_size)
@@ -186,7 +186,7 @@ class RoFormerEmbeddings(nn.Module):
 
         embeddings = inputs_embeds + token_type_embeddings
 
-        #TODO -> roformer removed the position_embedding
+        #@IDEA modified -> roformer removed the position_embedding
         # if self.position_embedding_type == "absolute":
         #     position_embeddings = self.position_embeddings(position_ids)
         #     embeddings += position_embeddings
@@ -243,7 +243,7 @@ class RoFormerSelfAttention(nn.Module):
         if self.position_embedding_type == "relative_key" or self.position_embedding_type == "relative_key_query":
             self.max_position_embeddings = config.max_position_embeddings
             self.distance_embedding = nn.Embedding(2 * config.max_position_embeddings - 1, self.attention_head_size)
-        # TODO -> add rope positional embedding
+        #@IDEA modified -> add rope positional embedding
         self.rope_emb = RoPEmbedding(self.attention_head_size)
 
         self.is_decoder = config.is_decoder
@@ -301,7 +301,7 @@ class RoFormerSelfAttention(nn.Module):
 
         # Take the dot product between "query" and "key" to get the raw attention scores.
 
-        # TODO -> add rope positional embedding
+        #@IDEA modified -> add rope positional embedding
         # print('query_layer.shape')
         # print(query_layer.shape)
         query_layer = self.rope_emb(query_layer) #query_layer.hsape -> [batch_size,num_head,seq_len,per_head_hidden_size]
@@ -309,7 +309,7 @@ class RoFormerSelfAttention(nn.Module):
 
         attention_scores = torch.matmul(query_layer, key_layer.transpose(-1, -2))
         
-        """ TODO -> removed the megatron positional
+        """ @IDEA modified -> removed the megatron positional
         if self.position_embedding_type == "relative_key" or self.position_embedding_type == "relative_key_query":
             seq_length = hidden_states.size()[1]
             position_ids_l = torch.arange(seq_length, dtype=torch.long, device=hidden_states.device).view(-1, 1)
@@ -1004,7 +1004,7 @@ class RoFormerModel(RoFormerPreTrainedModel):
         if token_type_ids is None:
             token_type_ids = torch.zeros(input_shape, dtype=torch.long, device=device)
 
-        # TODO -> get_extended_attention_mask -> roformer_extended_attention_mask
+        #@IDEA modified -> get_extended_attention_mask -> roformer_extended_attention_mask
         extended_attention_mask = roformer_extended_attention_mask(
             attention_mask, token_type_ids)
         """
