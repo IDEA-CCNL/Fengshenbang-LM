@@ -193,8 +193,42 @@ generator("北京是中国的", max_length=30, num_return_sequences=1)
 
 
 ## 燃灯
-Transformer结构为主的编解码语言模型，7.7亿参数的燃灯-7.7B大模型，采用280G数据，16张A100训练14天。
-即将开源，敬请期待。。。
+Transformer结构为主的编解码语言模型，7.7亿参数的燃灯-770M大模型，采用280G数据，16张A100训练14天。
+
+### 模型下载地址
+[Huggingface 燃灯-770M](https://huggingface.co/IDEA-CCNL/Randeng-770M/)
+
+### 模型加载
+由于T5结构的燃灯-770M模型是基于Megatron进行训练的，而Megatron的T5模型结构与HuggingFace的T5模型结构有略微的区别，不能直接使用HuggingFace的T5模型进行导入。因此需要从本仓库导入[model](model)文件夹到你自己的工程根目录下。导入之后，即可按照下面的脚本从huggingface下载并加载对应的模型：
+
+``` python
+from model.megatron_t5.modeling_megatron_t5 import T5EncoderModel
+from model.megatron_t5.configuration_magetron_t5 import T5Config
+from model.megatron_t5.tokenization_megatron_t5 import T5Tokenizer
+
+tokenizer = T5Tokenizer.from_pretrained('IDEA-CCNL/Randeng-770M')
+config = T5Config.from_pretrained('IDEA-CCNL/Randeng-770M')
+model = T5EncoderModel.from_pretrained('IDEA-CCNL/Randeng-770M')
+```
+
+### 使用示例
+
+``` sh
+python example/finetune.py " \
+        --train_data_path $TRAIN_DATA_PATH \
+        --dev_data_path $DEV_DATA_PATH \
+        --test_data_path $TSET_DATA_PATH \
+        --pretrained_model_path $PRETRAINED_MODEL_PATH \
+        --checkpoints ./model.pth \
+        --output_path ./afqmc_predict.json \
+        --log_file_path ./finetune.log \
+        --batch_size 32 \
+        --learning_rate 0.00002 \
+        --max_length 64 \
+        --epoch 7 \
+        --model_type megatron_t5 \
+            "
+```
 
 ## 余元
 医学领域的余元系列，35亿参数余元-3.5B大模型，采用50G的医疗领域数据和知识，在已有的通用模型基础上继续训练，32张A100训练7天，是目前最大的开源GPT2医疗大模型。我们的模型在医学领域的事实判断中具有近90%的准确率。
