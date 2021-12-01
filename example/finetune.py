@@ -16,6 +16,8 @@
 
 from transformers import BertModel, BertForMaskedLM, MegatronBertConfig, MegatronBertModel, MegatronBertForMaskedLM, BertConfig
 from model.roformer.modeling_roformer import RoFormerModel, RoFormerForMaskedLM
+from model.megatron_t5.modeling_megatron_t5 import T5EncoderModel
+from model.megatron_t5.configuration_magetron_t5 import T5Config
 from transformers import BertTokenizer, AutoTokenizer
 from example.utils.arguments_parse import args
 from example.utils.logger import logger
@@ -39,7 +41,8 @@ device = torch.device(
 
 model_type = {'bert': BertModel,
               'roformer': RoFormerModel,
-              'megatron': MegatronBertModel}
+              'megatron': MegatronBertModel,
+              'megatron_t5':T5EncoderModel}
 
 model_mlm_type = {'bert': BertForMaskedLM,
                   'roformer': RoFormerForMaskedLM,
@@ -47,7 +50,8 @@ model_mlm_type = {'bert': BertForMaskedLM,
 
 model_config = {'bert': BertConfig,
                 'roformer': RoFormerConfig,
-                'megatron': MegatronBertConfig}
+                'megatron': MegatronBertConfig,
+                'megatron_t5':T5Config}
 
 tokenizer = AutoTokenizer.from_pretrained(args.pretrained_model_path)
 
@@ -137,9 +141,13 @@ class taskModel(nn.Module):
         self.loss_func = torch.nn.BCELoss()
 
     def forward(self, input_ids, input_mask, input_seg, labels=None, is_training=False):
-        bert_output = self.bert_encoder(
-            input_ids=input_ids, attention_mask=input_mask, token_type_ids=input_seg)  # (bsz, seq, dim)
-        logits = self.cls_layer(bert_output[1])
+        if args.model_type=='megatron_t5':
+            bert_output = self.bert_encoder(input_ids=input_ids, attention_mask=input_mask)  # (bsz, seq, dim)
+            encode = bert_output.last_hidden_state[:,0,:]
+        else:
+            bert_output = self.bert_encoder(input_ids=input_ids, attention_mask=input_mask, token_type_ids=input_seg)  # (bsz, seq, dim)
+            encode = bert_output[1]
+        logits = self.cls_layer(encode)
         logits = self.sigmoid(logits)
         if is_training:
             loss = self.loss_func(logits.view(-1,), labels.float().view(-1,))
