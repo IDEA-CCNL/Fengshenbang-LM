@@ -44,7 +44,7 @@ from transformers.modeling_utils import PreTrainedModel, find_pruneable_heads_an
 from transformers.utils import logging
 from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
 from .configuration_magetron_t5 import T5Config
-import numpy as py
+import numpy as np
 
 logger = logging.get_logger(__name__)
 
@@ -1655,7 +1655,7 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
     def generate(self, input_ids=None, max_length=512):
 
         input_ids=torch.tensor(input_ids)
-        if len(input_ids)<2:
+        if len(input_ids.shape)<2:
             input_ids=input_ids.unsqueeze(0)
         decode_input_id=[21128]   # [BOS]的token_id为21128
         for i in range(max_length):
