@@ -44,7 +44,7 @@ from transformers.modeling_utils import PreTrainedModel, find_pruneable_heads_an
 from transformers.utils import logging
 from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
 from .configuration_magetron_t5 import T5Config
-
+import numpy as np
 
 logger = logging.get_logger(__name__)
 
@@ -1651,6 +1651,28 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
 
     def get_decoder(self):
         return self.decoder
+    
+    def generate(self, input_ids=None, max_length=512):
+
+        input_ids=torch.tensor(input_ids)
+        if len(input_ids.shape)<2:
+            input_ids=input_ids.unsqueeze(0)
+        decode_input_id=[21128]   # [BOS]的token_id为21128
+        for i in range(max_length):
+            tensor_decode_input_id=torch.tensor([decode_input_id])
+            forword_output=self.forward(input_ids=input_ids,
+                                   decoder_input_ids=tensor_decode_input_id)
+            logits = forword_output.logits
+            logits = torch.nn.functional.softmax(
+                logits, dim=-1).cpu().detach().numpy()[0]
+            
+            last_output_id=int(np.random.choice(logits.shape[1], p=logits[-1]))
+            if last_output_id==21129:  # [EOS]的token_id为21129
+                break
+            else:
+                decode_input_id.append(last_output_id)
+
+        return decode_input_id
 
     @add_start_docstrings_to_model_forward(T5_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=Seq2SeqLMOutput, config_class=_CONFIG_FOR_DOC)
