@@ -96,9 +96,9 @@ IDEA研究院认知计算中心联合追一科技有限公司的新结构大模�
 ``` python
 from model.roformer.modeling_roformer import RoFormerModel            #从本仓库提供的roformer文件中导入roformer模型
 from model.roformer.configuration_roformer import RoFormerConfig
-from transformers import BertTokenizer
+from transformers import AutoTokenizer
 
-tokenizer = BertTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
+tokenizer = AutoTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
 config = RoFormerConfig.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
 model = RoFormerModel.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
 ```
