@@ -1,18 +1,18 @@
 [**中文**](./README.md) | [**English**](./README_en.md)
 
 # Navigation
-* [Intro to Models](#Intro to Models)
+* [Intro](#Intro)
 * [Fengshenbang-LM](#Fengshenbang-LM)
-  + [Erlangshen(二郎神) Series](#Erlangshen(二郎神) Series)
-  + [Zhouwenwang(周文王) Series](#Zhouwenwang(周文王) Series)
-  + [Wenzhong(闻仲) Series](#Wenzhong(闻仲) Series)
-  + [Randong(燃灯) Series](#Randeng(燃灯) Series)
-  + [Yuyuan(余元) Series](#Yuyuan(余元) Series)
+  + [Erlangshen](#Erlangshen)
+  + [Zhouwenwang](#Zhouwenwang)
+  + [Wenzhong](#Wenzhong)
+  + [Randeng](#Randeng)
+  + [Yuyuan](#Yuyuan)
 * [Citation](#Citation)
-* [Contact Us](#Contact Us)
+* [Contact](#Contact)
 * [License](#License)
 
-# Intro to Models
+# Intro
 |Model|Scale|Architecture|Domain|Target Tasks|Notes|
 |-|-|-|-|-|-|
 |Erlangshen|1.3B params（Erlangshen-1.3B）|Bidirectional Laugnage Models with Encoder structure|Common|NLU|Largest Chinese open source Bert model; SOTA on few-shot learning benchmark FewCLUE|
@@ -41,7 +41,7 @@ We also call for businesses, universities and institutions to join us with the p
 For better open source experience, all models of the Fengshenbang series are synchronized within the Huggingface community, and can be obtained for use within few lines of code. Welcome to download and use our models from our repo at [IDEA-CCNL at HuggingFace](https://huggingface.co/IDEA-CCNL).
 
  
-## Erlangshen(二郎神) Series
+## Erlangshen
 
 This series focuses on using bidirectional language models with encoders to solve multiple natural language understanding tasks. 
 Erlangshen-1.3B is the largest Chinese open source model with the structure of Bert. It contains 13 billion parameters, and was trained with 280G datasets on 32 A100 GPUs for 14 days. It achieved the top on the Chinese natural language understanding benchmark FewCLUE on Nov 10th, 2021. Among the tasks of FewCLUE, Erlangshen-1.3 beat human performance on the task of CHID(Chinese idioms cloze test) and TNEWS(News Classification), and achieved SOTA on tasks of CHID, CSLDCP（academic literature classification) and OCNLI(Natural language Inference), refreshing the records of few-shot learning. We will continue to optimize the Erlangshen series with respect to model scale, knowledge fusion, auxiliary supervision tasks, etc. 
@@ -193,7 +193,7 @@ print(sentence)
 
 
 
-## Wenzhong(闻仲) Series
+## Wenzhong
 The Wenzhong Series is a group of powerful generative models that consist of unidirectional lanugage models of decoder structure. 
 The Wenzhong-3.5B model is trained with 100G datasets on 256 A100 GPUs for 28 hours, and contains 3.5 billion parameters. 
 
@@ -219,7 +219,7 @@ generator("北京是中国的", max_length=30, num_return_sequences=1)
 ```
 
 
-## Randeng(燃灯) Series
+## Randeng
 The Randong Series is a group of encoding-decoding language models of transformer structure. 
 The Randing-770M model is trained with 280G datasets on 16 A100 GPUs for 14 days, and contains 770M parameters. 
 
@@ -274,7 +274,7 @@ print(tokenizer.decode(output))
 
 
 
-## Yuyuan(余元) Series
+## Yuyuan
 The Yuyuan series is a group of models focusing on the medical domain. The Yuyuan-3.5B model is trained with 50G medical domain dataset and knowledge based on common domain pretrained models on 32 A100 for 7 days; it is by far the largest open source GPT-2 medical domain language model. It achieves near 90% accuracy in SOP judgement in medical domain. 
 We utilize Yuyuan-3.5B model for factual judgement and medical Q&A. We are looking forward to more possibilities from you. 
 
@@ -309,7 +309,7 @@ generator("Diabetics should not eat", max_length=30, num_return_sequences=1)
   howpublished={\url{https://github.com/IDEA-CCNL/Fengshenbang-LM}},
 }
 ```
-# Contact Us
+# Contact
 ![avartar](contactus.png)
 
 # License
