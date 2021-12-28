@@ -1,3 +1,5 @@
+[**中文**](./README.md) | [**English**](./README_en.md)
+
 # Fengshenbang-LM
 Pretraining of large-scale models have gradually become the basis of cognitive computing in recent years; Tasks and algorithms of natural language processing and computer vision heavily rely on pretrained large models.
 
