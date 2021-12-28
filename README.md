@@ -1,5 +1,26 @@
 [**中文**](./README.md) | [**English**](./README_en.md)
 
+# 导航
+* [模型简介](#模型简介)
+* [Fengshenbang-LM](#Fengshenbang-LM)
+  + [二郎神系列](#二郎神系列)
+  + [周文王系列](#二郎神系列)
+  + [闻仲系列](#二郎神系列)
+  + [燃灯系列](#二郎神系列)
+  + [余元系列](#二郎神系列)
+* [引用](#引用)
+* [联系我们](#联系我们)
+* [版权许可](#版权许可)
+
+# 模型简介
+|模型|规模|结构|领域|适用任务|备注|
+|-|-|-|-|-|-|
+|二郎神|13亿参数（Erlangshen-1.3B）|encoder结构为主的双向语言模型|通用|语言理解|最大的开源中文bert模型，小样本学习榜单FewCLUE达到sota|
+|周文王|13亿参数（Zhouwenwang-1.3B）|单双向统一语言模型|通用|语言理解+语言生成|基于roformer结构修改，最大的同时进行LM+MLM的模型|
+|闻仲|35亿参数（Wenzhong-3.5B）|decoder结构为主的单向语言模型|通用|语言生成||
+|燃灯|7.7亿参数（Randeng-770M）|编码解码模型，transformer/T5结构为主|通用|语言理解+语言生成|基于megatron训练|
+|余元|35亿参数（Yuyuan-3.5B）|GPT-2结构的单向语言模型|医疗|语言生成|目前最大的开源GPT2医疗模型|
+
 # Fengshenbang-LM
 最近两年，预训练逐渐成为整个认知智能的基础，自然语言和计算机视觉的算法全方面的依赖于预训练模型来构建。
 
@@ -275,7 +296,7 @@ generator("Diabetics should not eat", max_length=30, num_return_sequences=1)
 
 ```
 
-## 引用
+# 引用
 ```
 @misc{Fengshenbang-LM,
   title={Fengshenbang-LM},
@@ -284,9 +305,9 @@ generator("Diabetics should not eat", max_length=30, num_return_sequences=1)
   howpublished={\url{https://github.com/IDEA-CCNL/Fengshenbang-LM}},
 }
 ```
-## 联系我们
+# 联系我们
 ![avartar](contactus.png)
 
-## License
+# 版权许可 
 
 [Apache License 2.0](LICENSE)
