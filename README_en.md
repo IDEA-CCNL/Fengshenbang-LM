@@ -1,5 +1,26 @@
 [**中文**](./README.md) | [**English**](./README_en.md)
 
+# Navigation
+* [Intro to Models](#Intro to Models)
+* [Fengshenbang-LM](#Fengshenbang-LM)
+  + [Erlangshen(二郎神) Series](#Erlangshen(二郎神) Series)
+  + [Zhouwenwang(周文王) Series](#Zhouwenwang(周文王) Series)
+  + [Wenzhong(闻仲) Series](#Wenzhong(闻仲) Series)
+  + [Randong(燃灯) Series](#Randeng(燃灯) Series)
+  + [Yuyuan(余元) Series](#Yuyuan(余元) Series)
+* [Citation](#Citation)
+* [Contact Us](#Contact Us)
+* [License](#License)
+
+# Intro to Models
+|Model|Scale|Architecture|Domain|Target Tasks|Notes|
+|-|-|-|-|-|-|
+|Erlangshen|1.3B params（Erlangshen-1.3B）|Bidirectional Laugnage Models with Encoder structure|Common|NLU|Largest Chinese open source Bert model; SOTA on few-shot learning benchmark FewCLUE|
+|Zhouwenwang|1.3B params（Zhouwenwang-1.3B）|Unified Language Models|Common|NLU+NLG|Modified based on Roformer structure; the largest model trained on both LM and MLM|
+|Wenzhong|3.5B params（Wenzhong-3.5B）|Unidirectional Language Models with Decoder structure|Common|NLG||
+|Randeng|770M params（Randeng-770M）|Encoder-Decoder structured models with Transformer/T5 structures|Common|NLU+NLG||
+|Yuyuan|3.5B params（Yuyuan-3.5B）|Unidirectional Language Models with GPT-2 structure|Medical|NLG|Largest open source GPT2 medical model|
+
 # Fengshenbang-LM
 Pretraining of large-scale models have gradually become the basis of cognitive computing in recent years; Tasks and algorithms of natural language processing and computer vision heavily rely on pretrained large models.
 
@@ -279,7 +300,7 @@ generator("Diabetics should not eat", max_length=30, num_return_sequences=1)
 
 ```
 
-## Citation
+# Citation
 ```
 @misc{Fengshenbang-LM,
   title={Fengshenbang-LM},
@@ -288,9 +309,9 @@ generator("Diabetics should not eat", max_length=30, num_return_sequences=1)
   howpublished={\url{https://github.com/IDEA-CCNL/Fengshenbang-LM}},
 }
 ```
-## Contact Us
+# Contact Us
 ![avartar](contactus.png)
 
-## License
+# License
 
 [Apache License 2.0](LICENSE)
