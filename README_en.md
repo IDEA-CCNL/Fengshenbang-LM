@@ -30,7 +30,7 @@ However, limited computing power is a major bottleneck for the development of th
 
 And the world needs an answer for this.
 
-IDEA (International Digital Economy Academy) officially announces the launch of "Fengshenbang" open source project. It open sources a series of large-scale natural languguage pretrained models. These models will bring comprehensive coverage across model architectures, sizes, and expertise domains. We guarantee that we will udgrade the models continuously with new datasets and latest algorithms. We aim to build universal infrastructure for Chinese cognitive intelligence and prevent duplicative construction, and hence save computing resources for the community.
+IDEA (International Digital Economy Academy) officially announces the launch of "Fengshenbang" open source project. It open sources a series of large-scale natural languguage pretrained models. These models will bring comprehensive coverage across various model architectures, sizes and expertise domains. We guarantee that we will optimize the models continuously with new datasets and latest algorithms. We aim to build universal infrastructure for Chinese cognitive intelligence and prevent duplicative construction, and hence save computing resources for the community.
 
 ![avatar](pic1_eng.png)
 
@@ -109,8 +109,8 @@ python example/pretraining.py " \
 | roberta-wwm-ext-large | 0.7514      |   0.5872    | 0.6152      |   0.777    | 0.814    | 0.8914    | 0.86    |
 | Erlangshen-1.3B | 0.7608      |   0.5996    | 0.6234      |   0.7917    | 0.81    | 0.9243    | 0.872    |
 
-## Zhouwenwang(周文王) Series
-This series, with models of newly-designed architectures, is developed collaboratively by IDEA Cognitive Computing Center and Zhuiyi Technology. The models consider LM(Language Model) and MLM(Masked Language Model) jointly from the pretraining stage, and utilize Rotary Position Embedding, so that the resulting models are capable of both language generation and language understanding. We currently present Zhouwenwang-1.3B model with 1.3 billion parameters; it is the largest Chinese language model that handles LM and MLM tasks at the same time. We will continue to optimize the Zhouwenwang series with respect to model scale, knowledge fusion, auxiliary supervision tasks, etc. 
+## Zhouwenwan
+This series, with models of newly-designed architectures, is developed collaboratively by IDEA Cognitive Computing Center and Zhuiyi Technology. The models consider LM(Language Model) and MLM(Masked Language Model) jointly from the pretraining stage, and utilize Rotary Position Embedding, therefore the resulting models are capable of both language generation and language understanding. We currently present Zhouwenwang-1.3B model with 1.3 billion parameters; it is the largest Chinese language model that handles LM and MLM tasks at the same time. We will continue to optimize the Zhouwenwang series with respect to model scale, knowledge fusion, auxiliary supervision tasks, etc. 
 
 
 ### Download The Models
