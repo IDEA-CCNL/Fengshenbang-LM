@@ -1,3 +1,26 @@
+[**中文**](./README.md) | [**English**](./README_en.md)
+
+# 导航
+* [模型简介](#模型简介)
+* [Fengshenbang-LM](#Fengshenbang-LM)
+  + [二郎神系列](#二郎神系列)
+  + [周文王系列](#周文王系列)
+  + [闻仲系列](#闻仲系列)
+  + [燃灯系列](#燃灯系列)
+  + [余元系列](#余元系列)
+* [引用](#引用)
+* [联系我们](#联系我们)
+* [版权许可](#版权许可)
+
+# 模型简介
+|模型|规模|结构|领域|适用任务|备注|
+|-|-|-|-|-|-|
+|二郎神|13亿参数（Erlangshen-1.3B）|Encoder结构为主的双向语言模型|通用|语言理解|最大的开源中文bert模型，小样本学习榜单FewCLUE达到sota|
+|周文王|13亿参数（Zhouwenwang-1.3B）|单双向统一语言模型|通用|语言理解+语言生成|基于roformer结构修改，最大的同时进行LM+MLM的模型|
+|闻仲|35亿参数（Wenzhong-3.5B）|Decoder结构为主的单向语言模型|通用|语言生成||
+|燃灯|7.7亿参数（Randeng-770M）|编码解码模型，transformer/T5结构为主|通用|语言理解+语言生成||
+|余元|35亿参数（Yuyuan-3.5B）|GPT-2结构的单向语言模型|医疗|语言生成|目前最大的开源GPT2医疗模型|
+
 # Fengshenbang-LM
 最近两年，预训练逐渐成为整个认知智能的基础，自然语言和计算机视觉的算法全方面的依赖于预训练模型来构建。
 
@@ -192,7 +215,7 @@ generator("北京是中国的", max_length=30, num_return_sequences=1)
 ```
 
 
-## 燃灯
+## 燃灯系列
 Transformer结构为主的编解码语言模型，7.7亿参数的燃灯-770M大模型，采用280G数据，16张A100训练14天。
 
 ### 模型下载地址
@@ -246,7 +269,7 @@ print(tokenizer.decode(output))
 
 
 
-## 余元
+## 余元系列
 医学领域的余元系列，35亿参数余元-3.5B大模型，采用50G的医疗领域数据和知识，在已有的通用模型基础上继续训练，32张A100训练7天，是目前最大的开源GPT2医疗大模型。我们的模型在医学领域的事实判断中具有近90%的准确率。
 
 我们利用余元-3.5B大模型实现事实判断，医学问答。更多的可能性等着你去发现。
@@ -273,7 +296,7 @@ generator("Diabetics should not eat", max_length=30, num_return_sequences=1)
 
 ```
 
-## 引用
+# 引用
 ```
 @misc{Fengshenbang-LM,
   title={Fengshenbang-LM},
@@ -282,9 +305,9 @@ generator("Diabetics should not eat", max_length=30, num_return_sequences=1)
   howpublished={\url{https://github.com/IDEA-CCNL/Fengshenbang-LM}},
 }
 ```
-## 联系我们
+# 联系我们
 ![avartar](contactus.png)
 
-## License
+# 版权许可 
 
 [Apache License 2.0](LICENSE)
