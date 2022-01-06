@@ -2,9 +2,6 @@
 import sys
 import os
 
-# 临时这样干
-sys.path.append(r"../")
-
 from transformers import (
     TrainingArguments,
     HfArgumentParser,
@@ -17,10 +14,15 @@ from fengshen.trainer.cnnl_trainer import CNNLTrainer
 from fengshen.trainer.cnnl_args import CNNLTrainningArguments
 
 if __name__ == "__main__":
-    config = BertConfig.from_pretrained("bert-base-uncased")
+    config = BertConfig(
+        hidden_size=768,
+        num_hidden_layers=12,
+        num_attention_heads=12,
+    )
     model = BertForPreTraining(config=config)
     print(model.num_parameters())
-    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+    tokenizer = BertTokenizer.from_pretrained(
+        "/cognitive_comp/gaoxinyu/transformers/gxy_test/model")
     training_args = TrainingArguments(
         output_dir="./bert_base",
         overwrite_output_dir=True,
