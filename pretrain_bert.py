@@ -1,17 +1,20 @@
 # coding=utf-8
 import sys
 import os
+import time
+import torch
 
 from transformers import (
     TrainingArguments,
     HfArgumentParser,
     BertConfig,
+    Trainer,
 )
 from transformers.models.bert.tokenization_bert import BertTokenizer
 from transformers.models.bert.modeling_bert import BertForPreTraining
 
-from fengshen.trainer.cnnl_trainer import CNNLTrainer
-from fengshen.trainer.cnnl_args import CNNLTrainningArguments
+from fengshen.utils.cnnl_args import CNNLTrainningArguments
+from fengshen.data.megatron_dataloader import bert_dataset
 
 if __name__ == "__main__":
     config = BertConfig(
@@ -41,10 +44,31 @@ if __name__ == "__main__":
     else:
         training_args, cnnl_args = parser.parse_args_into_dataclasses()
 
-    trainer = CNNLTrainer(
+    if torch.distributed.get_rank() == 0:
+        start_time = time.time()
+        print('> compiling dataset index builder ...')
+        from fengshen.data.megatron_dataloader.dataset_utils import compile_helper
+        compile_helper()
+        print('>>> done with dataset index builder. Compilation time: {:.3f} '
+              'seconds'.format(time.time() - start_time), flush=True)
+    bert_dataset.tokenizer = tokenizer
+    train_dataset, eval_dataset = bert_dataset.build_train_valid_test_datasets(
+        data_prefix=cnnl_args.megatron_data_path,
+        data_impl=cnnl_args.megatron_data_impl,
+        splits_string=cnnl_args.megatron_splits_string,
+        train_valid_test_num_samples=None,
+        max_seq_length=512,
+        masked_lm_prob=0.15,
+        short_seq_prob=0.1,
+        seed=cnnl_args.megatron_seed,
+        skip_warmup=False,
+        binary_head=cnnl_args.megatron_binary_head)
+
+    trainer = Trainer(
         model=model,
         args=training_args,
         tokenizer=tokenizer,
-        cnnl_args=cnnl_args,
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
     )
     trainer.train()
