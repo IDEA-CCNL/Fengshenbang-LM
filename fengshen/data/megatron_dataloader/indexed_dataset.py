@@ -44,13 +44,15 @@ def infer_dataset_impl(path):
                 return None
     else:
         print(f"Dataset does not exist: {path}")
-        print("Path should be a basename that both .idx and .bin can be appended to get full filenames.")
+        print("Path should be a basename that both .idx and "
+              ".bin can be appended to get full filenames.")
         return None
 
 
 def make_builder(out_file, impl, vocab_size=None):
     if impl == 'mmap':
-        return MMapIndexedDatasetBuilder(out_file, dtype=__best_fitting_dtype(vocab_size))
+        return MMapIndexedDatasetBuilder(out_file,
+                                         dtype=__best_fitting_dtype(vocab_size))
     else:
         return IndexedDatasetBuilder(out_file)
 
@@ -58,7 +60,8 @@ def make_builder(out_file, impl, vocab_size=None):
 def make_dataset(path, impl, skip_warmup=False):
     if not IndexedDataset.exists(path):
         print(f"Dataset does not exist: {path}")
-        print("Path should be a basename that both .idx and .bin can be appended to get full filenames.")
+        print("Path should be a basename that both .idx "
+              "and .bin can be appended to get full filenames.")
         return None
     if impl == 'infer':
         impl = infer_dataset_impl(path)
@@ -170,8 +173,8 @@ class IndexedDataset(torch.utils.data.Dataset):
         if isinstance(idx, int):
             i = idx
             self.check_index(i)
-            tensor_size = self.sizes[self.dim_offsets[i]
-                :self.dim_offsets[i + 1]]
+            tensor_size = self.sizes[
+                self.dim_offsets[i]:self.dim_offsets[i + 1]]
             a = np.empty(tensor_size, dtype=self.dtype)
             self.data_file.seek(self.data_offsets[i] * self.element_size)
             self.data_file.readinto(a)
@@ -251,8 +254,8 @@ class IndexedCachedDataset(IndexedDataset):
         if isinstance(idx, int):
             i = idx
             self.check_index(i)
-            tensor_size = self.sizes[self.dim_offsets[i]
-                :self.dim_offsets[i + 1]]
+            tensor_size = self.sizes[
+                self.dim_offsets[i]:self.dim_offsets[i + 1]]
             a = np.empty(tensor_size, dtype=self.dtype)
             ptx = self.cache_index[i]
             np.copyto(a, self.cache[ptx: ptx + a.size])
@@ -419,11 +422,14 @@ class MMapIndexedDataset(torch.utils.data.Dataset):
                 count=self._len,
                 offset=offset)
             print_rank_0("    reading pointers...")
-            self._pointers = np.frombuffer(self._bin_buffer, dtype=np.int64, count=self._len,
+            self._pointers = np.frombuffer(self._bin_buffer,
+                                           dtype=np.int64, count=self._len,
                                            offset=offset + self._sizes.nbytes)
             print_rank_0("    reading document index...")
-            self._doc_idx = np.frombuffer(self._bin_buffer, dtype=np.int64, count=self._doc_count,
-                                          offset=offset + self._sizes.nbytes + self._pointers.nbytes)
+            self._doc_idx = np.frombuffer(
+                self._bin_buffer,
+                dtype=np.int64, count=self._doc_count,
+                offset=offset + self._sizes.nbytes + self._pointers.nbytes)
 
         def __del__(self):
             self._bin_buffer_mmap._mmap.close()
