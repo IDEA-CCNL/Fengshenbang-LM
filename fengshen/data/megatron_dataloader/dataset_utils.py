@@ -372,8 +372,8 @@ def create_masked_lm_predictions(tokens,
                         continue
 
             n = np.random.choice(ngrams[:len(cand_index_set)],
-                                 p=pvals[:len(cand_index_set)]
-                                 / pvals[:len(cand_index_set)].sum(keepdims=True))
+                                 p=pvals[:len(cand_index_set)] /
+                                 pvals[:len(cand_index_set)].sum(keepdims=True))
             index_set = sum(cand_index_set[n - 1], [])
             n -= 1
 
@@ -659,8 +659,8 @@ def get_samples_mapping(indexed_dataset,
                         seed,
                         name,
                         binary_head):
-    """Get a list that maps a sample index to a starting 
-        sentence index, end sentence index, and length"""
+    """Get a list that maps a sample index to a starting
+    sentence index, end sentence index, and length"""
 
     if not num_epochs:
         if not max_num_samples:
