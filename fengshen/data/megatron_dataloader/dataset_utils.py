@@ -120,7 +120,7 @@ def get_a_and_b_segments(sample, np_rng):
 
 def truncate_segments(tokens_a, tokens_b, len_a, len_b, max_num_tokens, np_rng):
     """Truncates a pair of sequences to a maximum sequence length."""
-    #print(len_a, len_b, max_num_tokens)
+    # print(len_a, len_b, max_num_tokens)
     assert len_a > 0
     if len_a + len_b <= max_num_tokens:
         return False
@@ -210,8 +210,8 @@ def create_masked_lm_predictions(tokens,
         # Note that Whole Word Masking does *not* change the training code
         # at all -- we still predict each WordPiece independently, softmaxed
         # over the entire vocabulary.
-        if (do_whole_word_mask and len(cand_indexes) >= 1
-                and not is_start_piece(vocab_id_to_token_dict[token])):
+        if (do_whole_word_mask and len(cand_indexes) >= 1 and not
+                is_start_piece(vocab_id_to_token_dict[token])):
             cand_indexes[-1].append(i)
         else:
             cand_indexes.append([i])
@@ -221,7 +221,8 @@ def create_masked_lm_predictions(tokens,
     output_tokens = list(tokens)
     # add by ganruyi
     if masking_style == 'bert-cn-wwm':
-        # if non chinese is False, that means it is chinese, then try to remove "##" which is added previously
+        # if non chinese is False, that means it is chinese
+        # then try to remove "##" which is added previously
         new_token_ids = []
         for token_id in output_tokens:
             token = tokenizer.tokenizer.convert_ids_to_tokens([token_id])[0]
@@ -276,8 +277,8 @@ def create_masked_lm_predictions(tokens,
 
         if not geometric_dist:
             n = np_rng.choice(ngrams[:len(cand_index_set)],
-                              p=pvals[:len(cand_index_set)]
-                              / pvals[:len(cand_index_set)].sum(keepdims=True))
+                              p=pvals[:len(cand_index_set)] /
+                              pvals[:len(cand_index_set)].sum(keepdims=True))
         else:
             # Sampling "n" from the geometric distribution and clipping it to
             # the max_ngrams. Using p=0.2 default from the SpanBERT paper
@@ -484,7 +485,8 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
             prefixes[i], data_impl, splits_string,
             datasets_train_valid_test_num_samples[i],
             max_seq_length, masked_lm_prob, short_seq_prob,
-            seed, skip_warmup, binary_head, max_seq_length_dec, tokenizer, dataset_type=dataset_type)
+            seed, skip_warmup, binary_head, max_seq_length_dec,
+            tokenizer, dataset_type=dataset_type)
         if train_ds:
             train_datasets.append(train_ds)
         if valid_ds:
@@ -638,8 +640,8 @@ def get_train_valid_test_split_(splits_string, size):
     splits = [split / splits_sum for split in splits]
     splits_index = [0]
     for index, split in enumerate(splits):
-        splits_index.append(splits_index[index]
-                            + int(round(split * float(size))))
+        splits_index.append(splits_index[index] +
+                            int(round(split * float(size))))
     diff = splits_index[-1] - size
     for index in range(1, len(splits_index)):
         splits_index[index] -= diff
@@ -657,7 +659,8 @@ def get_samples_mapping(indexed_dataset,
                         seed,
                         name,
                         binary_head):
-    """Get a list that maps a sample index to a starting sentence index, end sentence index, and length"""
+    """Get a list that maps a sample index to a starting 
+        sentence index, end sentence index, and length"""
 
     if not num_epochs:
         if not max_num_samples:
@@ -722,12 +725,15 @@ def get_samples_mapping(indexed_dataset,
     # device_index=rank which is not the case for model
     # parallel case
     # ganruyi comment
-    #counts = torch.cuda.LongTensor([1])
-    #torch.distributed.all_reduce(counts, group=mpu.get_data_parallel_group())
-    #torch.distributed.all_reduce(counts, group=mpu.get_pipeline_model_parallel_group())
+    # counts = torch.cuda.LongTensor([1])
+    # torch.distributed.all_reduce(
+        # counts, group=mpu.get_data_parallel_group())
+    # torch.distributed.all_reduce(
+        # counts, group=mpu.get_pipeline_model_parallel_group())
     # assert counts[0].item() == (
     #    torch.distributed.get_world_size() //
-    #    torch.distributed.get_world_size(group=mpu.get_tensor_model_parallel_group()))
+    #    torch.distributed.get_world_size(
+        # group=mpu.get_tensor_model_parallel_group()))
 
     # Load indexed dataset.
     print_rank_0(' > loading indexed mapping from {}'.format(
