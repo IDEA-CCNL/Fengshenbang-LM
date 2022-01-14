@@ -49,7 +49,7 @@ model_config = {'bert': BertConfig,
                 'roformer': RoFormerConfig,
                 'megatron': MegatronBertConfig}
 
-tokenizer = AutoTokenizer.from_pretrained(args.pretrained_model_path)
+tokenizer = BertTokenizer.from_pretrained(args.pretrained_model_path)
 
 
 def load_data(file_path):
