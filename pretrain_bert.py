@@ -21,19 +21,15 @@ if __name__ == "__main__":
         hidden_size=768,
         num_hidden_layers=12,
         num_attention_heads=12,
+        intermediate_size=3072,
+        attention_probs_dropout_prob=0.1,
+        hidden_dropout_prob=0.1,
+        layer_norm_eps=1e-05,
     )
     model = BertForPreTraining(config=config)
     print(model.num_parameters())
     tokenizer = BertTokenizer.from_pretrained(
         "/cognitive_comp/gaoxinyu/transformers/gxy_test/model")
-    training_args = TrainingArguments(
-        output_dir="./bert_base",
-        overwrite_output_dir=True,
-        num_train_epochs=20,
-        per_gpu_train_batch_size=8,
-        save_steps=2000,
-        save_total_limit=2,
-    )
 
     parser = HfArgumentParser((TrainingArguments, CNNLTrainningArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
