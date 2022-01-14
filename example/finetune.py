@@ -53,7 +53,7 @@ model_config = {'bert': BertConfig,
                 'megatron': MegatronBertConfig,
                 'megatron_t5':T5Config}
 
-tokenizer = AutoTokenizer.from_pretrained(args.pretrained_model_path)
+tokenizer = BertTokenizer.from_pretrained(args.pretrained_model_path)
 
 
 def load_data(file_path):
