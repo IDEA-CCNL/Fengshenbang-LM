@@ -119,9 +119,9 @@ IDEA研究院认知计算中心联合追一科技有限公司的新结构大模�
 ``` python
 from model.roformer.modeling_roformer import RoFormerModel            #从本仓库提供的roformer文件中导入roformer模型
 from model.roformer.configuration_roformer import RoFormerConfig
-from transformers import AutoTokenizer
+from transformers import BertTokenizer
 
-tokenizer = AutoTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
+tokenizer = BertTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
 config = RoFormerConfig.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
 model = RoFormerModel.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
 ```
@@ -161,20 +161,22 @@ python example/finetune.py " \
 
 ```python
 from model.roformer.modeling_roformer import RoFormerModel
-from transformers import AutoTokenizer
+from transformers import BertTokenizer
 import torch
 import numpy as np
 
 sentence = '清华大学位于'
 max_length = 32
 
-tokenizer = AutoTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
+tokenizer = BertTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
 model = RoFormerModel.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
 
 for i in range(max_length):
-    encode = torch.tensor(
-        [[tokenizer.cls_token_id]+tokenizer.encode(sentence, add_special_tokens=False)]).long()
-    logits = model(encode)[0]
+    encode = [tokenizer.cls_token_id]+tokenizer.encode(sentence, add_special_tokens=False)
+    input_ids=torch.tensor([encode]).long()
+    token_type_ids=torch.tensor([[1]*len(encode)]).long()
+    logits = model(input_ids=input_ids, 
+                   token_type_ids=token_type_ids)[0]
     logits = torch.nn.functional.linear(
         logits, model.embeddings.word_embeddings.weight)
     logits = torch.nn.functional.softmax(
