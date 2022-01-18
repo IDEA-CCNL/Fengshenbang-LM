@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --job-name=hf-bert-base
-#SBATCH --nodes=2
+#SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1          # crucial - only 1 task per dist per node!
-#SBATCH --gres=gpu:4                 # number of gpus
+#SBATCH --gres=gpu:1                 # number of gpus
 #SBATCH -o %x-%j.log
 #SBATCH -e %x-%j.err
 
@@ -14,14 +14,14 @@ MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 #MASTER_ADDR=127.0.0.1
 MASTER_PORT=53005
 
-GPUS_PER_NODE=4
-NNODES=2   # switch to 128
+GPUS_PER_NODE=1
+NNODES=1   # switch to 128
 TP_SIZE=1    # always fixed to the size of a single node
 PP_SIZE=1    # NLAYERS must be a multiple of PP_SIZE here
 
-MICRO_BATCH_SIZE=64
+MICRO_BATCH_SIZE=32
 
-ZERO_STAGE=1
+ZERO_STAGE=3
 
 config_json="./ds_config.$SLURM_JOBID.json"
 
@@ -41,7 +41,25 @@ cat <<EOT > $config_json
         }
     },
   "zero_optimization": {
-    "stage": $ZERO_STAGE
+    "stage": $ZERO_STAGE,
+    "offload_optimizer": {
+            "device": "cpu",
+            "pin_memory": true
+        },
+        "offload_param": {
+            "device": "cpu",
+            "pin_memory": true
+        },
+    "cpu_offload": true,
+    "overlap_comm": true,
+    "contiguous_gradients": true,
+    "sub_group_size": 1e9,
+    "reduce_bucket_size": "auto",
+    "stage3_prefetch_bucket_size": "auto",
+    "stage3_param_persistence_threshold": "auto",
+    "stage3_max_live_parameters": 1e9,
+    "stage3_max_reuse_distance": 1e9,
+    "stage3_gather_fp16_weights_on_model_save": true
   },
   "fp16": {
     "enabled": true,
@@ -62,14 +80,14 @@ TRAINER_ARGS="
     --num_train_epochs 1 \
     --per_device_train_batch_size $MICRO_BATCH_SIZE \
     --per_device_eval_batch_size $MICRO_BATCH_SIZE \
-    --output_dir /cognitive_comp/gaoxinyu/hf_model/bert-base-110M/ \
-    --logging_dir /cognitive_comp/gaoxinyu/hf_model/bert-base-110M-tensorboard/ \
+    --output_dir /cognitive_comp/gaoxinyu/hf_model/bert-base-test/ \
+    --logging_dir /cognitive_comp/gaoxinyu/hf_model/bert-base-test-tensorboard/ \
     --logging_steps 100 \
     --save_steps 20000 \
     --learning_rate 1e-4 \
     --warmup_ratio 0.01 \
     --weight_decay 0.01 \
-    --eval_accumulation_steps 100 \
+    --evaluation_strategy steps \
     --max_grad_norm 1.0 \
     --fp16 True \
 "
@@ -96,7 +114,6 @@ export CMD=" \
     $SCRIPTS_PATH/pretrain_bert.py \
     $TRAINER_ARGS \
     $CNNL_TRAINER_ARGS \
-    $DEEPSPEED_ARGS \
     "
 
 echo $CMD

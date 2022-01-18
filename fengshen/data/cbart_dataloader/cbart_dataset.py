@@ -54,17 +54,20 @@ class CBartDataCollator(DataCollatorMixin):
         decoder_labels = [s[2] for s in features]
 
         # Mask to avoid performing attention on padding token indices in encoder_inputs.
-        _mask = pad_sequence(encoder_inputs, batch_first=True, padding_value=-100)
+        _mask = pad_sequence(
+            encoder_inputs, batch_first=True, padding_value=-100)
         attention_mask = torch.zeros(_mask.shape, dtype=torch.float32)
         attention_mask = attention_mask.masked_fill(_mask != -100, 1)
 
         encoder_inputs = pad_sequence(encoder_inputs, batch_first=True,
                                       padding_value=self.tokenizer.pad_token_id)
-        encoder_labels = pad_sequence(encoder_labels, batch_first=True, padding_value=-100)
+        encoder_labels = pad_sequence(
+            encoder_labels, batch_first=True, padding_value=-100)
         if self.encoder_loss_type == 1:  # labels for mse loss
             encoder_labels = encoder_labels.float()
 
-        decoder_labels = pad_sequence(decoder_labels, batch_first=True, padding_value=-100)
+        decoder_labels = pad_sequence(
+            decoder_labels, batch_first=True, padding_value=-100)
         # avoid computing loss on the first token, i.e. bos_token
         decoder_labels[:, 0] = -100
 
@@ -147,8 +150,10 @@ class BARTDataset(Dataset):
                 print(f'Label {k}: {v}')
                 all_label_counts += v
             # ZZ: calculate weights for differnet labels, labels with higher numbers get lower weights proportionally!
-            revert_label_weights = 1/np.array([v/all_label_counts for k, v in zip(unique, counts)])
-            self.label_weights = revert_label_weights/np.sum(revert_label_weights)
+            revert_label_weights = 1 / \
+                np.array([v/all_label_counts for k, v in zip(unique, counts)])
+            self.label_weights = revert_label_weights / \
+                np.sum(revert_label_weights)
         else:
             # ZZ: if statistics is not triggered, manually assign weights to different class
             if num_labels == 7:

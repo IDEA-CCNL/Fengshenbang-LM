@@ -97,7 +97,8 @@ class BartForTextInfill(BartPretrainedModel):
     we add a module over the encoder and add a new loss for the encoder.
     """
     base_model_prefix = "model"
-    authorized_missing_keys = [r"final_logits_bias", r"encoder\.version", r"decoder\.version"]
+    authorized_missing_keys = [r"final_logits_bias",
+                               r"encoder\.version", r"decoder\.version"]
 
     def __init__(self, config: BartConfig):
         super().__init__(config)
@@ -217,7 +218,8 @@ class BartForTextInfill(BartPretrainedModel):
         )
 
         # logits and loss for the encoder
-        encoder_last_hidden_state = outputs['encoder_last_hidden_state']  # last hidden state
+        # last hidden state
+        encoder_last_hidden_state = outputs['encoder_last_hidden_state']
         # eos_mask = input_ids.eq(self.config.eos_token_id)
         # if len(torch.unique(eos_mask.sum(1))) > 1:
         #     raise ValueError("All examples must have the same number of <eos> tokens.")
@@ -233,20 +235,24 @@ class BartForTextInfill(BartPretrainedModel):
                     encoder_logits.view(-1, self.config.num_labels), encoder_labels.view(-1))
             # regression loss
             else:
-                encoder_logits = encoder_logits.view(encoder_logits.size(0), -1)
-                encoder_logits = torch.sigmoid(encoder_logits)*self.num_labels-0.5
+                encoder_logits = encoder_logits.view(
+                    encoder_logits.size(0), -1)
+                encoder_logits = torch.sigmoid(
+                    encoder_logits)*self.num_labels-0.5
                 loss_fct = nn.MSELoss(reduction='none')
                 _loss = loss_fct(encoder_logits, encoder_labels)
                 encoder_loss = torch.mean(_loss[encoder_labels >= 0])
                 # encoder_loss =_loss[encoder_labels>=0]
 
         # logits and loss for the decoder
-        lm_logits = F.linear(outputs[0], self.model.shared.weight, bias=self.final_logits_bias)
+        lm_logits = F.linear(
+            outputs[0], self.model.shared.weight, bias=self.final_logits_bias)
         masked_lm_loss = None
         if labels is not None:
             loss_fct = nn.CrossEntropyLoss()
             # TODO(SS): do we need to ignore pad tokens in labels?
-            masked_lm_loss = loss_fct(lm_logits.view(-1, self.config.vocab_size), labels.view(-1))
+            masked_lm_loss = loss_fct(
+                lm_logits.view(-1, self.config.vocab_size), labels.view(-1))
 
         loss = None
         if masked_lm_loss is not None and encoder_loss is not None:
@@ -280,7 +286,8 @@ class BartForTextInfill(BartPretrainedModel):
             "past_key_values": past_key_values,
             "decoder_input_ids": decoder_input_ids,
             "attention_mask": attention_mask,
-            "use_cache": use_cache,  # change this to avoid caching (presumably for debugging)
+            # change this to avoid caching (presumably for debugging)
+            "use_cache": use_cache,
         }
 
     def adjust_logits_during_generation(self, logits, cur_len, max_length):
@@ -314,8 +321,10 @@ class BartForTextInfill(BartPretrainedModel):
             }
             reordered_past.append(layer_past_new)
 
-        new_enc_out = enc_out if enc_out is None else enc_out.index_select(0, beam_idx)
-        new_enc_mask = enc_mask if enc_mask is None else enc_mask.index_select(0, beam_idx)
+        new_enc_out = enc_out if enc_out is None else enc_out.index_select(
+            0, beam_idx)
+        new_enc_mask = enc_mask if enc_mask is None else enc_mask.index_select(
+            0, beam_idx)
 
         past = ((new_enc_out, new_enc_mask), reordered_past)
         return past
@@ -343,7 +352,8 @@ class BartForTextInfill(BartPretrainedModel):
             return_dict=True
         )
         # logits and loss for the encoder
-        encoder_last_hidden_state = encoder_outputs['last_hidden_state']  # last hidden state
+        # last hidden state
+        encoder_last_hidden_state = encoder_outputs['last_hidden_state']
         encoder_logits = self.classification_head(encoder_last_hidden_state)
 
         # classification
@@ -353,5 +363,6 @@ class BartForTextInfill(BartPretrainedModel):
         # regression
         else:
             encoder_logits = encoder_logits.view(encoder_logits.size(0), -1)
-            encoder_logits = torch.sigmoid(encoder_logits) * self.num_labels - 0.5
+            encoder_logits = torch.sigmoid(
+                encoder_logits) * self.num_labels - 0.5
         return encoder_outputs, encoder_logits
