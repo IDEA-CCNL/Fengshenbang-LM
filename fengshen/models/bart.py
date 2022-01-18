@@ -238,7 +238,7 @@ class BartForTextInfill(BartPretrainedModel):
                 encoder_logits = encoder_logits.view(
                     encoder_logits.size(0), -1)
                 encoder_logits = torch.sigmoid(
-                    encoder_logits)*self.num_labels-0.5
+                    encoder_logits) * self.num_labels - 0.5
                 loss_fct = nn.MSELoss(reduction='none')
                 _loss = loss_fct(encoder_logits, encoder_labels)
                 encoder_loss = torch.mean(_loss[encoder_labels >= 0])

@@ -44,7 +44,7 @@ class CBartDataCollator(DataCollatorMixin):
             elif l == 1:
                 decoder_inputs.append(mask_token_id)
             else:
-                decoder_inputs += [mask_token_id]*(l-1)
+                decoder_inputs += [mask_token_id] * (l - 1)
                 decoder_inputs.append(i)
         return torch.tensor(decoder_inputs, dtype=torch.long)
 
@@ -119,7 +119,7 @@ class BARTDataset(Dataset):
         self.decoder_labels = []
 
         data_dict_path_format = '/cognitive_comp/gaoxinyu/data/{}/{}_synthetic_max_insert_label{}_insert_mode{}_*.pt'.format(
-            dataset, mode, num_labels-2, insert_mode)
+            dataset, mode, num_labels - 2, insert_mode)
         data_dict_paths = glob.glob(data_dict_path_format)
         for data_dict_path in data_dict_paths:
             if os.path.exists(data_dict_path):
@@ -151,7 +151,7 @@ class BARTDataset(Dataset):
                 all_label_counts += v
             # ZZ: calculate weights for differnet labels, labels with higher numbers get lower weights proportionally!
             revert_label_weights = 1 / \
-                np.array([v/all_label_counts for k, v in zip(unique, counts)])
+                np.array([v / all_label_counts for k, v in zip(unique, counts)])
             self.label_weights = revert_label_weights / \
                 np.sum(revert_label_weights)
         else:
@@ -160,7 +160,7 @@ class BARTDataset(Dataset):
                 # the cross entropy loss weighst does not need to sum to 1
                 self.label_weights = [0.01, 0.05, 0.1, 0.1, 0.5, 0.5, 0.5]
             else:
-                self.label_weights = [1/num_labels] * num_labels
+                self.label_weights = [1 / num_labels] * num_labels
         print(f"label weights for encoder will be {self.label_weights}")
 
     def __getitem__(self, idx):
