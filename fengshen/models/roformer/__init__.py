@@ -19,25 +19,35 @@ from transformers.file_utils import _LazyModule, is_torch_available
 
 
 _import_structure = {
-    "configuration_megatron_t5": ["MegatronT5Config"],
-    "tokenization_megatron_t5": ["MegatronT5Tokenizer"],
+    "configuration_roformer": ["RoFormerConfig"],
+    "tokenization_roformer": ["RoFormerTokenizer"],
 }
 
 if is_torch_available():
-    _import_structure["modeling_megatron_t5"] = [
-        "MegatronT5Model",
-        "MegatronT5EncoderModel",
+    _import_structure["modeling_roformer"] = [
+        "RoFormerModel",
+        "RoFormerForMaskedLM",
+        "RoFormerForMultipleChoice",
+        "RoFormerPreTrainedModel",
+        "RoFormerForQuestionAnswering",
+        "RoFormerForSequenceClassification",
+        "RoFormerForTokenClassification",
     ]
 
 
 if TYPE_CHECKING:
-    from .configuration_megatron_t5 import MegatronT5Config
-    from .tokenization_megatron_t5 import MegatronT5Tokenizer
+    from .configuration_roformer import RoFormerConfig
+    from .tokenization_roformer import RoFormerTokenizer
 
     if is_torch_available():
-        from .modeling_megatron_t5 import (
-            MegatronT5Model,
-            MegatronT5EncoderModel,
+        from .modeling_roformer import (
+            RoFormerModel,
+            RoFormerForMaskedLM,
+            RoFormerForMultipleChoice,
+            RoFormerPreTrainedModel,
+            RoFormerForQuestionAnswering,
+            RoFormerForSequenceClassification,
+            RoFormerForTokenClassification,
         )
 
 else:

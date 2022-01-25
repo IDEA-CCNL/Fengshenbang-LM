@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" MegatronRoFormer model configuration """
+""" RoFormer model configuration """
 
 
 from transformers.configuration_utils import PretrainedConfig
@@ -21,16 +21,16 @@ from transformers.utils import logging
 
 logger = logging.get_logger(__name__)
 
-MegatronRoFormer_PRETRAINED_CONFIG_ARCHIVE_MAP = {
-    # See all MegatronRoFormer models at https://huggingface.co/models?filter=bert
+RoFormer_PRETRAINED_CONFIG_ARCHIVE_MAP = {
+    # See all RoFormer models at https://huggingface.co/models?filter=bert
 }
 
 
-class MegatronRoFormerConfig(PretrainedConfig):
+class RoFormerConfig(PretrainedConfig):
     r"""
-    This is the configuration class to store the configuration of a :class:`~transformers.MegatronRoFormerModel`. It is
-    used to instantiate a MegatronRoFormer model according to the specified arguments, defining the model architecture.
-    Instantiating a configuration with the defaults will yield a similar configuration to that of the MegatronRoFormer
+    This is the configuration class to store the configuration of a :class:`~transformers.RoFormerModel`. It is
+    used to instantiate a RoFormer model according to the specified arguments, defining the model architecture.
+    Instantiating a configuration with the defaults will yield a similar configuration to that of the RoFormer
     `megatron-bert-uncased-345m <https://huggingface.co/nvidia/megatron-bert-uncased-345m>`__ architecture.
 
     Configuration objects inherit from :class:`~transformers.PretrainedConfig` and can be used to control the model
@@ -39,8 +39,8 @@ class MegatronRoFormerConfig(PretrainedConfig):
 
     Args:
         vocab_size (:obj:`int`, `optional`, defaults to 29056):
-            Vocabulary size of the MegatronRoFormer model. Defines the number of different tokens that can be represented
-            by the :obj:`inputs_ids` passed when calling :class:`~transformers.MegatronRoFormerModel`.
+            Vocabulary size of the RoFormer model. Defines the number of different tokens that can be represented
+            by the :obj:`inputs_ids` passed when calling :class:`~transformers.RoFormerModel`.
         hidden_size (:obj:`int`, `optional`, defaults to 1024):
             Dimensionality of the encoder layers and the pooler layer.
         num_hidden_layers (:obj:`int`, `optional`, defaults to 24):
@@ -61,7 +61,7 @@ class MegatronRoFormerConfig(PretrainedConfig):
             just in case (e.g., 512 or 1024 or 2048).
         type_vocab_size (:obj:`int`, `optional`, defaults to 2):
             The vocabulary size of the :obj:`token_type_ids` passed when calling
-            :class:`~transformers.MegatronRoFormerModel`.
+            :class:`~transformers.RoFormerModel`.
         initializer_range (:obj:`float`, `optional`, defaults to 0.02):
             The standard deviation of the truncated_normal_initializer for initializing all weight matrices.
         layer_norm_eps (:obj:`float`, `optional`, defaults to 1e-12):
@@ -81,18 +81,18 @@ class MegatronRoFormerConfig(PretrainedConfig):
 
     Examples::
 
-        >>> from transformers import MegatronRoFormerModel, MegatronRoFormerConfig
+        >>> from transformers import RoFormerModel, RoFormerConfig
 
-        >>> # Initializing a MegatronRoFormer bert-base-uncased style configuration
-        >>> configuration = MegatronRoFormerConfig()
+        >>> # Initializing a RoFormer bert-base-uncased style configuration
+        >>> configuration = RoFormerConfig()
 
         >>> # Initializing a model from the bert-base-uncased style configuration
-        >>> model = MegatronRoFormerModel(configuration)
+        >>> model = RoFormerModel(configuration)
 
         >>> # Accessing the model configuration
         >>> configuration = model.config
     """
-    model_type = "megatron-bert"
+    model_type = "roformer"
 
     def __init__(
         self,

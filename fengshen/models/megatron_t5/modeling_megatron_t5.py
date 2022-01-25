@@ -43,7 +43,7 @@ from transformers.modeling_outputs import (
 from transformers.modeling_utils import PreTrainedModel, find_pruneable_heads_and_indices, prune_linear_layer
 from transformers.utils import logging
 from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
-from .configuration_magetron_MegatronT5 import MegatronT5Config
+from .configuration_megatron_t5 import MegatronT5Config
 import numpy as np
 
 logger = logging.get_logger(__name__)
@@ -101,7 +101,8 @@ def load_tf_weights_in_MegatronT5(model, config, tf_checkpoint_path):
         # adam_v and adam_m are variables used in AdamWeightDecayOptimizer to calculated m and v
         # which are not required for using pretrained model
         if any(
-            n in ["adam_v", "adam_m", "AdamWeightDecayOptimizer", "AdamWeightDecayOptimizer_1", "global_step"]
+            n in ["adam_v", "adam_m", "AdamWeightDecayOptimizer",
+                  "AdamWeightDecayOptimizer_1", "global_step"]
             for n in name
         ):
             logger.info(f"Skipping {'/'.join(name)}")
@@ -160,7 +161,8 @@ def load_tf_weights_in_MegatronT5(model, config, tf_checkpoint_path):
         if scope_names[0] not in ["kernel", "scale", "embedding"]:
             pointer = getattr(pointer, "weight")
         if scope_names[0] != "embedding":
-            logger.info(f"Transposing numpy weight of shape {array.shape} for {name}")
+            logger.info(
+                f"Transposing numpy weight of shape {array.shape} for {name}")
             array = np.transpose(array)
         try:
             assert (
@@ -173,7 +175,8 @@ def load_tf_weights_in_MegatronT5(model, config, tf_checkpoint_path):
         pointer.data = torch.from_numpy(array.astype(np.float32))
         tf_weights.pop(txt_name, None)
 
-    logger.info(f"Weights not copied to PyTorch model: {', '.join(tf_weights.keys())}.")
+    logger.info(
+        f"Weights not copied to PyTorch model: {', '.join(tf_weights.keys())}.")
     return model
 
 
@@ -240,8 +243,10 @@ class MegatronT5LayerNorm(nn.Module):
 
     def forward(self, hidden_states):
         # layer norm should always be calculated in float32
-        variance = hidden_states.to(torch.float32).pow(2).mean(-1, keepdim=True)
-        hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
+        variance = hidden_states.to(torch.float32).pow(
+            2).mean(-1, keepdim=True)
+        hidden_states = hidden_states * \
+            torch.rsqrt(variance + self.variance_epsilon)
 
         # convert into float16 if necessary
         if self.weight.dtype == torch.float16:
@@ -252,7 +257,7 @@ class MegatronT5LayerNorm(nn.Module):
 class MegatronT5DenseReluDense(nn.Module):
     def __init__(self, config):
         super().__init__()
-        #@IDEA modified -> bias=False -> bias=True
+        # @IDEA modified -> bias=False -> bias=True
         self.wi = nn.Linear(config.d_model, config.d_ff, bias=True)
         self.wo = nn.Linear(config.d_ff, config.d_model, bias=True)
         self.dropout = nn.Dropout(config.dropout_rate)
@@ -268,7 +273,7 @@ class MegatronT5DenseReluDense(nn.Module):
 class MegatronT5DenseGeluDense(nn.Module):
     def __init__(self, config):
         super().__init__()
-        #@IDEA modified -> bias=False -> bias=True
+        # @IDEA modified -> bias=False -> bias=True
         self.wi = nn.Linear(config.d_model, config.d_ff, bias=True)
         self.wo = nn.Linear(config.d_ff, config.d_model, bias=True)
         self.dropout = nn.Dropout(config.dropout_rate)
@@ -284,7 +289,7 @@ class MegatronT5DenseGeluDense(nn.Module):
 class MegatronT5DenseGatedGeluDense(nn.Module):
     def __init__(self, config):
         super().__init__()
-        #@IDEA modified -> bias=False -> bias=True
+        # @IDEA modified -> bias=False -> bias=True
         self.wi_0 = nn.Linear(config.d_model, config.d_ff, bias=True)
         self.wi_1 = nn.Linear(config.d_model, config.d_ff, bias=True)
         self.wo = nn.Linear(config.d_ff, config.d_model, bias=True)
@@ -303,9 +308,10 @@ class MegatronT5DenseGatedGeluDense(nn.Module):
 class MegatronT5LayerFF(nn.Module):
     def __init__(self, config):
         super().__init__()
-        #@IDEA modified -> MegatronT5LayerNorm -> nn.LayerNorm
+        # @IDEA modified -> MegatronT5LayerNorm -> nn.LayerNorm
         # self.layer_norm = MegatronT5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
-        self.layer_norm = nn.LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
+        self.layer_norm = nn.LayerNorm(
+            config.d_model, eps=config.layer_norm_epsilon)
         if config.feed_forward_proj == "relu":
             self.DenseReluDense = MegatronT5DenseReluDense(config)
         elif config.feed_forward_proj == "gelu":
@@ -323,7 +329,6 @@ class MegatronT5LayerFF(nn.Module):
         return hidden_states
 
 
-
 class MegatronT5Attention(nn.Module):
     def __init__(self, config: MegatronT5Config, has_relative_attention_bias=False):
         super().__init__()
@@ -338,7 +343,7 @@ class MegatronT5Attention(nn.Module):
         self.inner_dim = self.n_heads * self.key_value_proj_dim
 
         # Mesh TensorFlow initialization to avoid scaling before softmax
-        #@IDEA modified -> bias=False -> bias=True
+        # @IDEA modified -> bias=False -> bias=True
 
         self.q = nn.Linear(self.d_model, self.inner_dim, bias=True)
         self.k = nn.Linear(self.d_model, self.inner_dim, bias=True)
@@ -347,7 +352,8 @@ class MegatronT5Attention(nn.Module):
         self.o = nn.Linear(self.inner_dim, self.d_model, bias=True)
 
         if self.has_relative_attention_bias:
-            self.relative_attention_bias = nn.Embedding(self.relative_attention_num_buckets, self.n_heads)
+            self.relative_attention_bias = nn.Embedding(
+                self.relative_attention_num_buckets, self.n_heads)
         self.pruned_heads = set()
         self.gradient_checkpointing = False
 
@@ -393,10 +399,13 @@ class MegatronT5Attention(nn.Module):
         relative_buckets = 0
         if bidirectional:
             num_buckets //= 2
-            relative_buckets += (relative_position > 0).to(torch.long) * num_buckets
+            relative_buckets += (relative_position >
+                                 0).to(torch.long) * num_buckets
             relative_position = torch.abs(relative_position)
         else:
-            relative_position = -torch.min(relative_position, torch.zeros_like(relative_position))
+            relative_position = - \
+                torch.min(relative_position,
+                          torch.zeros_like(relative_position))
         # now relative_position is in the range [0, inf)
 
         # half of the buckets are for exact increments in positions
@@ -410,10 +419,12 @@ class MegatronT5Attention(nn.Module):
             * (num_buckets - max_exact)
         ).to(torch.long)
         relative_postion_if_large = torch.min(
-            relative_postion_if_large, torch.full_like(relative_postion_if_large, num_buckets - 1)
+            relative_postion_if_large, torch.full_like(
+                relative_postion_if_large, num_buckets - 1)
         )
 
-        relative_buckets += torch.where(is_small, relative_position, relative_postion_if_large)
+        relative_buckets += torch.where(is_small,
+                                        relative_position, relative_postion_if_large)
         return relative_buckets
 
     def compute_bias(self, query_length, key_length):
@@ -424,14 +435,17 @@ class MegatronT5Attention(nn.Module):
         memory_position = torch.arange(
             key_length, dtype=torch.long, device=self.relative_attention_bias.weight.device
         )[None, :]
-        relative_position = memory_position - context_position  # shape (query_length, key_length)
+        relative_position = memory_position - \
+            context_position  # shape (query_length, key_length)
         relative_position_bucket = self._relative_position_bucket(
             relative_position,  # shape (query_length, key_length)
             bidirectional=(not self.is_decoder),
             num_buckets=self.relative_attention_num_buckets,
         )
-        values = self.relative_attention_bias(relative_position_bucket)  # shape (query_length, key_length, num_heads)
-        values = values.permute([2, 0, 1]).unsqueeze(0)  # shape (1, num_heads, query_length, key_length)
+        # shape (query_length, key_length, num_heads)
+        values = self.relative_attention_bias(relative_position_bucket)
+        # shape (1, num_heads, query_length, key_length)
+        values = values.permute([2, 0, 1]).unsqueeze(0)
         return values
 
     def forward(
@@ -462,7 +476,8 @@ class MegatronT5Attention(nn.Module):
             ), f"past_key_value should have 2 past states: keys and values. Got { len(past_key_value)} past states"
             real_seq_length += past_key_value[0].shape[2] if query_length is None else query_length
 
-        key_length = real_seq_length if key_value_states is None else key_value_states.shape[1]
+        key_length = real_seq_length if key_value_states is None else key_value_states.shape[
+            1]
 
         def shape(states):
             """projection"""
@@ -487,21 +502,25 @@ class MegatronT5Attention(nn.Module):
                 if key_value_states is None:
                     # self-attn
                     # (batch_size, n_heads, key_length, dim_per_head)
-                    hidden_states = torch.cat([past_key_value, hidden_states], dim=2)
+                    hidden_states = torch.cat(
+                        [past_key_value, hidden_states], dim=2)
                 else:
                     # cross-attn
                     hidden_states = past_key_value
             return hidden_states
 
         # get query states
-        query_states = shape(self.q(hidden_states))  # (batch_size, n_heads, seq_length, dim_per_head)
+        # (batch_size, n_heads, seq_length, dim_per_head)
+        query_states = shape(self.q(hidden_states))
 
         # get key/value states
         key_states = project(
-            hidden_states, self.k, key_value_states, past_key_value[0] if past_key_value is not None else None
+            hidden_states, self.k, key_value_states, past_key_value[
+                0] if past_key_value is not None else None
         )
         value_states = project(
-            hidden_states, self.v, key_value_states, past_key_value[1] if past_key_value is not None else None
+            hidden_states, self.v, key_value_states, past_key_value[
+                1] if past_key_value is not None else None
         )
 
         # compute scores
@@ -522,12 +541,13 @@ class MegatronT5Attention(nn.Module):
             # if key and values are already calculated
             # we want only the last query position bias
             if past_key_value is not None:
-                position_bias = position_bias[:, :, -hidden_states.size(1) :, :]
+                position_bias = position_bias[:, :, -hidden_states.size(1):, :]
 
             if mask is not None:
-                position_bias = position_bias + mask  # (batch_size, n_heads, seq_length, key_length)
+                # (batch_size, n_heads, seq_length, key_length)
+                position_bias = position_bias + mask
 
-        #@IDEA modified -> delete scores += position_bias, use absolute positional
+        # @IDEA modified -> delete scores += position_bias, use absolute positional
         # scores += position_bias
         scores = scores / math.sqrt(self.key_value_proj_dim)
 
@@ -546,12 +566,15 @@ class MegatronT5Attention(nn.Module):
         if layer_head_mask is not None:
             attn_weights = attn_weights * layer_head_mask
 
-        attn_output = unshape(torch.matmul(attn_weights, value_states))  # (batch_size, seq_length, dim)
+        # (batch_size, seq_length, dim)
+        attn_output = unshape(torch.matmul(attn_weights, value_states))
 
         attn_output = self.o(attn_output)
 
-        present_key_value_state = (key_states, value_states) if (self.is_decoder and use_cache) else None
-        outputs = (attn_output,) + (present_key_value_state,) + (position_bias,)
+        present_key_value_state = (key_states, value_states) if (
+            self.is_decoder and use_cache) else None
+        outputs = (attn_output,) + \
+            (present_key_value_state,) + (position_bias,)
 
         if output_attentions:
             outputs = outputs + (attn_weights,)
@@ -561,13 +584,14 @@ class MegatronT5Attention(nn.Module):
 class MegatronT5LayerSelfAttention(nn.Module):
     def __init__(self, config, has_relative_attention_bias=False):
         super().__init__()
-        
 
-        #@IDEA modified -> MegatronT5LayerNorm -> nn.LayerNorm
+        # @IDEA modified -> MegatronT5LayerNorm -> nn.LayerNorm
         # self.layer_norm = MegatronT5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
-        self.layer_norm = nn.LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
-        self.SelfAttention = MegatronT5Attention(config, has_relative_attention_bias=has_relative_attention_bias)
-        
+        self.layer_norm = nn.LayerNorm(
+            config.d_model, eps=config.layer_norm_epsilon)
+        self.SelfAttention = MegatronT5Attention(
+            config, has_relative_attention_bias=has_relative_attention_bias)
+
         self.dropout = nn.Dropout(config.dropout_rate)
 
     def forward(
@@ -592,18 +616,21 @@ class MegatronT5LayerSelfAttention(nn.Module):
         )
 
         hidden_states = hidden_states + self.dropout(attention_output[0])
-        outputs = (hidden_states,) + attention_output[1:]  # add attentions if we output them
+        # add attentions if we output them
+        outputs = (hidden_states,) + attention_output[1:]
         return outputs
 
 
 class MegatronT5LayerCrossAttention(nn.Module):
     def __init__(self, config):
         super().__init__()
-        #@IDEA modified -> MegatronT5LayerNorm -> nn.LayerNorm
+        # @IDEA modified -> MegatronT5LayerNorm -> nn.LayerNorm
         # self.layer_norm = MegatronT5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
-        self.layer_norm = nn.LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
-        
-        self.EncDecAttention = MegatronT5Attention(config, has_relative_attention_bias=False)
+        self.layer_norm = nn.LayerNorm(
+            config.d_model, eps=config.layer_norm_epsilon)
+
+        self.EncDecAttention = MegatronT5Attention(
+            config, has_relative_attention_bias=False)
 
         self.dropout = nn.Dropout(config.dropout_rate)
 
@@ -632,7 +659,8 @@ class MegatronT5LayerCrossAttention(nn.Module):
             output_attentions=output_attentions,
         )
         layer_output = hidden_states + self.dropout(attention_output[0])
-        outputs = (layer_output,) + attention_output[1:]  # add attentions if we output them
+        # add attentions if we output them
+        outputs = (layer_output,) + attention_output[1:]
         return outputs
 
 
@@ -640,7 +668,7 @@ class MegatronT5Block(nn.Module):
     def __init__(self, config, has_relative_attention_bias=False):
         super().__init__()
         self.is_decoder = config.is_decoder
-        #@IDEA modified -> 
+        # @IDEA modified ->
         # self.layer = nn.ModuleList()
         # self.layer.append(MegatronT5LayerSelfAttention(config, has_relative_attention_bias=has_relative_attention_bias))
         # if self.is_decoder:
@@ -648,11 +676,12 @@ class MegatronT5Block(nn.Module):
 
         # self.layer.append(MegatronT5LayerFF(config))
 
-        self.MegatronT5LayerSelfAttention=MegatronT5LayerSelfAttention(config, has_relative_attention_bias=has_relative_attention_bias)
+        self.MegatronT5LayerSelfAttention = MegatronT5LayerSelfAttention(
+            config, has_relative_attention_bias=has_relative_attention_bias)
         if self.is_decoder:
-            self.MegatronT5LayerCrossAttention=MegatronT5LayerCrossAttention(config)
-        self.MegatronT5LayerFF=MegatronT5LayerFF(config)
-
+            self.MegatronT5LayerCrossAttention = MegatronT5LayerCrossAttention(
+                config)
+        self.MegatronT5LayerFF = MegatronT5LayerFF(config)
 
     def forward(
         self,
@@ -686,7 +715,7 @@ class MegatronT5Block(nn.Module):
         else:
             self_attn_past_key_value, cross_attn_past_key_value = None, None
 
-        #@IDEA modified -> self.layer[0] -> self.MegatronT5LayerSelfAttention
+        # @IDEA modified -> self.layer[0] -> self.MegatronT5LayerSelfAttention
         self_attention_outputs = self.MegatronT5LayerSelfAttention(
             hidden_states,
             attention_mask=attention_mask,
@@ -697,12 +726,14 @@ class MegatronT5Block(nn.Module):
             output_attentions=output_attentions,
         )
         hidden_states, present_key_value_state = self_attention_outputs[:2]
-        attention_outputs = self_attention_outputs[2:]  # Keep self-attention outputs and relative position weights
+        # Keep self-attention outputs and relative position weights
+        attention_outputs = self_attention_outputs[2:]
 
         # clamp inf values to enable fp16 training
         if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
             clamp_value = torch.finfo(hidden_states.dtype).max - 1000
-            hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
+            hidden_states = torch.clamp(
+                hidden_states, min=-clamp_value, max=clamp_value)
 
         do_cross_attention = self.is_decoder and encoder_hidden_states is not None
         if do_cross_attention:
@@ -712,7 +743,7 @@ class MegatronT5Block(nn.Module):
                 query_length = present_key_value_state[0].shape[2]
             else:
                 query_length = None
-            #@IDEA modified -> self.layer[1] -> self.MegatronT5LayerCrossAttention
+            # @IDEA modified -> self.layer[1] -> self.MegatronT5LayerCrossAttention
             cross_attention_outputs = self.MegatronT5LayerCrossAttention(
                 hidden_states,
                 key_value_states=encoder_hidden_states,
@@ -729,23 +760,26 @@ class MegatronT5Block(nn.Module):
             # clamp inf values to enable fp16 training
             if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
                 clamp_value = torch.finfo(hidden_states.dtype).max - 1000
-                hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
+                hidden_states = torch.clamp(
+                    hidden_states, min=-clamp_value, max=clamp_value)
 
             # Combine self attn and cross attn key value states
             if present_key_value_state is not None:
-                present_key_value_state = present_key_value_state + cross_attention_outputs[1]
+                present_key_value_state = present_key_value_state + \
+                    cross_attention_outputs[1]
 
             # Keep cross-attention outputs and relative position weights
             attention_outputs = attention_outputs + cross_attention_outputs[2:]
 
         # Apply Feed Forward layer
-        #@IDEA modified -> self.layer[-1] -> self.MegatronT5LayerFF
+        # @IDEA modified -> self.layer[-1] -> self.MegatronT5LayerFF
         hidden_states = self.MegatronT5LayerFF(hidden_states)
 
         # clamp inf values to enable fp16 training
         if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
             clamp_value = torch.finfo(hidden_states.dtype).max - 1000
-            hidden_states = torch.clamp(hidden_states, min=-clamp_value, max=clamp_value)
+            hidden_states = torch.clamp(
+                hidden_states, min=-clamp_value, max=clamp_value)
 
         outputs = (hidden_states,)
 
@@ -754,7 +788,8 @@ class MegatronT5Block(nn.Module):
         else:
             outputs = outputs + attention_outputs
 
-        return outputs  # hidden-states, present_key_value_states, (self-attention position bias), (self-attention weights), (cross-attention position bias), (cross-attention weights)
+        # hidden-states, present_key_value_states, (self-attention position bias), (self-attention weights), (cross-attention position bias), (cross-attention weights)
+        return outputs
 
 
 class MegatronT5PreTrainedModel(PreTrainedModel):
@@ -788,28 +823,35 @@ class MegatronT5PreTrainedModel(PreTrainedModel):
         elif isinstance(module, (MegatronT5Model, MegatronT5ForConditionalGeneration, MegatronT5EncoderModel)):
             # Mesh TensorFlow embeddings initialization
             # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/layers.py#L1624
-            #@IDEA modified -> module.shared.weight -> module.shared.word_embeddings.weight
+            # @IDEA modified -> module.shared.weight -> module.shared.word_embeddings.weight
             # module.shared.weight.data.normal_(mean=0.0, std=factor * 1.0)
-            module.shared.word_embeddings.weight.data.normal_(mean=0.0, std=factor * 1.0)
-            module.shared.position_embeddings.weight.data.normal_(mean=0.0, std=factor * 1.0)
+            module.shared.word_embeddings.weight.data.normal_(
+                mean=0.0, std=factor * 1.0)
+            module.shared.position_embeddings.weight.data.normal_(
+                mean=0.0, std=factor * 1.0)
         elif isinstance(module, MegatronT5DenseReluDense):
             # Mesh TensorFlow FF initialization
             # See https://github.com/tensorflow/mesh/blob/master/mesh_tensorflow/transformer/transformer_layers.py#L56
             # and https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/layers.py#L89
-            module.wi.weight.data.normal_(mean=0.0, std=factor * ((self.config.d_model) ** -0.5))
+            module.wi.weight.data.normal_(
+                mean=0.0, std=factor * ((self.config.d_model) ** -0.5))
             if hasattr(module.wi, "bias") and module.wi.bias is not None:
                 module.wi.bias.data.zero_()
-            module.wo.weight.data.normal_(mean=0.0, std=factor * ((self.config.d_ff) ** -0.5))
+            module.wo.weight.data.normal_(
+                mean=0.0, std=factor * ((self.config.d_ff) ** -0.5))
             if hasattr(module.wo, "bias") and module.wo.bias is not None:
                 module.wo.bias.data.zero_()
         elif isinstance(module, MegatronT5DenseGeluDense):
-            module.wi_0.weight.data.normal_(mean=0.0, std=factor * ((self.config.d_model) ** -0.5))
+            module.wi_0.weight.data.normal_(
+                mean=0.0, std=factor * ((self.config.d_model) ** -0.5))
             if hasattr(module.wi_0, "bias") and module.wi_0.bias is not None:
                 module.wi_0.bias.data.zero_()
-            module.wi_1.weight.data.normal_(mean=0.0, std=factor * ((self.config.d_model) ** -0.5))
+            module.wi_1.weight.data.normal_(
+                mean=0.0, std=factor * ((self.config.d_model) ** -0.5))
             if hasattr(module.wi_1, "bias") and module.wi_1.bias is not None:
                 module.wi_1.bias.data.zero_()
-            module.wo.weight.data.normal_(mean=0.0, std=factor * ((self.config.d_ff) ** -0.5))
+            module.wo.weight.data.normal_(
+                mean=0.0, std=factor * ((self.config.d_ff) ** -0.5))
             if hasattr(module.wo, "bias") and module.wo.bias is not None:
                 module.wo.bias.data.zero_()
         elif isinstance(module, MegatronT5Attention):
@@ -818,13 +860,18 @@ class MegatronT5PreTrainedModel(PreTrainedModel):
             d_model = self.config.d_model
             key_value_proj_dim = self.config.d_kv
             n_heads = self.config.num_heads
-            module.q.weight.data.normal_(mean=0.0, std=factor * ((d_model * key_value_proj_dim) ** -0.5))
-            module.k.weight.data.normal_(mean=0.0, std=factor * (d_model ** -0.5))
-            module.v.weight.data.normal_(mean=0.0, std=factor * (d_model ** -0.5))
+            module.q.weight.data.normal_(
+                mean=0.0, std=factor * ((d_model * key_value_proj_dim) ** -0.5))
+            module.k.weight.data.normal_(
+                mean=0.0, std=factor * (d_model ** -0.5))
+            module.v.weight.data.normal_(
+                mean=0.0, std=factor * (d_model ** -0.5))
 
-            module.o.weight.data.normal_(mean=0.0, std=factor * ((n_heads * key_value_proj_dim) ** -0.5))
+            module.o.weight.data.normal_(
+                mean=0.0, std=factor * ((n_heads * key_value_proj_dim) ** -0.5))
             if module.has_relative_attention_bias:
-                module.relative_attention_bias.weight.data.normal_(mean=0.0, std=factor * ((d_model) ** -0.5))
+                module.relative_attention_bias.weight.data.normal_(
+                    mean=0.0, std=factor * ((d_model) ** -0.5))
 
     def _set_gradient_checkpointing(self, module, value=False):
         if isinstance(module, (MegatronT5Attention, MegatronT5Stack)):
@@ -841,8 +888,10 @@ class MegatronT5PreTrainedModel(PreTrainedModel):
         # shift inputs to the right
         if is_torch_fx_proxy(input_ids):
             # Item assignment is not supported natively for proxies.
-            shifted_input_ids = torch.full(input_ids.shape[:-1] + (1,), decoder_start_token_id)
-            shifted_input_ids = torch.cat([shifted_input_ids, input_ids[..., :-1]], dim=-1)
+            shifted_input_ids = torch.full(
+                input_ids.shape[:-1] + (1,), decoder_start_token_id)
+            shifted_input_ids = torch.cat(
+                [shifted_input_ids, input_ids[..., :-1]], dim=-1)
         else:
             shifted_input_ids = input_ids.new_zeros(input_ids.shape)
             shifted_input_ids[..., 1:] = input_ids[..., :-1].clone()
@@ -852,7 +901,8 @@ class MegatronT5PreTrainedModel(PreTrainedModel):
         # replace possible -100 values in labels by `pad_token_id`
         shifted_input_ids.masked_fill_(shifted_input_ids == -100, pad_token_id)
 
-        assert torch.all(shifted_input_ids >= 0).item(), "Verify that `shifted_input_ids` has only positive values"
+        assert torch.all(shifted_input_ids >= 0).item(
+        ), "Verify that `shifted_input_ids` has only positive values"
 
         return shifted_input_ids
 
@@ -862,9 +912,10 @@ class MegatronT5Embeddings(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.word_embeddings = nn.Embedding(config.vocab_size, config.hidden_size, padding_idx=config.pad_token_id)
-        self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)
-
+        self.word_embeddings = nn.Embedding(
+            config.vocab_size, config.hidden_size, padding_idx=config.pad_token_id)
+        self.position_embeddings = nn.Embedding(
+            config.max_position_embeddings, config.hidden_size)
 
         # self.LayerNorm is not snake-cased to stick with TensorFlow model variable name and be able to load
         # any TensorFlow checkpoint file
@@ -874,8 +925,10 @@ class MegatronT5Embeddings(nn.Module):
         self.dropout = nn.Dropout(config.dropout_rate)
 
         # position_ids (1, len position emb) is contiguous in memory and exported when serialized
-        self.register_buffer("position_ids", torch.arange(config.max_position_embeddings).expand((1, -1)))
-        self.position_embedding_type = getattr(config, "position_embedding_type", "absolute")
+        self.register_buffer("position_ids", torch.arange(
+            config.max_position_embeddings).expand((1, -1)))
+        self.position_embedding_type = getattr(
+            config, "position_embedding_type", "absolute")
 
     def forward(
         self, input_ids=None, token_type_ids=None, position_ids=None, inputs_embeds=None, past_key_values_length=0
@@ -888,7 +941,8 @@ class MegatronT5Embeddings(nn.Module):
         seq_length = input_shape[1]
 
         if position_ids is None:
-            position_ids = self.position_ids[:, past_key_values_length : seq_length + past_key_values_length]
+            position_ids = self.position_ids[:,
+                                             past_key_values_length: seq_length + past_key_values_length]
 
         if inputs_embeds is None:
             inputs_embeds = self.word_embeddings(input_ids)
@@ -911,13 +965,15 @@ class MegatronT5Stack(MegatronT5PreTrainedModel):
         self.embed_tokens = embed_tokens
         self.is_decoder = config.is_decoder
 
-        #@IDEA modified -> has_relative_attention_bias=bool(i == 0)) for i in range(config.num_layers) -> has_relative_attention_bias=False
+        # @IDEA modified -> has_relative_attention_bias=bool(i == 0)) for i in range(config.num_layers) -> has_relative_attention_bias=False
         self.block = nn.ModuleList(
-            [MegatronT5Block(config, has_relative_attention_bias=False) for _ in range(config.num_layers)]
+            [MegatronT5Block(config, has_relative_attention_bias=False)
+             for _ in range(config.num_layers)]
         )
-        #@IDEA modified -> MegatronT5LayerNorm -> nn.LayerNorm
+        # @IDEA modified -> MegatronT5LayerNorm -> nn.LayerNorm
         # self.final_layer_norm = MegatronT5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
-        self.final_layer_norm = nn.LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
+        self.final_layer_norm = nn.LayerNorm(
+            config.d_model, eps=config.layer_norm_epsilon)
 
         self.dropout = nn.Dropout(config.dropout_rate)
 
@@ -931,11 +987,13 @@ class MegatronT5Stack(MegatronT5PreTrainedModel):
     def parallelize(self, device_map=None):
         # Check validity of device_map
         self.device_map = (
-            get_device_map(len(self.block), range(torch.cuda.device_count())) if device_map is None else device_map
+            get_device_map(len(self.block), range(
+                torch.cuda.device_count())) if device_map is None else device_map
         )
         assert_device_map(self.device_map, len(self.block))
         self.model_parallel = True
-        self.first_device = "cpu" if "cpu" in self.device_map.keys() else "cuda:" + str(min(self.device_map.keys()))
+        self.first_device = "cpu" if "cpu" in self.device_map.keys() else "cuda:" + \
+            str(min(self.device_map.keys()))
         self.last_device = "cuda:" + str(max(self.device_map.keys()))
         # Load onto devices
         for k, v in self.device_map.items():
@@ -1007,25 +1065,27 @@ class MegatronT5Stack(MegatronT5PreTrainedModel):
             input_shape = inputs_embeds.size()[:-1]
         else:
             err_msg_prefix = "decoder_" if self.is_decoder else ""
-            raise ValueError(f"You have to specify either {err_msg_prefix}input_ids or {err_msg_prefix}inputs_embeds")
+            raise ValueError(
+                f"You have to specify either {err_msg_prefix}input_ids or {err_msg_prefix}inputs_embeds")
 
         if inputs_embeds is None:
             assert self.embed_tokens is not None, "You have to initialize the model with valid token embeddings"
-            #@IDEA modified -> self.embed_tokens(input_ids=input_ids) -> self.embed_tokens(input_ids=input_ids,osition_ids=position_ids,)
+            # @IDEA modified -> self.embed_tokens(input_ids=input_ids) -> self.embed_tokens(input_ids=input_ids,osition_ids=position_ids,)
             # inputs_embeds = self.embed_tokens(input_ids=input_ids)
             inputs_embeds = self.embed_tokens(input_ids=input_ids)
-
 
         batch_size, seq_length = input_shape
 
         # required mask seq length can be calculated via length of past
-        mask_seq_length = past_key_values[0][0].shape[2] + seq_length if past_key_values is not None else seq_length
+        mask_seq_length = past_key_values[0][0].shape[2] + \
+            seq_length if past_key_values is not None else seq_length
 
         if use_cache is True:
             assert self.is_decoder, f":obj:`use_cache` can only be set to `True` if {self} is used as a decoder"
 
         if attention_mask is None:
-            attention_mask = torch.ones(batch_size, mask_seq_length).to(inputs_embeds.device)
+            attention_mask = torch.ones(
+                batch_size, mask_seq_length).to(inputs_embeds.device)
         if self.is_decoder and encoder_attention_mask is None and encoder_hidden_states is not None:
             encoder_seq_length = encoder_hidden_states.shape[1]
             encoder_attention_mask = torch.ones(
@@ -1038,22 +1098,27 @@ class MegatronT5Stack(MegatronT5PreTrainedModel):
 
         # We can provide a self-attention mask of dimensions [batch_size, from_seq_length, to_seq_length]
         # ourselves in which case we just need to make it broadcastable to all heads.
-        extended_attention_mask = self.get_extended_attention_mask(attention_mask, input_shape, inputs_embeds.device)
+        extended_attention_mask = self.get_extended_attention_mask(
+            attention_mask, input_shape, inputs_embeds.device)
 
         # If a 2D or 3D attention mask is provided for the cross-attention
         # we need to make broadcastable to [batch_size, num_heads, seq_length, seq_length]
         if self.is_decoder and encoder_hidden_states is not None:
             encoder_batch_size, encoder_sequence_length, _ = encoder_hidden_states.size()
-            encoder_hidden_shape = (encoder_batch_size, encoder_sequence_length)
+            encoder_hidden_shape = (
+                encoder_batch_size, encoder_sequence_length)
             if encoder_attention_mask is None:
-                encoder_attention_mask = torch.ones(encoder_hidden_shape, device=inputs_embeds.device)
-            encoder_extended_attention_mask = self.invert_attention_mask(encoder_attention_mask)
+                encoder_attention_mask = torch.ones(
+                    encoder_hidden_shape, device=inputs_embeds.device)
+            encoder_extended_attention_mask = self.invert_attention_mask(
+                encoder_attention_mask)
         else:
             encoder_extended_attention_mask = None
 
         # Prepare head mask if needed
         head_mask = self.get_head_mask(head_mask, self.config.num_layers)
-        cross_attn_head_mask = self.get_head_mask(cross_attn_head_mask, self.config.num_layers)
+        cross_attn_head_mask = self.get_head_mask(
+            cross_attn_head_mask, self.config.num_layers)
         present_key_value_states = () if use_cache else None
         all_hidden_states = () if output_hidden_states else None
         all_attentions = () if output_attentions else None
@@ -1076,15 +1141,19 @@ class MegatronT5Stack(MegatronT5PreTrainedModel):
                 if position_bias is not None:
                     position_bias = position_bias.to(hidden_states.device)
                 if encoder_hidden_states is not None:
-                    encoder_hidden_states = encoder_hidden_states.to(hidden_states.device)
+                    encoder_hidden_states = encoder_hidden_states.to(
+                        hidden_states.device)
                 if encoder_extended_attention_mask is not None:
-                    encoder_extended_attention_mask = encoder_extended_attention_mask.to(hidden_states.device)
+                    encoder_extended_attention_mask = encoder_extended_attention_mask.to(
+                        hidden_states.device)
                 if encoder_decoder_position_bias is not None:
-                    encoder_decoder_position_bias = encoder_decoder_position_bias.to(hidden_states.device)
+                    encoder_decoder_position_bias = encoder_decoder_position_bias.to(
+                        hidden_states.device)
                 if layer_head_mask is not None:
                     layer_head_mask = layer_head_mask.to(hidden_states.device)
                 if cross_attn_layer_head_mask is not None:
-                    cross_attn_layer_head_mask = cross_attn_layer_head_mask.to(hidden_states.device)
+                    cross_attn_layer_head_mask = cross_attn_layer_head_mask.to(
+                        hidden_states.device)
             if output_hidden_states:
                 all_hidden_states = all_hidden_states + (hidden_states,)
 
@@ -1143,12 +1212,14 @@ class MegatronT5Stack(MegatronT5PreTrainedModel):
                 encoder_decoder_position_bias = layer_outputs[4 if output_attentions else 3]
             # append next layer key value states
             if use_cache:
-                present_key_value_states = present_key_value_states + (present_key_value_state,)
+                present_key_value_states = present_key_value_states + \
+                    (present_key_value_state,)
 
             if output_attentions:
                 all_attentions = all_attentions + (layer_outputs[3],)
                 if self.is_decoder:
-                    all_cross_attentions = all_cross_attentions + (layer_outputs[5],)
+                    all_cross_attentions = all_cross_attentions + \
+                        (layer_outputs[5],)
 
             # Model Parallel: If it's the last layer for that device, put things on the next device
             if self.model_parallel:
@@ -1356,8 +1427,6 @@ num_heads)`.
     "The bare MegatronT5 Model transformer outputting raw hidden-states without any specific head on top.",
     MegatronT5_START_DOCSTRING,
 )
-
-
 class MegatronT5LMHead(nn.Module):
     """Masked LM head for MegatronT5
 
@@ -1376,10 +1445,9 @@ class MegatronT5LMHead(nn.Module):
 
     def forward(self, hidden_states, word_embeddings_weight):
         output = torch.nn.functional.linear(hidden_states,
-                                    word_embeddings_weight,
-                                    bias=self.bias)
+                                            word_embeddings_weight,
+                                            bias=self.bias)
         return output
-
 
 
 class MegatronT5Model(MegatronT5PreTrainedModel):
@@ -1393,7 +1461,7 @@ class MegatronT5Model(MegatronT5PreTrainedModel):
 
     def __init__(self, config: MegatronT5Config):
         super().__init__(config)
-        #@IDEA modified -> nn.Embedding -> MegatronT5Embeddings
+        # @IDEA modified -> nn.Embedding -> MegatronT5Embeddings
         # self.shared = nn.Embedding(config.vocab_size, config.d_model)
         self.shared = MegatronT5Embeddings(config)
 
@@ -1418,7 +1486,8 @@ class MegatronT5Model(MegatronT5PreTrainedModel):
     @add_start_docstrings(PARALLELIZE_DOCSTRING)
     def parallelize(self, device_map=None):
         self.device_map = (
-            get_device_map(len(self.encoder.block), range(torch.cuda.device_count()))
+            get_device_map(len(self.encoder.block),
+                           range(torch.cuda.device_count()))
             if device_map is None
             else device_map
         )
@@ -1519,8 +1588,10 @@ class MegatronT5Model(MegatronT5PreTrainedModel):
         elif return_dict and not isinstance(encoder_outputs, BaseModelOutput):
             encoder_outputs = BaseModelOutput(
                 last_hidden_state=encoder_outputs[0],
-                hidden_states=encoder_outputs[1] if len(encoder_outputs) > 1 else None,
-                attentions=encoder_outputs[2] if len(encoder_outputs) > 2 else None,
+                hidden_states=encoder_outputs[1] if len(
+                    encoder_outputs) > 1 else None,
+                attentions=encoder_outputs[2] if len(
+                    encoder_outputs) > 2 else None,
             )
 
         hidden_states = encoder_outputs[0]
@@ -1531,11 +1602,13 @@ class MegatronT5Model(MegatronT5PreTrainedModel):
             torch.cuda.set_device(self.decoder.first_device)
             hidden_states = hidden_states.to(self.decoder.first_device)
             if decoder_input_ids is not None:
-                decoder_input_ids = decoder_input_ids.to(self.decoder.first_device)
+                decoder_input_ids = decoder_input_ids.to(
+                    self.decoder.first_device)
             if attention_mask is not None:
                 attention_mask = attention_mask.to(self.decoder.first_device)
             if decoder_attention_mask is not None:
-                decoder_attention_mask = decoder_attention_mask.to(self.decoder.first_device)
+                decoder_attention_mask = decoder_attention_mask.to(
+                    self.decoder.first_device)
 
         # Decode
         decoder_outputs = self.decoder(
@@ -1583,7 +1656,7 @@ class MegatronT5ForConditionalGeneration(MegatronT5PreTrainedModel):
         super().__init__(config)
         self.model_dim = config.d_model
 
-        #@IDEA modified -> nn.Embedding -> MegatronT5Embeddings
+        # @IDEA modified -> nn.Embedding -> MegatronT5Embeddings
         # self.shared = nn.Embedding(config.vocab_size, config.d_model)
         self.shared = MegatronT5Embeddings(config)
 
@@ -1599,7 +1672,7 @@ class MegatronT5ForConditionalGeneration(MegatronT5PreTrainedModel):
         decoder_config.num_layers = config.num_decoder_layers
         self.decoder = MegatronT5Stack(decoder_config, self.shared)
 
-        #@IDEA modified -> add self.lm_head_bias
+        # @IDEA modified -> add self.lm_head_bias
         self.lm_head_bias = torch.nn.Parameter(torch.zeros(config.vocab_size))
 
         self.init_weights()
@@ -1611,7 +1684,8 @@ class MegatronT5ForConditionalGeneration(MegatronT5PreTrainedModel):
     @add_start_docstrings(PARALLELIZE_DOCSTRING)
     def parallelize(self, device_map=None):
         self.device_map = (
-            get_device_map(len(self.encoder.block), range(torch.cuda.device_count()))
+            get_device_map(len(self.encoder.block),
+                           range(torch.cuda.device_count()))
             if device_map is None
             else device_map
         )
@@ -1651,23 +1725,24 @@ class MegatronT5ForConditionalGeneration(MegatronT5PreTrainedModel):
 
     def get_decoder(self):
         return self.decoder
-    
+
     def generate(self, input_ids=None, max_length=512):
 
-        input_ids=torch.tensor(input_ids)
-        if len(input_ids.shape)<2:
-            input_ids=input_ids.unsqueeze(0)
-        decode_input_id=[21128]   # [BOS]的token_id为21128
+        input_ids = torch.tensor(input_ids)
+        if len(input_ids.shape) < 2:
+            input_ids = input_ids.unsqueeze(0)
+        decode_input_id = [21128]   # [BOS]的token_id为21128
         for i in range(max_length):
-            tensor_decode_input_id=torch.tensor([decode_input_id])
-            forword_output=self.forward(input_ids=input_ids,
-                                   decoder_input_ids=tensor_decode_input_id)
+            tensor_decode_input_id = torch.tensor([decode_input_id])
+            forword_output = self.forward(input_ids=input_ids,
+                                          decoder_input_ids=tensor_decode_input_id)
             logits = forword_output.logits
             logits = torch.nn.functional.softmax(
                 logits, dim=-1).cpu().detach().numpy()[0]
-            
-            last_output_id=int(np.random.choice(logits.shape[1], p=logits[-1]))
-            if last_output_id==21129:  # [EOS]的token_id为21129
+
+            last_output_id = int(np.random.choice(
+                logits.shape[1], p=logits[-1]))
+            if last_output_id == 21129:  # [EOS]的token_id为21129
                 break
             else:
                 decode_input_id.append(last_output_id)
@@ -1746,8 +1821,10 @@ class MegatronT5ForConditionalGeneration(MegatronT5PreTrainedModel):
         elif return_dict and not isinstance(encoder_outputs, BaseModelOutput):
             encoder_outputs = BaseModelOutput(
                 last_hidden_state=encoder_outputs[0],
-                hidden_states=encoder_outputs[1] if len(encoder_outputs) > 1 else None,
-                attentions=encoder_outputs[2] if len(encoder_outputs) > 2 else None,
+                hidden_states=encoder_outputs[1] if len(
+                    encoder_outputs) > 1 else None,
+                attentions=encoder_outputs[2] if len(
+                    encoder_outputs) > 2 else None,
             )
 
         hidden_states = encoder_outputs[0]
@@ -1764,11 +1841,13 @@ class MegatronT5ForConditionalGeneration(MegatronT5PreTrainedModel):
             torch.cuda.set_device(self.decoder.first_device)
             hidden_states = hidden_states.to(self.decoder.first_device)
             if decoder_input_ids is not None:
-                decoder_input_ids = decoder_input_ids.to(self.decoder.first_device)
+                decoder_input_ids = decoder_input_ids.to(
+                    self.decoder.first_device)
             if attention_mask is not None:
                 attention_mask = attention_mask.to(self.decoder.first_device)
             if decoder_attention_mask is not None:
-                decoder_attention_mask = decoder_attention_mask.to(self.decoder.first_device)
+                decoder_attention_mask = decoder_attention_mask.to(
+                    self.decoder.first_device)
 
         # Decode
         decoder_outputs = self.decoder(
@@ -1788,7 +1867,6 @@ class MegatronT5ForConditionalGeneration(MegatronT5PreTrainedModel):
 
         sequence_output = decoder_outputs.last_hidden_state
 
-
         # Set device for model parallelism
         # if self.model_parallel:
         #     torch.cuda.set_device(self.encoder.first_device)
@@ -1801,14 +1879,14 @@ class MegatronT5ForConditionalGeneration(MegatronT5PreTrainedModel):
         #     sequence_output = sequence_output * (self.model_dim ** -0.5)
 
         lm_logits = torch.nn.functional.linear(
-            sequence_output, self.shared.word_embeddings.weight,bias=self.lm_head_bias)
-
+            sequence_output, self.shared.word_embeddings.weight, bias=self.lm_head_bias)
 
         loss = None
         if labels is not None:
             loss_fct = CrossEntropyLoss(ignore_index=-100)
-            loss = loss_fct(lm_logits.view(-1, lm_logits.size(-1)), labels.view(-1))
-            #@IDEA modified(thom): Add z_loss https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/layers.py#L666
+            loss = loss_fct(
+                lm_logits.view(-1, lm_logits.size(-1)), labels.view(-1))
+            # @IDEA modified(thom): Add z_loss https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/layers.py#L666
 
         if not return_dict:
             output = (lm_logits,) + decoder_outputs[1:] + encoder_outputs
@@ -1861,7 +1939,8 @@ class MegatronT5ForConditionalGeneration(MegatronT5PreTrainedModel):
         # if decoder past is not included in output
         # speedy decoding is disabled and no need to reorder
         if past is None:
-            logger.warning("You might want to consider setting `use_cache=True` to speed up decoding")
+            logger.warning(
+                "You might want to consider setting `use_cache=True` to speed up decoding")
             return past
 
         reordered_decoder_past = ()
@@ -1872,13 +1951,15 @@ class MegatronT5ForConditionalGeneration(MegatronT5PreTrainedModel):
             for layer_past_state in layer_past_states:
                 # need to set correct `past` for each of the four key / value states
                 reordered_layer_past_states = reordered_layer_past_states + (
-                    layer_past_state.index_select(0, beam_idx.to(layer_past_state.device)),
+                    layer_past_state.index_select(
+                        0, beam_idx.to(layer_past_state.device)),
                 )
 
             assert reordered_layer_past_states[0].shape == layer_past_states[0].shape
             assert len(reordered_layer_past_states) == len(layer_past_states)
 
-            reordered_decoder_past = reordered_decoder_past + (reordered_layer_past_states,)
+            reordered_decoder_past = reordered_decoder_past + \
+                (reordered_layer_past_states,)
         return reordered_decoder_past
 
 
@@ -1893,7 +1974,7 @@ class MegatronT5EncoderModel(MegatronT5PreTrainedModel):
 
     def __init__(self, config: MegatronT5Config):
         super().__init__(config)
-        #@IDEA modified -> nn.Embedding -> MegatronT5Embeddings
+        # @IDEA modified -> nn.Embedding -> MegatronT5Embeddings
         # self.shared = nn.Embedding(config.vocab_size, config.d_model)
         self.shared = MegatronT5Embeddings(config)
 
@@ -1911,7 +1992,8 @@ class MegatronT5EncoderModel(MegatronT5PreTrainedModel):
     @add_start_docstrings(PARALLELIZE_DOCSTRING)
     def parallelize(self, device_map=None):
         self.device_map = (
-            get_device_map(len(self.encoder.block), range(torch.cuda.device_count()))
+            get_device_map(len(self.encoder.block),
+                           range(torch.cuda.device_count()))
             if device_map is None
             else device_map
         )
@@ -1982,4 +2064,3 @@ class MegatronT5EncoderModel(MegatronT5PreTrainedModel):
         )
 
         return encoder_outputs
-        

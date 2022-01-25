@@ -154,10 +154,14 @@ class MegatronT5OnnxConfig(OnnxConfigWithPast):
 
         if self.use_past:
             for i in range(0, self._config.num_layers):
-                common_inputs[f"past_key_values.{i}.decoder.key"] = {0: "batch", 2: "past_sequence"}
-                common_inputs[f"past_key_values.{i}.decoder.value"] = {0: "batch", 2: "past_sequence"}
-                common_inputs[f"past_key_values.{i}.encoder.key"] = {0: "batch", 2: "past_sequence"}
-                common_inputs[f"past_key_values.{i}.encoder.value"] = {0: "batch", 2: "past_sequence"}
+                common_inputs[f"past_key_values.{i}.decoder.key"] = {
+                    0: "batch", 2: "past_sequence"}
+                common_inputs[f"past_key_values.{i}.decoder.value"] = {
+                    0: "batch", 2: "past_sequence"}
+                common_inputs[f"past_key_values.{i}.encoder.key"] = {
+                    0: "batch", 2: "past_sequence"}
+                common_inputs[f"past_key_values.{i}.encoder.value"] = {
+                    0: "batch", 2: "past_sequence"}
 
         return common_inputs
 
@@ -166,17 +170,23 @@ class MegatronT5OnnxConfig(OnnxConfigWithPast):
         common_outputs = super().outputs
 
         if "last_hidden_state" in common_outputs:
-            common_outputs["last_hidden_state"] = {0: "batch", 1: "decoder_sequence"}
+            common_outputs["last_hidden_state"] = {
+                0: "batch", 1: "decoder_sequence"}
 
         if self.use_past:
             for i in range(self._config.num_layers):
-                common_outputs[f"present.{i}.decoder.key"] = {0: "batch", 2: "decoder_sequence"}
-                common_outputs[f"present.{i}.decoder.value"] = {0: "batch", 2: "decoder_sequence"}
-                common_outputs[f"present.{i}.encoder.key"] = {0: "batch", 2: "encoder_sequence"}
-                common_outputs[f"present.{i}.encoder.value"] = {0: "batch", 2: "encoder_sequence"}
+                common_outputs[f"present.{i}.decoder.key"] = {
+                    0: "batch", 2: "decoder_sequence"}
+                common_outputs[f"present.{i}.decoder.value"] = {
+                    0: "batch", 2: "decoder_sequence"}
+                common_outputs[f"present.{i}.encoder.key"] = {
+                    0: "batch", 2: "encoder_sequence"}
+                common_outputs[f"present.{i}.encoder.value"] = {
+                    0: "batch", 2: "encoder_sequence"}
 
         if self.task == "default":
-            common_outputs["encoder_last_hidden_state"] = {0: "batch", 2: "encoder_sequence"}
+            common_outputs["encoder_last_hidden_state"] = {
+                0: "batch", 2: "encoder_sequence"}
 
         return common_outputs
 
@@ -190,16 +200,20 @@ class MegatronT5OnnxConfig(OnnxConfigWithPast):
     ) -> Mapping[str, Any]:
 
         # Generate encoder inputs
-        encoder_inputs = super().generate_dummy_inputs(tokenizer, batch_size, seq_length, is_pair, framework)
+        encoder_inputs = super().generate_dummy_inputs(
+            tokenizer, batch_size, seq_length, is_pair, framework)
 
         # Generate decoder inputs
-        decoder_inputs = super().generate_dummy_inputs(tokenizer, batch_size, 1, is_pair, framework)
-        decoder_inputs = {f"decoder_{name}": tensor for name, tensor in decoder_inputs.items()}
+        decoder_inputs = super().generate_dummy_inputs(
+            tokenizer, batch_size, 1, is_pair, framework)
+        decoder_inputs = {f"decoder_{name}": tensor for name,
+                          tensor in decoder_inputs.items()}
 
         ordered_inputs = dict(**encoder_inputs, **decoder_inputs)
         if self.use_past:
             if not is_torch_available():
-                raise ValueError("Cannot generate dummy past_keys inputs without PyTorch installed.")
+                raise ValueError(
+                    "Cannot generate dummy past_keys inputs without PyTorch installed.")
             else:
                 import torch
             batch = encoder_inputs["input_ids"].shape[0]
@@ -210,7 +224,8 @@ class MegatronT5OnnxConfig(OnnxConfigWithPast):
                 encoder_seq_length,
                 self._config.hidden_size // self._config.num_heads,
             )
-            decoder_shape = (batch, self._config.num_heads, 1, self._config.hidden_size // self._config.num_heads)
+            decoder_shape = (batch, self._config.num_heads, 1,
+                             self._config.hidden_size // self._config.num_heads)
 
             ordered_inputs["past_key_values"] = []
             for _ in range(self._config.num_layers):
@@ -238,4 +253,3 @@ class MegatronT5OnnxConfig(OnnxConfigWithPast):
             return flatten_output
 
         return super().flatten_output_collection_property(name, field)
-        

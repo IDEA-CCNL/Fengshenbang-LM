@@ -1,12 +1,12 @@
 # coding=utf-8
-# Copyright 2021 The HuggingFace Inc. team.
-#
+# Copyright 2021 The IDEA Authors. All rights reserved.
+
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-#
+
 #     http://www.apache.org/licenses/LICENSE-2.0
-#
+
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,9 +16,9 @@
 import importlib
 from collections import OrderedDict
 
-from ...configuration_utils import PretrainedConfig
-from ...file_utils import copy_func
-from ...utils import logging
+from transformers.configuration_utils import PretrainedConfig
+from transformers.file_utils import copy_func
+from transformers.utils import logging
 from .configuration_auto import AutoConfig, model_type_to_module_name, replace_list_option_in_docstrings
 from .dynamic import get_class_from_dynamic_module
 
@@ -536,7 +536,7 @@ def getattribute_from_module(module, attr):
         return getattr(module, attr)
     # Some of the mappings have entries model_type -> object of another model type. In that case we try to grab the
     # object at the top level.
-    transformers_module = importlib.import_module("transformers")
+    transformers_module = importlib.import_module("fengshen")
     return getattribute_from_module(transformers_module, attr)
 
 
@@ -569,7 +569,7 @@ class _LazyAutoMapping(OrderedDict):
     def _load_attr_from_module(self, model_type, attr):
         module_name = model_type_to_module_name(model_type)
         if module_name not in self._modules:
-            self._modules[module_name] = importlib.import_module(f".{module_name}", "transformers.models")
+            self._modules[module_name] = importlib.import_module(f".{module_name}", "fengshen.models")
         return getattribute_from_module(self._modules[module_name], attr)
 
     def keys(self):
