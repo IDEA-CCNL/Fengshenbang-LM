@@ -12,6 +12,17 @@ pycodestyle:  # Same as scanner.linter value. Other option is flake8
         - E731  # do not assign a lambda expression, use a def
         - C406  # Unnecessary list literal - rewrite as a dict literal.
         - E741  # ambiguous variable name
+        
+flake8:  # Valid if scanner.linter is flake8
+    max-line-length: 150
+    ignore: [E203,E266,E501,W503,F403,F401,E402,F841,E741,F821]
+    exclude: []
+    count: False
+    show-source: False
+    statistics: False
+    hang-closing: False
+    filename: []
+    select: [] 
 
 no_blank_comment: True  # If True, no comment is made on PR without any errors.
 descending_issues_order: False  # If True, PEP 8 issues in message will be displayed in descending order of line numbers in the file
