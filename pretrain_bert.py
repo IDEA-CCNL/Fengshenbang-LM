@@ -1,20 +1,14 @@
-# coding=utf-8
-import sys
 import os
+import sys
 import time
+
 import torch
-
-from transformers import (
-    TrainingArguments,
-    HfArgumentParser,
-    BertConfig,
-    Trainer,
-)
-from transformers.models.bert.tokenization_bert import BertTokenizer
+from transformers import BertConfig, HfArgumentParser, Trainer, TrainingArguments
 from transformers.models.bert.modeling_bert import BertForPreTraining
+from transformers.models.bert.tokenization_bert import BertTokenizer
 
-from fengshen.utils.cnnl_args import CNNLTrainningArguments
 from fengshen.data.megatron_dataloader import bert_dataset
+from fengshen.utils.ccnl_args import CCNLTrainningArguments
 
 if __name__ == "__main__":
     config = BertConfig(
@@ -29,24 +23,30 @@ if __name__ == "__main__":
     model = BertForPreTraining(config=config)
     print(model.num_parameters())
     tokenizer = BertTokenizer.from_pretrained(
-        "/cognitive_comp/gaoxinyu/transformers/gxy_test/model")
+        "/cognitive_comp/gaoxinyu/transformers/gxy_test/model"
+    )
 
-    parser = HfArgumentParser((TrainingArguments, CNNLTrainningArguments))
+    parser = HfArgumentParser((TrainingArguments, CCNLTrainningArguments))
     if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
         # If we pass only one argument to the script and it's the path to a json file,
         # let's parse it to get our arguments.
         training_args, cnnl_args = parser.parse_json_file(
-            json_file=os.path.abspath(sys.argv[1]))
+            json_file=os.path.abspath(sys.argv[1])
+        )
     else:
         training_args, cnnl_args = parser.parse_args_into_dataclasses()
 
     if torch.distributed.get_rank() == 0:
         start_time = time.time()
-        print('> compiling dataset index builder ...')
+        print("> compiling dataset index builder ...")
         from fengshen.data.megatron_dataloader.dataset_utils import compile_helper
+
         compile_helper()
-        print('>>> done with dataset index builder. Compilation time: {:.3f} '
-              'seconds'.format(time.time() - start_time), flush=True)
+        print(
+            ">>> done with dataset index builder. Compilation time: {:.3f} "
+            "seconds".format(time.time() - start_time),
+            flush=True,
+        )
     bert_dataset.tokenizer = tokenizer
     train_dataset, eval_dataset = bert_dataset.build_train_valid_test_datasets(
         data_prefix=cnnl_args.megatron_data_path,
@@ -58,7 +58,8 @@ if __name__ == "__main__":
         short_seq_prob=0.1,
         seed=cnnl_args.megatron_seed,
         skip_warmup=False,
-        binary_head=cnnl_args.megatron_binary_head)
+        binary_head=cnnl_args.megatron_binary_head,
+    )
 
     trainer = Trainer(
         model=model,
