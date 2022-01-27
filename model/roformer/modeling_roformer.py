@@ -330,8 +330,8 @@ class RoFormerSelfAttention(nn.Module):
         attention_scores = attention_scores / math.sqrt(self.attention_head_size)
         if attention_mask is not None:
             # Apply the attention mask is (precomputed for all layers in RoFormerModel forward() function)
-            attention_scores = attention_scores.masked_fill(attention_mask, 
-                                                            value=torch.tensor(-1e8))
+            attention_scores = attention_scores.masked_fill(
+                attention_mask, value=torch.tensor(-1e5))
 
         # Normalize the attention scores to probabilities.
         attention_probs = nn.Softmax(dim=-1)(attention_scores)
