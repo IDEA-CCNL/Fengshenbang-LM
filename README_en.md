@@ -48,6 +48,9 @@ Erlangshen-1.3B is the largest Chinese open source model with the structure of B
 
 ![image](https://user-images.githubusercontent.com/4384420/141752311-d15c2a7f-cd83-4e9e-99a5-cb931088845e.png)
 
+Erlangshen-MRC achieved the Chinese language comprehension evaluations benchmark ZeroCLUE on Jan 24th, 2022. Among the tasks of ZeroCLUE, CSLDCP (discipline literature classification), TNEWS (news classification), IFLYTEK (application description classification), CSL (abstract keyword recognition), CLUEWSC (reference resolution) achieved SOTA.
+
+![image](https://user-images.githubusercontent.com/4384420/151319156-e20ba252-b531-4779-8099-ef60c7954f76.png)
 
 ### Download the Models
 [Huggingface Erlangshen-1.3B](https://huggingface.co/IDEA-CCNL/Erlangshen-1.3B)
