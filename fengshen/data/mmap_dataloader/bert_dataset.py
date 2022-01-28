@@ -199,6 +199,7 @@ def build_training_sample(
         "attention_mask": torch.tensor(padding_mask_np),
         "token_type_ids": torch.tensor(tokentypes_np),
         "labels": torch.tensor(labels_np),
+        "next_sentence_label": torch.tensor(int(is_next_random))
     }
 
     # train_sample for megatron
