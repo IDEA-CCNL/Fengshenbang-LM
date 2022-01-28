@@ -12,14 +12,14 @@ echo "START TIME: $(date)"
 
 MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 #MASTER_ADDR=127.0.0.1
-MASTER_PORT=53005
+MASTER_PORT=$[RANDOM%10000+50000]
 
 GPUS_PER_NODE=1
 NNODES=1   # switch to 128
 TP_SIZE=1    # always fixed to the size of a single node
 PP_SIZE=1    # NLAYERS must be a multiple of PP_SIZE here
 
-MICRO_BATCH_SIZE=32
+MICRO_BATCH_SIZE=4
 
 ZERO_STAGE=3
 
@@ -114,6 +114,7 @@ export CMD=" \
     $SCRIPTS_PATH/pretrain_bert.py \
     $TRAINER_ARGS \
     $CNNL_TRAINER_ARGS \
+    $DEEPSPEED_ARGS \
     "
 
 echo $CMD

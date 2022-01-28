@@ -1,4 +1,6 @@
 import warnings
+from pytorch_lightning import LightningModule
+from fengshen.models import transformer_utils
 
 import torch
 import torch.utils.checkpoint
@@ -125,6 +127,7 @@ class BartForTextInfill(BartPretrainedModel):
         self.model._init_weights(self.classification_head.dense)
         self.model._init_weights(self.classification_head.out_proj)
         self.loss_weight = config.loss_weight
+        self.register_buffer("label_weights", torch.zeros((self.num_labels)))
 
     def resize_token_embeddings(self, new_num_tokens: int) -> nn.Embedding:
         old_num_tokens = self.model.shared.num_embeddings
@@ -366,3 +369,55 @@ class BartForTextInfill(BartPretrainedModel):
             encoder_logits = torch.sigmoid(
                 encoder_logits) * self.num_labels - 0.5
         return encoder_outputs, encoder_logits
+
+
+class CBartLightning(LightningModule):
+    @staticmethod
+    def add_module_specific_args(parent_args):
+        parser = parent_args.add_argument_group("CBart specific parameters")
+        parser.add_argument('--num_labels', type=int, default=3)
+        parser.add_argument('--encoder_loss_type', type=int, default=0)
+        parser.add_argument('--loss_weight', type=float, default=1.0)
+        parser.add_argument('--label_weights', type=float, nargs='+', default=[1.0, 1.0, 1.0])
+        parser.add_argument('--masked_lm', type=float, default=0)
+        return parent_args
+
+    def __init__(
+        self,
+        args,
+        **kwargs,
+    ):
+        super().__init__()
+        self.save_hyperparameters(args)
+        self.model = BartForTextInfill.from_pretrained(args.model_path, num_labels=self.hparams.num_labels,
+                                                       encoder_loss_type=self.hparams.encoder_loss_type,
+                                                       loss_weight=self.hparams.loss_weight,)
+        self.model.label_weights = torch.tensor(
+            self.hparams.label_weights, dtype=torch.half)
+
+    def forward(self, **inputs):
+        return self.model(**inputs)
+
+    def training_step(self, batch, batch_idx):
+        outputs = self(**batch)
+        return outputs
+
+    def validation_step(self, batch, batch_idx, dataloader_idx=0):
+        outputs = self(**batch)
+        val_loss = outputs["loss"]
+
+        return {"loss": val_loss}
+
+    def setup(self, stage=None) -> None:
+        if stage != "fit":
+            return
+        # Get dataloader by calling it - train_dataloader() is called after setup() by default
+        train_loader = self.trainer._data_connector._train_dataloader_source.dataloader()
+
+        # Calculate total steps
+        tb_size = self.hparams.train_batchsize * max(1, self.trainer.gpus)
+        ab_size = self.trainer.accumulate_grad_batches * float(self.trainer.max_epochs)
+        self.total_steps = (len(train_loader.dataset) // tb_size) // ab_size
+
+    def configure_optimizers(self):
+        transformer_utils.configure_optimizers(self)

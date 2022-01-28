@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=cbart_pretrain
-#SBATCH --nodes=2
+#SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1          # crucial - only 1 task per dist per node!
 #SBATCH --gres=gpu:1                 # number of gpus
 #SBATCH -o %x-%j.log
@@ -12,16 +12,16 @@ echo "START TIME: $(date)"
 
 MASTER_ADDR=$(scontrol show hostnames $SLURM_JOB_NODELIST | head -n 1)
 #MASTER_ADDR=127.0.0.1
-MASTER_PORT=53005
+MASTER_PORT=$[RANDOM%10000+50000]
 
 GPUS_PER_NODE=1
-NNODES=2   # switch to 128
+NNODES=1   # switch to 128
 TP_SIZE=1    # always fixed to the size of a single node
 PP_SIZE=1    # NLAYERS must be a multiple of PP_SIZE here
 
 MICRO_BATCH_SIZE=16
 
-ZERO_STAGE=1
+ZERO_STAGE=2
 
 config_json="./ds_config.$SLURM_JOBID.json"
 
@@ -30,28 +30,49 @@ cat <<EOT > $config_json
 {
   "train_micro_batch_size_per_gpu": "auto",
   "train_batch_size": "auto",
+  "gradient_accumulation_steps": 1,
+  "steps_per_print": 100,
   "gradient_clipping": 1.0,
-  "optimizer": {
-        "type": "AdamW",
-        "params": {
-            "lr": "auto",
-            "betas": "auto",
-            "eps": "auto",
-            "weight_decay": "auto"
-        }
-    },
   "zero_optimization": {
-    "stage": $ZERO_STAGE
+    "stage": $ZERO_STAGE,
+    "contiguous_gradients": false,
+    "overlap_comm": true,
+    "reduce_scatter": true,
+    "reduce_bucket_size": 50000000,
+    "allgather_bucket_size": 500000000
   },
+  "optimizer": {
+    "type": "Adam",
+    "params": {
+      "lr": 1e-5,
+      "betas": [
+        0.9,
+        0.95
+      ],
+      "eps": 1e-8,
+      "weight_decay": 1e-2
+    }
+  },
+  "scheduler": {
+    "type": "WarmupLR",
+    "params":{
+      "warmup_min_lr": 5e-6,
+      "warmup_max_lr": 1e-5,
+      "warmup_num_steps": "auto"
+    }
+  },
+  "zero_allow_untested_optimizer": false,
   "fp16": {
     "enabled": true,
     "loss_scale": 0,
-    "loss_scale_window": 500,
+    "loss_scale_window": 1000,
     "hysteresis": 2,
-    "min_loss_scale": 1,
-    "initial_scale_power": 12
+    "min_loss_scale": 1
   },
-  "steps_per_print": 2000,
+  "activation_checkpointing": {
+    "partition_activations": false,
+    "contiguous_memory_optimization": false
+  },
   "wall_clock_breakdown": false
 }
 EOT
@@ -73,13 +94,15 @@ TRAINER_ARGS="
     --output_dir /cognitive_comp/gaoxinyu/hf_model/cbart/ \
     --logging_dir /cognitive_comp/gaoxinyu/hf_model/cbart-tensorboard/ \
     --logging_steps 100 \
+    --eval_steps 100 \
     --save_steps 20000 \
-    --learning_rate 1e-4 \
+    --learning_rate 1e-5 \
     --warmup_ratio 0.01 \
     --weight_decay 0.01 \
     --evaluation_strategy steps \
     --max_grad_norm 1.0 \
     --fp16 True \
+    --adam_beta2 0.95 \
 "
 
 DEEPSPEED_ARGS=" \
