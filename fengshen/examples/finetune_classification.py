@@ -21,9 +21,6 @@ from tqdm import tqdm
 from typing import Optional
 import os
 import numpy as np
-from transformers import EvalPrediction
-from transformers.utils.dummy_pt_objects import RemBertForSequenceClassification
-from label_desc import task2label
 import sys
 from transformers import (
     AutoTokenizer,
