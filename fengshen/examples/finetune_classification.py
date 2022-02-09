@@ -232,7 +232,7 @@ class LitAutoEncoder(pl.LightningModule):
                 'frequency': 1
             }
         }]
-        
+
 
 class TaskModelCheckpoint:
     @staticmethod

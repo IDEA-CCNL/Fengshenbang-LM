@@ -51,7 +51,8 @@ logger = logging.get_logger(__name__)
 if TYPE_CHECKING:
     # This significantly improves completion suggestion performance when
     # the transformers package is used with Microsoft's Pylance language server.
-    TOKENIZER_MAPPING_NAMES: OrderedDict[str, Tuple[Optional[str], Optional[str]]] = OrderedDict()
+    TOKENIZER_MAPPING_NAMES: OrderedDict[str,
+                                         Tuple[Optional[str], Optional[str]]] = OrderedDict()
 else:
     TOKENIZER_MAPPING_NAMES = OrderedDict(
         [
@@ -60,7 +61,8 @@ else:
         ]
     )
 
-TOKENIZER_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, TOKENIZER_MAPPING_NAMES)
+TOKENIZER_MAPPING = _LazyAutoMapping(
+    CONFIG_MAPPING_NAMES, TOKENIZER_MAPPING_NAMES)
 
 CONFIG_TO_TYPE = {v: k for k, v in CONFIG_MAPPING_NAMES.items()}
 
@@ -73,7 +75,8 @@ def tokenizer_class_from_name(class_name: str):
         if class_name in tokenizers:
             module_name = model_type_to_module_name(module_name)
 
-            module = importlib.import_module(f".{module_name}", "transformers.models")
+            module = importlib.import_module(
+                f".{module_name}", "transformers.models")
             return getattr(module, class_name)
 
     for config, tokenizers in TOKENIZER_MAPPING._extra_content.items():
@@ -169,7 +172,8 @@ def get_tokenizer_config(
 
     pretrained_model_name_or_path = str(pretrained_model_name_or_path)
     if os.path.isdir(pretrained_model_name_or_path):
-        config_file = os.path.join(pretrained_model_name_or_path, TOKENIZER_CONFIG_FILE)
+        config_file = os.path.join(
+            pretrained_model_name_or_path, TOKENIZER_CONFIG_FILE)
     else:
         config_file = hf_bucket_url(
             pretrained_model_name_or_path, filename=TOKENIZER_CONFIG_FILE, revision=revision, mirror=None
@@ -188,7 +192,8 @@ def get_tokenizer_config(
         )
 
     except EnvironmentError:
-        logger.info("Could not locate the tokenizer configuration file, will try to use the model config instead.")
+        logger.info(
+            "Could not locate the tokenizer configuration file, will try to use the model config instead.")
         return {}
 
     with open(resolved_config_file, encoding="utf-8") as reader:
@@ -293,7 +298,8 @@ class AutoTokenizer:
         # First, let's see whether the tokenizer_type is passed so that we can leverage it
         if tokenizer_type is not None:
             tokenizer_class = None
-            tokenizer_class_tuple = TOKENIZER_MAPPING_NAMES.get(tokenizer_type, None)
+            tokenizer_class_tuple = TOKENIZER_MAPPING_NAMES.get(
+                tokenizer_type, None)
 
             if tokenizer_class_tuple is None:
                 raise ValueError(
@@ -304,18 +310,22 @@ class AutoTokenizer:
             tokenizer_class_name, tokenizer_fast_class_name = tokenizer_class_tuple
 
             if use_fast and tokenizer_fast_class_name is not None:
-                tokenizer_class = tokenizer_class_from_name(tokenizer_fast_class_name)
+                tokenizer_class = tokenizer_class_from_name(
+                    tokenizer_fast_class_name)
 
             if tokenizer_class is None:
-                tokenizer_class = tokenizer_class_from_name(tokenizer_class_name)
+                tokenizer_class = tokenizer_class_from_name(
+                    tokenizer_class_name)
 
             if tokenizer_class is None:
-                raise ValueError(f"Tokenizer class {tokenizer_class_name} is not currently imported.")
+                raise ValueError(
+                    f"Tokenizer class {tokenizer_class_name} is not currently imported.")
 
             return tokenizer_class.from_pretrained(pretrained_model_name_or_path, *inputs, **kwargs)
 
         # Next, let's try to use the tokenizer_config file to get the tokenizer class.
-        tokenizer_config = get_tokenizer_config(pretrained_model_name_or_path, **kwargs)
+        tokenizer_config = get_tokenizer_config(
+            pretrained_model_name_or_path, **kwargs)
 
         config_tokenizer_class = tokenizer_config.get("tokenizer_class")
         tokenizer_auto_map = tokenizer_config.get("auto_map")
@@ -358,10 +368,12 @@ class AutoTokenizer:
 
             elif use_fast and not config_tokenizer_class.endswith("Fast"):
                 tokenizer_class_candidate = f"{config_tokenizer_class}Fast"
-                tokenizer_class = tokenizer_class_from_name(tokenizer_class_candidate)
+                tokenizer_class = tokenizer_class_from_name(
+                    tokenizer_class_candidate)
             if tokenizer_class is None:
                 tokenizer_class_candidate = config_tokenizer_class
-                tokenizer_class = tokenizer_class_from_name(tokenizer_class_candidate)
+                tokenizer_class = tokenizer_class_from_name(
+                    tokenizer_class_candidate)
 
             if tokenizer_class is None:
                 raise ValueError(
@@ -371,7 +383,8 @@ class AutoTokenizer:
 
         model_type = config_class_to_model_type(type(config).__name__)
         if model_type is not None:
-            tokenizer_class_py, tokenizer_class_fast = TOKENIZER_MAPPING[type(config)]
+            tokenizer_class_py, tokenizer_class_fast = TOKENIZER_MAPPING[type(
+                config)]
             if tokenizer_class_fast and (use_fast or tokenizer_class_py is None):
                 return tokenizer_class_fast.from_pretrained(pretrained_model_name_or_path, *inputs, **kwargs)
             else:
@@ -402,11 +415,14 @@ class AutoTokenizer:
                 The fast tokenizer to register.
         """
         if slow_tokenizer_class is None and fast_tokenizer_class is None:
-            raise ValueError("You need to pass either a `slow_tokenizer_class` or a `fast_tokenizer_class")
+            raise ValueError(
+                "You need to pass either a `slow_tokenizer_class` or a `fast_tokenizer_class")
         if slow_tokenizer_class is not None and issubclass(slow_tokenizer_class, PreTrainedTokenizerFast):
-            raise ValueError("You passed a fast tokenizer in the `slow_tokenizer_class`.")
+            raise ValueError(
+                "You passed a fast tokenizer in the `slow_tokenizer_class`.")
         if fast_tokenizer_class is not None and issubclass(fast_tokenizer_class, PreTrainedTokenizer):
-            raise ValueError("You passed a slow tokenizer in the `fast_tokenizer_class`.")
+            raise ValueError(
+                "You passed a slow tokenizer in the `fast_tokenizer_class`.")
 
         if (
             slow_tokenizer_class is not None
@@ -429,4 +445,5 @@ class AutoTokenizer:
             if fast_tokenizer_class is None:
                 fast_tokenizer_class = existing_fast
 
-        TOKENIZER_MAPPING.register(config_class, (slow_tokenizer_class, fast_tokenizer_class))
+        TOKENIZER_MAPPING.register(
+            config_class, (slow_tokenizer_class, fast_tokenizer_class))

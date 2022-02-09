@@ -17,4 +17,3 @@ from fengshen.models.longformer import *
 from fengshen.models.roformer import *
 from fengshen.models.auto import *
 from fengshen.models.megatron_t5 import *
-

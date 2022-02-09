@@ -33,7 +33,7 @@ CLASS_DOCSTRING = """
 
     This class cannot be instantiated directly using `__init__()` (throws an error).
 """
- 
+
 FROM_CONFIG_DOCSTRING = """
         Instantiates one of the model classes of the library from a configuration.
 
@@ -404,7 +404,8 @@ class _BaseAutoModelClass:
                 )
             class_ref = config.auto_map[cls.__name__]
             module_file, class_name = class_ref.split(".")
-            model_class = get_class_from_dynamic_module(config.name_or_path, module_file + ".py", class_name, **kwargs)
+            model_class = get_class_from_dynamic_module(
+                config.name_or_path, module_file + ".py", class_name, **kwargs)
             return model_class._from_config(config, **kwargs)
         elif type(config) in cls._model_mapping.keys():
             model_class = _get_model_class(config, cls._model_mapping)
@@ -491,11 +492,15 @@ def auto_class_update(cls, checkpoint_for_example="bert-base-cased", head_doc=""
     # Now we need to copy and re-register `from_config` and `from_pretrained` as class methods otherwise we can't
     # have a specific docstrings for them.
     from_config = copy_func(_BaseAutoModelClass.from_config)
-    from_config_docstring = insert_head_doc(FROM_CONFIG_DOCSTRING, head_doc=head_doc)
-    from_config_docstring = from_config_docstring.replace("BaseAutoModelClass", name)
-    from_config_docstring = from_config_docstring.replace("checkpoint_placeholder", checkpoint_for_example)
+    from_config_docstring = insert_head_doc(
+        FROM_CONFIG_DOCSTRING, head_doc=head_doc)
+    from_config_docstring = from_config_docstring.replace(
+        "BaseAutoModelClass", name)
+    from_config_docstring = from_config_docstring.replace(
+        "checkpoint_placeholder", checkpoint_for_example)
     from_config.__doc__ = from_config_docstring
-    from_config = replace_list_option_in_docstrings(model_mapping._model_mapping, use_model_types=False)(from_config)
+    from_config = replace_list_option_in_docstrings(
+        model_mapping._model_mapping, use_model_types=False)(from_config)
     cls.from_config = classmethod(from_config)
 
     if name.startswith("TF"):
@@ -505,13 +510,18 @@ def auto_class_update(cls, checkpoint_for_example="bert-base-cased", head_doc=""
     else:
         from_pretrained_docstring = FROM_PRETRAINED_TORCH_DOCSTRING
     from_pretrained = copy_func(_BaseAutoModelClass.from_pretrained)
-    from_pretrained_docstring = insert_head_doc(from_pretrained_docstring, head_doc=head_doc)
-    from_pretrained_docstring = from_pretrained_docstring.replace("BaseAutoModelClass", name)
-    from_pretrained_docstring = from_pretrained_docstring.replace("checkpoint_placeholder", checkpoint_for_example)
+    from_pretrained_docstring = insert_head_doc(
+        from_pretrained_docstring, head_doc=head_doc)
+    from_pretrained_docstring = from_pretrained_docstring.replace(
+        "BaseAutoModelClass", name)
+    from_pretrained_docstring = from_pretrained_docstring.replace(
+        "checkpoint_placeholder", checkpoint_for_example)
     shortcut = checkpoint_for_example.split("/")[-1].split("-")[0]
-    from_pretrained_docstring = from_pretrained_docstring.replace("shortcut_placeholder", shortcut)
+    from_pretrained_docstring = from_pretrained_docstring.replace(
+        "shortcut_placeholder", shortcut)
     from_pretrained.__doc__ = from_pretrained_docstring
-    from_pretrained = replace_list_option_in_docstrings(model_mapping._model_mapping)(from_pretrained)
+    from_pretrained = replace_list_option_in_docstrings(
+        model_mapping._model_mapping)(from_pretrained)
     cls.from_pretrained = classmethod(from_pretrained)
     return cls
 
@@ -552,7 +562,8 @@ class _LazyAutoMapping(OrderedDict):
 
     def __init__(self, config_mapping, model_mapping):
         self._config_mapping = config_mapping
-        self._reverse_config_mapping = {v: k for k, v in config_mapping.items()}
+        self._reverse_config_mapping = {
+            v: k for k, v in config_mapping.items()}
         self._model_mapping = model_mapping
         self._extra_content = {}
         self._modules = {}
@@ -569,7 +580,8 @@ class _LazyAutoMapping(OrderedDict):
     def _load_attr_from_module(self, model_type, attr):
         module_name = model_type_to_module_name(model_type)
         if module_name not in self._modules:
-            self._modules[module_name] = importlib.import_module(f".{module_name}", "fengshen.models")
+            self._modules[module_name] = importlib.import_module(
+                f".{module_name}", "fengshen.models")
         return getattribute_from_module(self._modules[module_name], attr)
 
     def keys(self):
@@ -626,6 +638,7 @@ class _LazyAutoMapping(OrderedDict):
         if hasattr(key, "__name__") and key.__name__ in self._reverse_config_mapping:
             model_type = self._reverse_config_mapping[key.__name__]
             if model_type in self._model_mapping.keys():
-                raise ValueError(f"'{key}' is already used by a Transformers model.")
+                raise ValueError(
+                    f"'{key}' is already used by a Transformers model.")
 
         self._extra_content[key] = value
