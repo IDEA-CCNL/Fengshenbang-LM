@@ -8,6 +8,7 @@ from torch.utils.data import Dataset
 from torch.nn.utils.rnn import pad_sequence
 from dataclasses import dataclass
 from transformers.data.data_collator import DataCollatorMixin
+from fengshen.data.MMapIndexDataset import MMapIndexDataset
 
 
 def safe_check(a, type='uint8'):
@@ -48,6 +49,7 @@ class CBartDataCollator(DataCollatorMixin):
                 decoder_inputs.append(i)
         return torch.tensor(decoder_inputs, dtype=torch.long)
 
+    @staticmethod
     def torch_call(self, features):
         encoder_inputs = [s[0] for s in features]
         encoder_labels = [s[1] for s in features]
@@ -114,26 +116,29 @@ class BARTDataset(Dataset):
             self.is_train = True
         self.tokenizer = tokenizer
         self.max_sentence_length = max_sentence_length + 2  # the bos and eos tokens
-        self.encoder_inputs = []
-        self.encoder_labels = []
-        self.decoder_labels = []
+        self.input_dataset = []
+        self.encoder_labels_dataset = []
+        self.decoder_labels_dataset = []
 
         data_dict_path_format = '/cognitive_comp/gaoxinyu/data/{}/{}_synthetic_max_insert_label{}_insert_mode{}_*.pt'.format(
             dataset, mode, num_labels - 2, insert_mode)
         data_dict_paths = glob.glob(data_dict_path_format)
         for data_dict_path in data_dict_paths:
             if os.path.exists(data_dict_path):
-                print(f'''Loading data from {data_dict_path}''')
-                # data_dict = pickle.load(open(data_dict_path, 'rb'))
-                data_dict = torch.load(data_dict_path)
-                self.encoder_inputs += data_dict['incorrect_input_ids_list']
-                self.encoder_labels += data_dict['label_ids_list']
-                self.decoder_labels += data_dict['target_ids_list']
+                print(f'''Loading data from {data_dict_path}''', flush=True)
+                filename = ''.join(data_dict_path.rsplit('.pt', 1))
+                self.input_dataset += [MMapIndexDataset(filename + "_incorrect_input_ids_list")]
+                self.encoder_labels_dataset += [MMapIndexDataset(
+                    filename + "_label_ids_list")]
+                self.decoder_labels_dataset += [MMapIndexDataset(
+                    filename + "_target_ids_list")]
             else:
                 print(
                     f'Please create the synthetic datafile {data_dict_path} with create_synthetic_data.py.')
 
-        self.len = len(self.encoder_inputs)
+        self.len = 0
+        for ds in self.input_dataset:
+            self.len += len(ds)
 
         # TODO make sure the encoder loss weighting logic applys to every rank !
         if statistics:
@@ -143,7 +148,16 @@ class BARTDataset(Dataset):
             # for k, v in zip(unique,counts):
             #     print(f'sentence length{k}: {v}')
             # print('Statistics for sentence labels:')
-            labels = [e for s in self.encoder_labels for e in s]
+            labels = []
+            # too slow!!
+            # for ds in self.encoder_labels_dataset:
+            #     for i in range(0, len(ds)):
+            #         labels.extend(ds.__getitem__(i))
+
+            # use only one dataset to calc
+            for i in self.encoder_labels_dataset[0]:
+                labels.extend(i)
+            print(len(labels))
             (unique, counts) = np.unique(labels, return_counts=True)
             all_label_counts = 0
             for k, v in zip(unique, counts):
@@ -164,12 +178,81 @@ class BARTDataset(Dataset):
         print(f"label weights for encoder will be {self.label_weights}")
 
     def __getitem__(self, idx):
-        return torch.tensor(self.encoder_inputs[idx], dtype=torch.long), \
-            torch.tensor(self.encoder_labels[idx], dtype=torch.long), \
-            torch.tensor(self.decoder_labels[idx], dtype=torch.long)
+        for i in range(0, len(self.input_dataset)):
+            if idx >= len(self.input_dataset[i]):
+                idx -= len(self.input_dataset[i])
+            else:
+                break
+        return torch.tensor(self.input_dataset[i].__getitem__(idx), dtype=torch.long), \
+            torch.tensor(self.encoder_labels_dataset[i].__getitem__(idx), dtype=torch.long), \
+            torch.tensor(self.decoder_labels_dataset[i].__getitem__(idx), dtype=torch.long)
 
     def __len__(self):
         return self.len
+
+    def create_decoder_inputs(self, encoder_inputs, encoder_labels, mask_token_id):
+        """
+        :param encoder_inputs: list, each element is an int
+        :param encoder_labels: list, each element is an int
+        :return:
+        """
+        decoder_inputs = []
+        for i, l in zip(encoder_inputs, encoder_labels):
+            if l == 0:
+                decoder_inputs.append(i)
+            elif l == 1:
+                decoder_inputs.append(mask_token_id)
+            else:
+                decoder_inputs += [mask_token_id] * (l - 1)
+                decoder_inputs.append(i)
+        return torch.tensor(decoder_inputs, dtype=torch.long)
+
+    def create_mini_batch(self, samples):
+        encoder_inputs = [s[0] for s in samples]
+        encoder_labels = [s[1] for s in samples]
+        decoder_labels = [s[2] for s in samples]
+
+        # Mask to avoid performing attention on padding token indices in encoder_inputs.
+        _mask = pad_sequence(encoder_inputs, batch_first=True, padding_value=-100)
+        attention_mask = torch.zeros(_mask.shape, dtype=torch.float32)
+        attention_mask = attention_mask.masked_fill(_mask != -100, 1)
+
+        encoder_inputs = pad_sequence(encoder_inputs, batch_first=True,
+                                      padding_value=self.tokenizer.pad_token_id)
+        encoder_labels = pad_sequence(encoder_labels, batch_first=True, padding_value=-100)
+        if self.encoder_loss_type == 1:  # labels for mse loss
+            encoder_labels = encoder_labels.float()
+
+        decoder_labels = pad_sequence(decoder_labels, batch_first=True, padding_value=-100)
+        # avoid computing loss on the first token, i.e. bos_token
+        decoder_labels[:, 0] = -100
+
+        # this method is for non-autoregressive decoding.
+        decoder_inputs = [self.create_decoder_inputs(
+            s[0], s[1], self.tokenizer.mask_token_id) for s in samples]
+
+        # replace the eos_token_id with pad_token_id
+        for i, _ in enumerate(decoder_inputs):
+            decoder_inputs[i][-1] = self.tokenizer.pad_token_id
+
+        decoder_inputs = pad_sequence(decoder_inputs, batch_first=True,
+                                      padding_value=self.tokenizer.pad_token_id)
+        # create decoder_inputs by shifting the decoder_labels right,
+        _tmp = decoder_inputs.clone()
+        decoder_inputs[:, 1:] = _tmp[:, :-1]
+        decoder_inputs[:, 0] = self.tokenizer.eos_token_id
+
+        # construct labels for masked lm loss
+        masked_lm_labels = decoder_labels.clone()
+        masked_lm_labels[_tmp != self.tokenizer.mask_token_id] = -100
+
+        return {
+            "input_ids": encoder_inputs,
+            "encoder_labels": encoder_labels,
+            "decoder_input_ids": decoder_inputs,
+            "labels": decoder_labels,
+            "attention_mask": attention_mask,
+        }
 
 
 def get_train_dev_dataset(args, tokenizer):
