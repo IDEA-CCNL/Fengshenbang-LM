@@ -13,7 +13,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from fengshen.models.longformer import *
-from fengshen.models.roformer import *
-from fengshen.models.auto import *
-from fengshen.models.megatron_t5 import *
+from transformers import BertTokenizer as RoFormerTokenizer
