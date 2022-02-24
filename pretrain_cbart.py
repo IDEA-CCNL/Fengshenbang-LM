@@ -7,7 +7,7 @@ from transformers import (
     HfArgumentParser,
     Trainer,
 )
-from fengshen.models.bart import BartForTextInfill
+from fengshen.models.bart.modeling_bart import BartForTextInfill
 from transformers.models.bert.tokenization_bert import BertTokenizer
 from fengshen.data.cbart_dataloader.cbart_dataset import get_train_dev_dataset, CBartDataCollator
 from dataclasses import dataclass, field

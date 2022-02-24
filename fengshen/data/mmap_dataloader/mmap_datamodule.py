@@ -1,6 +1,4 @@
-import argparse
-from ast import Num
-from typing import List, Optional
+from typing import Optional
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader
 from fengshen.data.mmap_index_dataset import MMapIndexDataset

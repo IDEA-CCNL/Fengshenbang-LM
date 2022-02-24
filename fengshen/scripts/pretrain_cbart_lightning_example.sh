@@ -67,6 +67,7 @@ cat <<EOT > $config_json
 EOT
 
 export PL_DEEPSPEED_CONFIG_PATH=$config_json
+export TOKENIZERS_PARALLELISM=True
 
 TRAINER_ARGS="
     --max_epochs 1 \

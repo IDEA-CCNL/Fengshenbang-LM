@@ -1,8 +1,8 @@
 import os
 import torch
 import argparse
-from fengshen.data.mmap_datamodule import MMapDataModule
-from fengshen.models.bart import CBartLightning
+from fengshen.data.mmap_dataloader.mmap_datamodule import MMapDataModule
+from fengshen.models.bart.modeling_bart import CBartLightning
 from fengshen.models import model_utils
 
 from pytorch_lightning import (
@@ -29,13 +29,13 @@ class CBartDataCollator():
         :return:
         """
         decoder_inputs = []
-        for i, l in zip(encoder_inputs, encoder_labels):
-            if l == 0:
+        for i, label in zip(encoder_inputs, encoder_labels):
+            if label == 0:
                 decoder_inputs.append(i)
-            elif l == 1:
+            elif label == 1:
                 decoder_inputs.append(mask_token_id)
             else:
-                decoder_inputs += [mask_token_id] * (l - 1)
+                decoder_inputs += [mask_token_id] * (label - 1)
                 decoder_inputs.append(i)
         return torch.tensor(decoder_inputs, dtype=torch.long)
 
