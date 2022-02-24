@@ -1,0 +1,16 @@
+default_stages: [commit]
+repos:
+  - repo: https://github.com/yingzi113/pre-commit-hooks
+    rev: 5863e162f1bed1f63eeb716e77d622ff8e3d9af9
+    hooks:
+    - id: check-case-conflict
+  - repo: https://github.com/pre-commit/mirrors-autopep8
+    rev: v1.4.4
+    hooks:
+    - id: autopep8
+      args: [-i, --global-config=.flake8, -v, --max-line-length=120]
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.4.0
+    hooks:
+    - id: flake8
+      args: [--max-line-length=120]
