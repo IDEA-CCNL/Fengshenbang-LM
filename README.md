@@ -67,7 +67,7 @@ model = MegatronBertModel.from_pretrained("IDEA-CCNL/Erlangshen-1.3B")
 ### 使用示例
 为了便于开发者快速使用我们的开源模型，这里提供了一个下游任务的[finetune示例脚本](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh)，使用的[CLUE](https://github.com/CLUEbenchmark/CLUE)上的tnews新闻分类任务数据，运行脚本如下。其中DATA_PATH为数据路径，tnews任务数据的[下载地址](https://github.com/CLUEbenchmark/CLUE).
 #### 使用步骤如下：
-1、首先修改[finetune示例脚本](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh)中的model_type和pretrained_model_path参数。其他如batch_size、data_dir等参数可根据自己的设备修改。
+1、首先修改finetune示例脚本[fengshen/scripts/finetune_classification.sh](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh)中的model_type和pretrained_model_path参数。其他如batch_size、data_dir等参数可根据自己的设备修改。
 ``` sh
 MODEL_TYPE=huggingface-megatron_bert
 PRETRAINED_MODEL_PATH=IDEA-CCNL/Erlangshen-1.3B
@@ -107,7 +107,7 @@ model = RoFormerModel.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
 
 
 ### 使用示例
-1、首先修改[finetune示例脚本](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh)中的model_type和pretrained_model_path参数。其他如batch_size、data_dir等参数可根据自己的设备修改。
+1、首先修改finetune示例脚本[fengshen/scripts/finetune_classification.sh](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh)中的model_type和pretrained_model_path参数。其他如batch_size、data_dir等参数可根据自己的设备修改。
 ``` sh
 MODEL_TYPE=fengshen-roformer
 PRETRAINED_MODEL_PATH=IDEA-CCNL/Zhouwenwang-110M
@@ -208,7 +208,7 @@ model = T5EncoderModel.from_pretrained('IDEA-CCNL/Randeng-770M')
 ```
 
 ### 使用示例
-1、首先修改[finetune示例脚本](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh)中的model_type和pretrained_model_path参数。其他如batch_size、data_dir等参数可根据自己的设备修改。
+1、首先修改finetune示例脚本[fengshen/scripts/finetune_classification.sh](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh)中的model_type和pretrained_model_path参数。其他如batch_size、data_dir等参数可根据自己的设备修改。
 ``` sh
 MODEL_TYPE=fengshen-megatron_t5
 PRETRAINED_MODEL_PATH=IDEA-CCNL/Randeng-770M
