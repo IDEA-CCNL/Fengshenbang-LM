@@ -13,6 +13,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from fengshen.models.megatron_t5.configuration_megatron_t5 import T5Config
+from fengshen.models.megatron_t5.modeling_megatron_t5 import T5EncoderModel
+from fengshen.models.roformer.configuration_roformer import RoFormerConfig
+from fengshen.models.roformer.modeling_roformer import RoFormerModel
+from fengshen.models.longformer.configuration_longformer import LongformerConfig
+from fengshen.models.longformer.modeling_longformer import LongformerModel
+from transformers import (
+    BertModel,
+    BertConfig,
+    MegatronBertModel,
+    MegatronBertConfig
+)
+from transformers import BertTokenizer
+from transformers.optimization import get_linear_schedule_with_warmup
+from torch.utils.data import Dataset, DataLoader
+from pytorch_lightning import Trainer
+from pytorch_lightning.callbacks import ModelCheckpoint
+import argparse
+import pytorch_lightning as pl
 from logging import basicConfig
 import torch
 from torch import nn
@@ -26,31 +45,6 @@ import sys
 from transformers.utils.dummy_pt_objects import BertModel, MegatronBertModel
 sys.path.append('./')
 
-import pytorch_lightning as pl
-
-import argparse
-from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning import Trainer
-from torch.utils.data import Dataset, DataLoader
-from transformers.optimization import get_linear_schedule_with_warmup
-
-from transformers import BertTokenizer
-from transformers import (
-    BertModel,
-    BertConfig,
-    MegatronBertModel,
-    MegatronBertConfig
-)
-    
-from fengshen.models.longformer.modeling_longformer import LongformerModel
-from fengshen.models.longformer.configuration_longformer import LongformerConfig
-
-from fengshen.models.roformer.modeling_roformer import RoFormerModel
-from fengshen.models.roformer.configuration_roformer import RoFormerConfig
-
-from fengshen.models.megatron_t5.modeling_megatron_t5 import T5EncoderModel
-from fengshen.models.megatron_t5.configuration_megatron_t5 import T5Config
-
 
 os.environ["CUDA_VISIBLE_DEVICES"] = '6'
 
@@ -58,21 +52,21 @@ os.environ["CUDA_VISIBLE_DEVICES"] = '6'
 model_dict = {'huggingface-bert': BertModel,
               'fengshen-roformer': RoFormerModel,
               'huggingface-megatron_bert': MegatronBertModel,
-              'fengshen-megatron_t5':T5EncoderModel,
-              'fengshen-longformer':LongformerModel}
+              'fengshen-megatron_t5': T5EncoderModel,
+              'fengshen-longformer': LongformerModel}
 
 
 config_dict = {'huggingface-bert': BertConfig,
-                'fengshen-roformer': RoFormerConfig,
-                'huggingface-megatron_bert': MegatronBertConfig,
-                'fengshen-megatron_t5':T5Config,
-                'fengshen-longformer':LongformerConfig}
+               'fengshen-roformer': RoFormerConfig,
+               'huggingface-megatron_bert': MegatronBertConfig,
+               'fengshen-megatron_t5': T5Config,
+               'fengshen-longformer': LongformerConfig}
 
 
 class TaskDataset(Dataset):
     def __init__(self, data_path, args, label2id):
         super().__init__()
-        self.args=args
+        self.args = args
         self.tokenizer = BertTokenizer.from_pretrained(
             args.pretrained_model_path)
         self.label2id = label2id
@@ -107,14 +101,14 @@ class TaskDataset(Dataset):
         if item['texta'] != '' and item['textb'] != '':
             if self.args.model_type != 'fengshen-roformer':
                 encode_dict = self.tokenizer.encode_plus([item['texta'], item['textb']],
-                                                        max_length=self.max_length,
-                                                        padding='max_length',
-                                                        truncation='longest_first')
+                                                         max_length=self.max_length,
+                                                         padding='max_length',
+                                                         truncation='longest_first')
             else:
                 encode_dict = self.tokenizer.encode_plus([item['texta']+'[SEP]'+item['textb']],
-                                                        max_length=self.max_length,
-                                                        padding='max_length',
-                                                        truncation='longest_first')
+                                                         max_length=self.max_length,
+                                                         padding='max_length',
+                                                         truncation='longest_first')
         else:
             encode_dict = self.tokenizer.encode_plus(item['texta'],
                                                      max_length=self.max_length,
@@ -188,6 +182,7 @@ class TaskDataModel(pl.LightningDataModule):
             id2label[i] = k
         return label2id, id2label
 
+
 class taskModel(nn.Module):
     def __init__(self, args):
         super().__init__()
@@ -201,14 +196,16 @@ class taskModel(nn.Module):
         self.loss_func = torch.nn.CrossEntropyLoss()
 
     def forward(self, input_ids, attention_mask, token_type_ids, labels=None):
-        if self.args.model_type=='fengshen-megatron_t5':
-            bert_output = self.bert_encoder(input_ids=input_ids, attention_mask=attention_mask)  # (bsz, seq, dim)
-            encode = bert_output.last_hidden_state[:,0,:]
+        if self.args.model_type == 'fengshen-megatron_t5':
+            bert_output = self.bert_encoder(
+                input_ids=input_ids, attention_mask=attention_mask)  # (bsz, seq, dim)
+            encode = bert_output.last_hidden_state[:, 0, :]
         else:
-            bert_output = self.bert_encoder(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)  # (bsz, seq, dim)
+            bert_output = self.bert_encoder(
+                input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)  # (bsz, seq, dim)
             encode = bert_output[1]
         logits = self.cls_layer(encode)
-        if labels!=None:
+        if labels != None:
             loss = self.loss_func(logits, labels.view(-1,))
             return loss, logits
         else:
@@ -242,7 +239,7 @@ class LitModel(pl.LightningModule):
             print('Total training step:', self.total_step)
 
     def training_step(self, batch, batch_idx):
-        loss,logits = self.model(**batch)
+        loss, logits = self.model(**batch)
         acc = self.comput_metrix(logits, batch['labels'])
         self.log('train_loss', loss)
         self.log('train_acc', acc)
@@ -257,7 +254,7 @@ class LitModel(pl.LightningModule):
         return acc
 
     def validation_step(self, batch, batch_idx):
-        loss,logits = self.model(**batch)
+        loss, logits = self.model(**batch)
         acc = self.comput_metrix(logits, batch['labels'])
         self.log('val_loss', loss)
         self.log('val_acc', acc)
