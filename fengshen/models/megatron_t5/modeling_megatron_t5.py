@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" PyTorch MegatronT5 model. """
+""" PyTorch T5 model. """
 
 
 import copy
@@ -43,26 +43,26 @@ from transformers.modeling_outputs import (
 from transformers.modeling_utils import PreTrainedModel, find_pruneable_heads_and_indices, prune_linear_layer
 from transformers.utils import logging
 from transformers.utils.model_parallel_utils import assert_device_map, get_device_map
-from .configuration_megatron_t5 import MegatronT5Config
+from .configuration_megatron_t5 import T5Config
 import numpy as np
 
 logger = logging.get_logger(__name__)
 
-_CONFIG_FOR_DOC = "MegatronT5Config"
-_TOKENIZER_FOR_DOC = "MegatronT5Tokenizer"
-_CHECKPOINT_FOR_DOC = "MegatronT5-small"
+_CONFIG_FOR_DOC = "T5Config"
+_TOKENIZER_FOR_DOC = "T5Tokenizer"
+_CHECKPOINT_FOR_DOC = "T5-small"
 
 ####################################################
 # This dict contains ids and associated url
 # for the pretrained weights provided with the models
 ####################################################
-MegatronT5_PRETRAINED_MODEL_ARCHIVE_LIST = [
-    "MegatronT5-small",
-    "MegatronT5-base",
-    "MegatronT5-large",
-    "MegatronT5-3b",
-    "MegatronT5-11b",
-    # See all MegatronT5 models at https://huggingface.co/models?filter=MegatronT5
+T5_PRETRAINED_MODEL_ARCHIVE_LIST = [
+    "T5-small",
+    "T5-base",
+    "T5-large",
+    "T5-3b",
+    "T5-11b",
+    # See all T5 models at https://huggingface.co/models?filter=T5
 ]
 
 
@@ -71,7 +71,7 @@ MegatronT5_PRETRAINED_MODEL_ARCHIVE_LIST = [
 # More details: https://medium.com/huggingface/from-tensorflow-to-pytorch-265f40ef2a28
 ####################################################
 
-def load_tf_weights_in_MegatronT5(model, config, tf_checkpoint_path):
+def load_tf_weights_in_T5(model, config, tf_checkpoint_path):
     """Load tf checkpoints in a pytorch model."""
     try:
         import re
@@ -195,19 +195,19 @@ PARALLELIZE_DOCSTRING = r"""
         device_map (:obj:`Dict[int, list]`, optional, defaults to None):
             A dictionary that maps attention modules to devices. Note that the embedding module and LMHead are always
             automatically mapped to the first device (for esoteric reasons). That means that the first device should
-            have fewer attention modules mapped to it than other devices. For reference, the MegatronT5 models have the
+            have fewer attention modules mapped to it than other devices. For reference, the T5 models have the
             following number of attention modules:
 
-                - MegatronT5-small: 6
-                - MegatronT5-base: 12
-                - MegatronT5-large: 24
-                - MegatronT5-3b: 24
-                - MegatronT5-11b: 24
+                - T5-small: 6
+                - T5-base: 12
+                - T5-large: 24
+                - T5-3b: 24
+                - T5-11b: 24
 
     Example::
 
-            # Here is an example of a device map on a machine with 4 GPUs using MegatronT5-3b, which has a total of 24 attention modules:
-            model = MegatronT5ForConditionalGeneration.from_pretrained('MegatronT5-3b')
+            # Here is an example of a device map on a machine with 4 GPUs using T5-3b, which has a total of 24 attention modules:
+            model = T5ForConditionalGeneration.from_pretrained('T5-3b')
             device_map = {0: [0, 1, 2],
 
                          1: [3, 4, 5, 6, 7, 8, 9],
@@ -220,8 +220,8 @@ DEPARALLELIZE_DOCSTRING = r"""
 
     Example::
 
-        # On a 4 GPU machine with MegatronT5-3b:
-        model = MegatronT5ForConditionalGeneration.from_pretrained('MegatronT5-3b')
+        # On a 4 GPU machine with T5-3b:
+        model = T5ForConditionalGeneration.from_pretrained('T5-3b')
         device_map = {0: [0, 1, 2],
 
                      1: [3, 4, 5, 6, 7, 8, 9],
@@ -232,10 +232,10 @@ DEPARALLELIZE_DOCSTRING = r"""
 """
 
 
-class MegatronT5LayerNorm(nn.Module):
+class T5LayerNorm(nn.Module):
     def __init__(self, hidden_size, eps=1e-6):
         """
-        Construct a layernorm module in the MegatronT5 style No bias and no subtraction of mean.
+        Construct a layernorm module in the T5 style No bias and no subtraction of mean.
         """
         super().__init__()
         self.weight = nn.Parameter(torch.ones(hidden_size))
@@ -254,7 +254,7 @@ class MegatronT5LayerNorm(nn.Module):
         return self.weight * hidden_states
 
 
-class MegatronT5DenseReluDense(nn.Module):
+class T5DenseReluDense(nn.Module):
     def __init__(self, config):
         super().__init__()
         # @IDEA modified -> bias=False -> bias=True
@@ -270,7 +270,7 @@ class MegatronT5DenseReluDense(nn.Module):
         return hidden_states
 
 
-class MegatronT5DenseGeluDense(nn.Module):
+class T5DenseGeluDense(nn.Module):
     def __init__(self, config):
         super().__init__()
         # @IDEA modified -> bias=False -> bias=True
@@ -286,7 +286,7 @@ class MegatronT5DenseGeluDense(nn.Module):
         return hidden_states
 
 
-class MegatronT5DenseGatedGeluDense(nn.Module):
+class T5DenseGatedGeluDense(nn.Module):
     def __init__(self, config):
         super().__init__()
         # @IDEA modified -> bias=False -> bias=True
@@ -305,17 +305,17 @@ class MegatronT5DenseGatedGeluDense(nn.Module):
         return hidden_states
 
 
-class MegatronT5LayerFF(nn.Module):
+class T5LayerFF(nn.Module):
     def __init__(self, config):
         super().__init__()
-        # @IDEA modified -> MegatronT5LayerNorm -> nn.LayerNorm
-        # self.layer_norm = MegatronT5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
+        # @IDEA modified -> T5LayerNorm -> nn.LayerNorm
+        # self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.layer_norm = nn.LayerNorm(
             config.d_model, eps=config.layer_norm_epsilon)
         if config.feed_forward_proj == "relu":
-            self.DenseReluDense = MegatronT5DenseReluDense(config)
+            self.DenseReluDense = T5DenseReluDense(config)
         elif config.feed_forward_proj == "gelu":
-            self.DenseReluDense = MegatronT5DenseGeluDense(config)
+            self.DenseReluDense = T5DenseGeluDense(config)
         else:
             raise ValueError(
                 f"{self.config.feed_forward_proj} is not supported. Choose between `relu` and `gated-gelu`"
@@ -329,8 +329,8 @@ class MegatronT5LayerFF(nn.Module):
         return hidden_states
 
 
-class MegatronT5Attention(nn.Module):
-    def __init__(self, config: MegatronT5Config, has_relative_attention_bias=False):
+class T5Attention(nn.Module):
+    def __init__(self, config: T5Config, has_relative_attention_bias=False):
         super().__init__()
         self.is_decoder = config.is_decoder
         self.has_relative_attention_bias = has_relative_attention_bias
@@ -581,15 +581,15 @@ class MegatronT5Attention(nn.Module):
         return outputs
 
 
-class MegatronT5LayerSelfAttention(nn.Module):
+class T5LayerSelfAttention(nn.Module):
     def __init__(self, config, has_relative_attention_bias=False):
         super().__init__()
 
-        # @IDEA modified -> MegatronT5LayerNorm -> nn.LayerNorm
-        # self.layer_norm = MegatronT5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
+        # @IDEA modified -> T5LayerNorm -> nn.LayerNorm
+        # self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.layer_norm = nn.LayerNorm(
             config.d_model, eps=config.layer_norm_epsilon)
-        self.SelfAttention = MegatronT5Attention(
+        self.SelfAttention = T5Attention(
             config, has_relative_attention_bias=has_relative_attention_bias)
 
         self.dropout = nn.Dropout(config.dropout_rate)
@@ -621,15 +621,15 @@ class MegatronT5LayerSelfAttention(nn.Module):
         return outputs
 
 
-class MegatronT5LayerCrossAttention(nn.Module):
+class T5LayerCrossAttention(nn.Module):
     def __init__(self, config):
         super().__init__()
-        # @IDEA modified -> MegatronT5LayerNorm -> nn.LayerNorm
-        # self.layer_norm = MegatronT5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
+        # @IDEA modified -> T5LayerNorm -> nn.LayerNorm
+        # self.layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.layer_norm = nn.LayerNorm(
             config.d_model, eps=config.layer_norm_epsilon)
 
-        self.EncDecAttention = MegatronT5Attention(
+        self.EncDecAttention = T5Attention(
             config, has_relative_attention_bias=False)
 
         self.dropout = nn.Dropout(config.dropout_rate)
@@ -664,24 +664,24 @@ class MegatronT5LayerCrossAttention(nn.Module):
         return outputs
 
 
-class MegatronT5Block(nn.Module):
+class T5Block(nn.Module):
     def __init__(self, config, has_relative_attention_bias=False):
         super().__init__()
         self.is_decoder = config.is_decoder
         # @IDEA modified ->
         # self.layer = nn.ModuleList()
-        # self.layer.append(MegatronT5LayerSelfAttention(config, has_relative_attention_bias=has_relative_attention_bias))
+        # self.layer.append(T5LayerSelfAttention(config, has_relative_attention_bias=has_relative_attention_bias))
         # if self.is_decoder:
-        #     self.layer.append(MegatronT5LayerCrossAttention(config))
+        #     self.layer.append(T5LayerCrossAttention(config))
 
-        # self.layer.append(MegatronT5LayerFF(config))
+        # self.layer.append(T5LayerFF(config))
 
-        self.MegatronT5LayerSelfAttention = MegatronT5LayerSelfAttention(
+        self.T5LayerSelfAttention = T5LayerSelfAttention(
             config, has_relative_attention_bias=has_relative_attention_bias)
         if self.is_decoder:
-            self.MegatronT5LayerCrossAttention = MegatronT5LayerCrossAttention(
+            self.T5LayerCrossAttention = T5LayerCrossAttention(
                 config)
-        self.MegatronT5LayerFF = MegatronT5LayerFF(config)
+        self.T5LayerFF = T5LayerFF(config)
 
     def forward(
         self,
@@ -715,8 +715,8 @@ class MegatronT5Block(nn.Module):
         else:
             self_attn_past_key_value, cross_attn_past_key_value = None, None
 
-        # @IDEA modified -> self.layer[0] -> self.MegatronT5LayerSelfAttention
-        self_attention_outputs = self.MegatronT5LayerSelfAttention(
+        # @IDEA modified -> self.layer[0] -> self.T5LayerSelfAttention
+        self_attention_outputs = self.T5LayerSelfAttention(
             hidden_states,
             attention_mask=attention_mask,
             position_bias=position_bias,
@@ -743,8 +743,8 @@ class MegatronT5Block(nn.Module):
                 query_length = present_key_value_state[0].shape[2]
             else:
                 query_length = None
-            # @IDEA modified -> self.layer[1] -> self.MegatronT5LayerCrossAttention
-            cross_attention_outputs = self.MegatronT5LayerCrossAttention(
+            # @IDEA modified -> self.layer[1] -> self.T5LayerCrossAttention
+            cross_attention_outputs = self.T5LayerCrossAttention(
                 hidden_states,
                 key_value_states=encoder_hidden_states,
                 attention_mask=encoder_attention_mask,
@@ -772,8 +772,8 @@ class MegatronT5Block(nn.Module):
             attention_outputs = attention_outputs + cross_attention_outputs[2:]
 
         # Apply Feed Forward layer
-        # @IDEA modified -> self.layer[-1] -> self.MegatronT5LayerFF
-        hidden_states = self.MegatronT5LayerFF(hidden_states)
+        # @IDEA modified -> self.layer[-1] -> self.T5LayerFF
+        hidden_states = self.T5LayerFF(hidden_states)
 
         # clamp inf values to enable fp16 training
         if hidden_states.dtype == torch.float16 and torch.isinf(hidden_states).any():
@@ -792,14 +792,14 @@ class MegatronT5Block(nn.Module):
         return outputs
 
 
-class MegatronT5PreTrainedModel(PreTrainedModel):
+class T5PreTrainedModel(PreTrainedModel):
     """
     An abstract class to handle weights initialization and a simple interface for downloading and loading pretrained
     models.
     """
 
-    config_class = MegatronT5Config
-    load_tf_weights = load_tf_weights_in_MegatronT5
+    config_class = T5Config
+    load_tf_weights = load_tf_weights_in_T5
     base_model_prefix = "transformer"
     is_parallelizable = True
     supports_gradient_checkpointing = True
@@ -818,9 +818,9 @@ class MegatronT5PreTrainedModel(PreTrainedModel):
     def _init_weights(self, module):
         """Initialize the weights"""
         factor = self.config.initializer_factor  # Used for testing weights initialization
-        if isinstance(module, MegatronT5LayerNorm):
+        if isinstance(module, T5LayerNorm):
             module.weight.data.fill_(factor * 1.0)
-        elif isinstance(module, (MegatronT5Model, MegatronT5ForConditionalGeneration, MegatronT5EncoderModel)):
+        elif isinstance(module, (T5Model, T5ForConditionalGeneration, T5EncoderModel)):
             # Mesh TensorFlow embeddings initialization
             # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/layers.py#L1624
             # @IDEA modified -> module.shared.weight -> module.shared.word_embeddings.weight
@@ -829,7 +829,7 @@ class MegatronT5PreTrainedModel(PreTrainedModel):
                 mean=0.0, std=factor * 1.0)
             module.shared.position_embeddings.weight.data.normal_(
                 mean=0.0, std=factor * 1.0)
-        elif isinstance(module, MegatronT5DenseReluDense):
+        elif isinstance(module, T5DenseReluDense):
             # Mesh TensorFlow FF initialization
             # See https://github.com/tensorflow/mesh/blob/master/mesh_tensorflow/transformer/transformer_layers.py#L56
             # and https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/layers.py#L89
@@ -841,7 +841,7 @@ class MegatronT5PreTrainedModel(PreTrainedModel):
                 mean=0.0, std=factor * ((self.config.d_ff) ** -0.5))
             if hasattr(module.wo, "bias") and module.wo.bias is not None:
                 module.wo.bias.data.zero_()
-        elif isinstance(module, MegatronT5DenseGeluDense):
+        elif isinstance(module, T5DenseGeluDense):
             module.wi_0.weight.data.normal_(
                 mean=0.0, std=factor * ((self.config.d_model) ** -0.5))
             if hasattr(module.wi_0, "bias") and module.wi_0.bias is not None:
@@ -854,7 +854,7 @@ class MegatronT5PreTrainedModel(PreTrainedModel):
                 mean=0.0, std=factor * ((self.config.d_ff) ** -0.5))
             if hasattr(module.wo, "bias") and module.wo.bias is not None:
                 module.wo.bias.data.zero_()
-        elif isinstance(module, MegatronT5Attention):
+        elif isinstance(module, T5Attention):
             # Mesh TensorFlow attention initialization to avoid scaling before softmax
             # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/transformer/attention.py#L136
             d_model = self.config.d_model
@@ -874,7 +874,7 @@ class MegatronT5PreTrainedModel(PreTrainedModel):
                     mean=0.0, std=factor * ((d_model) ** -0.5))
 
     def _set_gradient_checkpointing(self, module, value=False):
-        if isinstance(module, (MegatronT5Attention, MegatronT5Stack)):
+        if isinstance(module, (T5Attention, T5Stack)):
             module.gradient_checkpointing = value
 
     def _shift_right(self, input_ids):
@@ -883,7 +883,7 @@ class MegatronT5PreTrainedModel(PreTrainedModel):
 
         assert (
             decoder_start_token_id is not None
-        ), "self.model.config.decoder_start_token_id has to be defined. In MegatronT5 it is usually set to the pad_token_id. See MegatronT5 docs for more information"
+        ), "self.model.config.decoder_start_token_id has to be defined. In T5 it is usually set to the pad_token_id. See T5 docs for more information"
 
         # shift inputs to the right
         if is_torch_fx_proxy(input_ids):
@@ -907,7 +907,7 @@ class MegatronT5PreTrainedModel(PreTrainedModel):
         return shifted_input_ids
 
 
-class MegatronT5Embeddings(nn.Module):
+class T5Embeddings(nn.Module):
     """Construct the embeddings from word, position and token_type embeddings."""
 
     def __init__(self, config):
@@ -958,7 +958,7 @@ class MegatronT5Embeddings(nn.Module):
         return embeddings
 
 
-class MegatronT5Stack(MegatronT5PreTrainedModel):
+class T5Stack(T5PreTrainedModel):
     def __init__(self, config, embed_tokens=None):
         super().__init__(config)
 
@@ -967,11 +967,11 @@ class MegatronT5Stack(MegatronT5PreTrainedModel):
 
         # @IDEA modified -> has_relative_attention_bias=bool(i == 0)) for i in range(config.num_layers) -> has_relative_attention_bias=False
         self.block = nn.ModuleList(
-            [MegatronT5Block(config, has_relative_attention_bias=False)
+            [T5Block(config, has_relative_attention_bias=False)
              for _ in range(config.num_layers)]
         )
-        # @IDEA modified -> MegatronT5LayerNorm -> nn.LayerNorm
-        # self.final_layer_norm = MegatronT5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
+        # @IDEA modified -> T5LayerNorm -> nn.LayerNorm
+        # self.final_layer_norm = T5LayerNorm(config.d_model, eps=config.layer_norm_epsilon)
         self.final_layer_norm = nn.LayerNorm(
             config.d_model, eps=config.layer_norm_epsilon)
 
@@ -1255,9 +1255,9 @@ class MegatronT5Stack(MegatronT5PreTrainedModel):
         )
 
 
-MegatronT5_START_DOCSTRING = r"""
+T5_START_DOCSTRING = r"""
 
-    The MegatronT5 model was proposed in `Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer
+    The T5 model was proposed in `Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer
     <https://arxiv.org/abs/1910.10683>`__ by Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan Narang,
     Michael Matena, Yanqi Zhou, Wei Li, Peter J. Liu. It's an encoder decoder transformer pre-trained in a text-to-text
     denoising generative setting.
@@ -1271,26 +1271,26 @@ MegatronT5_START_DOCSTRING = r"""
     general usage and behavior.
 
     Parameters:
-        config (:class:`~transformers.MegatronT5Config`): Model configuration class with all the parameters of the model.
+        config (:class:`~transformers.T5Config`): Model configuration class with all the parameters of the model.
             Initializing with a config file does not load the weights associated with the model, only the
             configuration. Check out the :meth:`~transformers.PreTrainedModel.from_pretrained` method to load the model
             weights.
 """
 
-MegatronT5_INPUTS_DOCSTRING = """
+T5_INPUTS_DOCSTRING = """
     Args:
         input_ids (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`):
-            Indices of input sequence tokens in the vocabulary. MegatronT5 is a model with relative position embeddings so you
+            Indices of input sequence tokens in the vocabulary. T5 is a model with relative position embeddings so you
             should be able to pad the inputs on both the right and the left.
 
-            Indices can be obtained using :class:`~transformers.MegatronT5Tokenizer`. See
+            Indices can be obtained using :class:`~transformers.T5Tokenizer`. See
             :meth:`transformers.PreTrainedTokenizer.encode` and :meth:`transformers.PreTrainedTokenizer.__call__` for
             detail.
 
             `What are input IDs? <../glossary.html#input-ids>`__
 
-            To know more on how to prepare :obj:`input_ids` for pretraining take a look a `MegatronT5 Training
-            <./MegatronT5.html#training>`__.
+            To know more on how to prepare :obj:`input_ids` for pretraining take a look a `T5 Training
+            <./T5.html#training>`__.
         attention_mask (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
             Mask to avoid performing attention on padding token indices. Mask values selected in ``[0, 1]``:
 
@@ -1301,18 +1301,18 @@ MegatronT5_INPUTS_DOCSTRING = """
         decoder_input_ids (:obj:`torch.LongTensor` of shape :obj:`(batch_size, target_sequence_length)`, `optional`):
             Indices of decoder input sequence tokens in the vocabulary.
 
-            Indices can be obtained using :class:`~transformers.MegatronT5Tokenizer`. See
+            Indices can be obtained using :class:`~transformers.T5Tokenizer`. See
             :meth:`transformers.PreTrainedTokenizer.encode` and :meth:`transformers.PreTrainedTokenizer.__call__` for
             details.
 
             `What are decoder input IDs? <../glossary.html#decoder-input-ids>`__
 
-            MegatronT5 uses the :obj:`pad_token_id` as the starting token for :obj:`decoder_input_ids` generation. If
+            T5 uses the :obj:`pad_token_id` as the starting token for :obj:`decoder_input_ids` generation. If
             :obj:`past_key_values` is used, optionally only the last :obj:`decoder_input_ids` have to be input (see
             :obj:`past_key_values`).
 
-            To know more on how to prepare :obj:`decoder_input_ids` for pretraining take a look at `MegatronT5 Training
-            <./MegatronT5.html#training>`__.
+            To know more on how to prepare :obj:`decoder_input_ids` for pretraining take a look at `T5 Training
+            <./T5.html#training>`__.
         decoder_attention_mask (:obj:`torch.BoolTensor` of shape :obj:`(batch_size, target_sequence_length)`, `optional`):
             Default behavior: generate a tensor that ignores pad tokens in :obj:`decoder_input_ids`. Causal mask will
             also be used by default.
@@ -1375,18 +1375,18 @@ MegatronT5_INPUTS_DOCSTRING = """
             Whether or not to return a :class:`~transformers.file_utils.ModelOutput` instead of a plain tuple.
 """
 
-MegatronT5_ENCODER_INPUTS_DOCSTRING = r"""
+T5_ENCODER_INPUTS_DOCSTRING = r"""
     Args:
         input_ids (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`):
-            Indices of input sequence tokens in the vocabulary. MegatronT5 is a model with relative position embeddings so you
+            Indices of input sequence tokens in the vocabulary. T5 is a model with relative position embeddings so you
             should be able to pad the inputs on both the right and the left.
 
-            Indices can be obtained using :class:`~transformers.MegatronT5Tokenizer`. See
+            Indices can be obtained using :class:`~transformers.T5Tokenizer`. See
             :meth:`transformers.PreTrainedTokenizer.encode` and :meth:`transformers.PreTrainedTokenizer.__call__` for
             detail.
 
-            To know more on how to prepare :obj:`input_ids` for pretraining take a look a `MegatronT5 Training
-            <./MegatronT5.html#training>`__.
+            To know more on how to prepare :obj:`input_ids` for pretraining take a look a `T5 Training
+            <./T5.html#training>`__.
         attention_mask (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`):
             Mask to avoid performing attention on padding token indices. Mask values selected in ``[0, 1]``:
 
@@ -1424,11 +1424,11 @@ num_heads)`.
 
 
 @add_start_docstrings(
-    "The bare MegatronT5 Model transformer outputting raw hidden-states without any specific head on top.",
-    MegatronT5_START_DOCSTRING,
+    "The bare T5 Model transformer outputting raw hidden-states without any specific head on top.",
+    T5_START_DOCSTRING,
 )
-class MegatronT5LMHead(nn.Module):
-    """Masked LM head for MegatronT5
+class T5LMHead(nn.Module):
+    """Masked LM head for T5
 
     Arguments:
         mpu_vocab_size: model parallel size of vocabulary.
@@ -1439,7 +1439,7 @@ class MegatronT5LMHead(nn.Module):
     """
 
     def __init__(self, config):
-        super(MegatronT5LMHead, self).__init__()
+        super(T5LMHead, self).__init__()
 
         self.bias = torch.nn.Parameter(torch.zeros(config.vocab_size))
 
@@ -1450,7 +1450,7 @@ class MegatronT5LMHead(nn.Module):
         return output
 
 
-class MegatronT5Model(MegatronT5PreTrainedModel):
+class T5Model(T5PreTrainedModel):
     _keys_to_ignore_on_load_missing = [
         r"encoder\.embed_tokens\.weight",
         r"decoder\.embed_tokens\.weight",
@@ -1459,23 +1459,23 @@ class MegatronT5Model(MegatronT5PreTrainedModel):
         r"decoder\.block\.0\.layer\.1\.EncDecAttention\.relative_attention_bias\.weight",
     ]
 
-    def __init__(self, config: MegatronT5Config):
+    def __init__(self, config: T5Config):
         super().__init__(config)
-        # @IDEA modified -> nn.Embedding -> MegatronT5Embeddings
+        # @IDEA modified -> nn.Embedding -> T5Embeddings
         # self.shared = nn.Embedding(config.vocab_size, config.d_model)
-        self.shared = MegatronT5Embeddings(config)
+        self.shared = T5Embeddings(config)
 
         encoder_config = copy.deepcopy(config)
         encoder_config.is_decoder = False
         encoder_config.use_cache = False
         encoder_config.is_encoder_decoder = False
-        self.encoder = MegatronT5Stack(encoder_config, self.shared)
+        self.encoder = T5Stack(encoder_config, self.shared)
 
         decoder_config = copy.deepcopy(config)
         decoder_config.is_decoder = True
         decoder_config.is_encoder_decoder = False
         decoder_config.num_layers = config.num_decoder_layers
-        self.decoder = MegatronT5Stack(decoder_config, self.shared)
+        self.decoder = T5Stack(decoder_config, self.shared)
 
         self.init_weights()
 
@@ -1528,7 +1528,7 @@ class MegatronT5Model(MegatronT5PreTrainedModel):
         for layer, heads in heads_to_prune.items():
             self.encoder.layer[layer].attention.prune_heads(heads)
 
-    @add_start_docstrings_to_model_forward(MegatronT5_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(T5_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=Seq2SeqModelOutput, config_class=_CONFIG_FOR_DOC)
     def forward(
         self,
@@ -1553,10 +1553,10 @@ class MegatronT5Model(MegatronT5PreTrainedModel):
 
         Example::
 
-            >>> from transformers import MegatronT5Tokenizer, MegatronT5Model
+            >>> from transformers import T5Tokenizer, T5Model
 
-            >>> tokenizer = MegatronT5Tokenizer.from_pretrained('MegatronT5-small')
-            >>> model = MegatronT5Model.from_pretrained('MegatronT5-small')
+            >>> tokenizer = T5Tokenizer.from_pretrained('T5-small')
+            >>> model = T5Model.from_pretrained('T5-small')
 
             >>> input_ids = tokenizer("Studies have been shown that owning a dog is good for you", return_tensors="pt").input_ids  # Batch size 1
             >>> decoder_input_ids = tokenizer("Studies show that", return_tensors="pt").input_ids  # Batch size 1
@@ -1641,8 +1641,8 @@ class MegatronT5Model(MegatronT5PreTrainedModel):
         )
 
 
-@add_start_docstrings("""MegatronT5 Model with a `language modeling` head on top. """, MegatronT5_START_DOCSTRING)
-class MegatronT5ForConditionalGeneration(MegatronT5PreTrainedModel):
+@add_start_docstrings("""T5 Model with a `language modeling` head on top. """, T5_START_DOCSTRING)
+class T5ForConditionalGeneration(T5PreTrainedModel):
     _keys_to_ignore_on_load_missing = [
         r"encoder\.embed_tokens\.weight",
         r"decoder\.embed_tokens\.weight",
@@ -1656,21 +1656,21 @@ class MegatronT5ForConditionalGeneration(MegatronT5PreTrainedModel):
         super().__init__(config)
         self.model_dim = config.d_model
 
-        # @IDEA modified -> nn.Embedding -> MegatronT5Embeddings
+        # @IDEA modified -> nn.Embedding -> T5Embeddings
         # self.shared = nn.Embedding(config.vocab_size, config.d_model)
-        self.shared = MegatronT5Embeddings(config)
+        self.shared = T5Embeddings(config)
 
         encoder_config = copy.deepcopy(config)
         encoder_config.is_decoder = False
         encoder_config.use_cache = False
         encoder_config.is_encoder_decoder = False
-        self.encoder = MegatronT5Stack(encoder_config, self.shared)
+        self.encoder = T5Stack(encoder_config, self.shared)
 
         decoder_config = copy.deepcopy(config)
         decoder_config.is_decoder = True
         decoder_config.is_encoder_decoder = False
         decoder_config.num_layers = config.num_decoder_layers
-        self.decoder = MegatronT5Stack(decoder_config, self.shared)
+        self.decoder = T5Stack(decoder_config, self.shared)
 
         # @IDEA modified -> add self.lm_head_bias
         self.lm_head_bias = torch.nn.Parameter(torch.zeros(config.vocab_size))
@@ -1749,7 +1749,7 @@ class MegatronT5ForConditionalGeneration(MegatronT5PreTrainedModel):
 
         return decode_input_id
 
-    @add_start_docstrings_to_model_forward(MegatronT5_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(T5_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=Seq2SeqLMOutput, config_class=_CONFIG_FOR_DOC)
     def forward(
         self,
@@ -1779,10 +1779,10 @@ class MegatronT5ForConditionalGeneration(MegatronT5PreTrainedModel):
         Returns:
         Examples::
 
-            >>> from transformers import MegatronT5Tokenizer, MegatronT5ForConditionalGeneration
+            >>> from transformers import T5Tokenizer, T5ForConditionalGeneration
 
-            >>> tokenizer = MegatronT5Tokenizer.from_pretrained('MegatronT5-small')
-            >>> model = MegatronT5ForConditionalGeneration.from_pretrained('MegatronT5-small')
+            >>> tokenizer = T5Tokenizer.from_pretrained('T5-small')
+            >>> model = T5ForConditionalGeneration.from_pretrained('T5-small')
 
             >>> # training
             >>> input_ids = tokenizer('The <extra_id_0> walks in <extra_id_1> park', return_tensors='pt').input_ids
@@ -1964,24 +1964,24 @@ class MegatronT5ForConditionalGeneration(MegatronT5PreTrainedModel):
 
 
 @add_start_docstrings(
-    "The bare MegatronT5 Model transformer outputting encoder's raw hidden-states without any specific head on top.",
-    MegatronT5_START_DOCSTRING,
+    "The bare T5 Model transformer outputting encoder's raw hidden-states without any specific head on top.",
+    T5_START_DOCSTRING,
 )
-class MegatronT5EncoderModel(MegatronT5PreTrainedModel):
+class T5EncoderModel(T5PreTrainedModel):
     authorized_missing_keys = [
         r"encoder\.embed_tokens\.weight",
     ]
 
-    def __init__(self, config: MegatronT5Config):
+    def __init__(self, config: T5Config):
         super().__init__(config)
-        # @IDEA modified -> nn.Embedding -> MegatronT5Embeddings
+        # @IDEA modified -> nn.Embedding -> T5Embeddings
         # self.shared = nn.Embedding(config.vocab_size, config.d_model)
-        self.shared = MegatronT5Embeddings(config)
+        self.shared = T5Embeddings(config)
 
         encoder_config = copy.deepcopy(config)
         encoder_config.use_cache = False
         encoder_config.is_encoder_decoder = False
-        self.encoder = MegatronT5Stack(encoder_config, self.shared)
+        self.encoder = T5Stack(encoder_config, self.shared)
 
         self.init_weights()
 
@@ -2027,7 +2027,7 @@ class MegatronT5EncoderModel(MegatronT5PreTrainedModel):
         for layer, heads in heads_to_prune.items():
             self.encoder.layer[layer].attention.prune_heads(heads)
 
-    @add_start_docstrings_to_model_forward(MegatronT5_ENCODER_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(T5_ENCODER_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=BaseModelOutput, config_class=_CONFIG_FOR_DOC)
     def forward(
         self,
@@ -2044,9 +2044,9 @@ class MegatronT5EncoderModel(MegatronT5PreTrainedModel):
 
         Example::
 
-            >>> from transformers import MegatronT5Tokenizer, MegatronT5EncoderModel
-            >>> tokenizer = MegatronT5Tokenizer.from_pretrained('MegatronT5-small')
-            >>> model = MegatronT5EncoderModel.from_pretrained('MegatronT5-small')
+            >>> from transformers import T5Tokenizer, T5EncoderModel
+            >>> tokenizer = T5Tokenizer.from_pretrained('T5-small')
+            >>> model = T5EncoderModel.from_pretrained('T5-small')
             >>> input_ids = tokenizer("Studies have been shown that owning a dog is good for you", return_tensors="pt").input_ids  # Batch size 1
             >>> outputs = model(input_ids=input_ids)
             >>> last_hidden_states = outputs.last_hidden_state
