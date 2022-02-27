@@ -38,7 +38,16 @@ IDEA研究院正式宣布，我们开启 “封神榜”大模型开源计划。
 ![avatar](pic2.png)
 
 为了更好的体验，拥抱开源社区，封神榜的所有模型都转化并同步到了Huggingface社区，你可以通过几行代码就能轻松使用封神榜的所有模型，欢迎来[IDEA-CCNL的huggingface社区](https://huggingface.co/IDEA-CCNL)下载。
-  
+
+
+# 安装Fengshen
+
+``` sh
+git clone https://github.com/IDEA-CCNL/Fengshenbang-LM.git
+cd Fengshenbang-LM
+python setup.py install
+```
+
 ## 二郎神系列
 
 Encoder结构为主的双向语言模型，专注于解决各种自然语言理解任务。
@@ -93,11 +102,11 @@ IDEA研究院认知计算中心联合追一科技有限公司的新结构大模�
 [Huggingface 周文王-1.3B](https://huggingface.co/IDEA-CCNL/Zhouwenwang-1.3B)<br>
 [Huggingface 周文王-110M](https://huggingface.co/IDEA-CCNL/Zhouwenwang-110M)
 ### 模型加载
-由于我们现在的周文王结构是在追一科技之前的roformer结构进行的修改，而HuggingFace还没有周文王的模型结构。因此需要从本仓库导入[model](model)文件夹到你自己的工程根目录下。导入之后，即可按照下面的脚本从huggingface下载并加载对应的模型：
+由于我们现在的周文王结构是在追一科技之前的roformer结构进行的修改，而HuggingFace还没有周文王的模型结构。因此需要从本仓库的fengshen框架导入。导入之后，即可按照下面的脚本从huggingface下载并加载对应的模型：
 
 ``` python
-from fengshen.models.roformer.configuration_roformer import RoFormerConfig
-from fengshen.models.roformer.modeling_roformer import RoFormerModel
+from fengshen import RoFormerConfig
+from fengshen import RoFormerModel
 from transformers import BertTokenizer 
 
 tokenizer = BertTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
@@ -131,7 +140,7 @@ sh finetune_classification.sh
 使用周文王-1.3B模型进行自然语言生成任务时，需要将token_type全部设置为1。周文王的生成例子如下：
 
 ```python
-from fengshen.models.roformer.modeling_roformer import RoFormerModel
+from fengshen import RoFormerModel
 from transformers import BertTokenizer 
 import torch
 import numpy as np
@@ -195,12 +204,12 @@ Transformer结构为主的编解码语言模型，7.7亿参数的燃灯-770M大�
 [Huggingface 燃灯-770M](https://huggingface.co/IDEA-CCNL/Randeng-770M/)
 
 ### 模型加载
-由于T5结构的燃灯-770M模型是基于Megatron进行训练的，而Megatron的T5模型结构与HuggingFace的T5模型结构有略微的区别，不能直接使用HuggingFace的T5模型进行导入。因此需要从本仓库导入[model](model)文件夹到你自己的工程根目录下。导入之后，即可按照下面的脚本从huggingface下载并加载对应的模型：
+由于T5结构的燃灯-770M模型是基于Megatron进行训练的，而Megatron的T5模型结构与HuggingFace的T5模型结构有略微的区别，不能直接使用HuggingFace的T5模型进行导入。因此需要从本仓库fengshen框架导入。导入之后，即可按照下面的脚本从huggingface下载并加载对应的模型：
 
 ``` python
-from fengshen.models.megatron_t5.configuration_megatron_t5 import T5Config
-from fengshen.models.megatron_t5.modeling_megatron_t5 import T5EncoderModel
-from fengshen.models.megatron_t5.tokenization_megatron_t5 import T5Tokenizer
+from fengshen import T5Config
+from fengshen import T5EncoderModel
+from fengshen import T5Tokenizer
 
 tokenizer = T5Tokenizer.from_pretrained('IDEA-CCNL/Randeng-770M')
 config = T5Config.from_pretrained('IDEA-CCNL/Randeng-770M')
@@ -221,8 +230,8 @@ sh finetune_classification.sh
 #### 生成任务使用示例
 
 ```python
-from fengshen.models.megatron_t5.modeling_megatron_t5 import T5ForConditionalGeneration
-from fengshen.models.megatron_t5.tokenization_megatron_t5 import T5Tokenizer
+from fengshen import T5ForConditionalGeneration
+from fengshen import T5Tokenizer
 
 tokenizer = T5Tokenizer.from_pretrained('IDEA-CCNL/Randeng-770M')
 model = T5ForConditionalGeneration.from_pretrained('IDEA-CCNL/Randeng-770M')
