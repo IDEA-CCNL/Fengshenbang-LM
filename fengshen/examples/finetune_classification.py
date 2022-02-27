@@ -22,26 +22,58 @@ from typing import Optional
 import os
 import numpy as np
 import sys
-from transformers import (
-    AutoTokenizer,
-    AutoModelForSequenceClassification
-)
+
+from transformers.utils.dummy_pt_objects import BertModel, MegatronBertModel
+sys.path.append('./')
+
 import pytorch_lightning as pl
 
+import argparse
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning import Trainer
 from torch.utils.data import Dataset, DataLoader
 from transformers.optimization import get_linear_schedule_with_warmup
-# from fengshen import AutoModelForSequenceClassification
-# from fengshen import AutoTokenizer
-import argparse
-os.environ["CUDA_VISIBLE_DEVICES"] = '7'
+
+from transformers import BertTokenizer
+from transformers import (
+    BertModel,
+    BertConfig,
+    MegatronBertModel,
+    MegatronBertConfig
+)
+    
+from fengshen.models.longformer.modeling_longformer import LongformerModel
+from fengshen.models.longformer.configuration_longformer import LongformerConfig
+
+from fengshen.models.roformer.modeling_roformer import RoFormerModel
+from fengshen.models.roformer.configuration_roformer import RoFormerConfig
+
+from fengshen.models.megatron_t5.modeling_megatron_t5 import T5EncoderModel
+from fengshen.models.megatron_t5.configuration_megatron_t5 import T5Config
+
+
+os.environ["CUDA_VISIBLE_DEVICES"] = '6'
+
+
+model_dict = {'huggingface-bert': BertModel,
+              'fengshen-roformer': RoFormerModel,
+              'huggingface-megatron_bert': MegatronBertModel,
+              'fengshen-megatron_t5':T5EncoderModel,
+              'fengshen-longformer':LongformerModel}
+
+
+config_dict = {'huggingface-bert': BertConfig,
+                'fengshen-roformer': RoFormerConfig,
+                'huggingface-megatron_bert': MegatronBertConfig,
+                'fengshen-megatron_t5':T5Config,
+                'fengshen-longformer':LongformerConfig}
 
 
 class TaskDataset(Dataset):
     def __init__(self, data_path, args, label2id):
         super().__init__()
-        self.tokenizer = AutoTokenizer.from_pretrained(
+        self.args=args
+        self.tokenizer = BertTokenizer.from_pretrained(
             args.pretrained_model_path)
         self.label2id = label2id
         self.max_length = args.max_length
@@ -73,10 +105,16 @@ class TaskDataset(Dataset):
 
     def encode(self, item):
         if item['texta'] != '' and item['textb'] != '':
-            encode_dict = self.tokenizer.encode_plus([item['texta'], item['textb']],
-                                                     max_length=self.max_length,
-                                                     padding='max_length',
-                                                     truncation='longest_first')
+            if self.args.model_type != 'fengshen-roformer':
+                encode_dict = self.tokenizer.encode_plus([item['texta'], item['textb']],
+                                                        max_length=self.max_length,
+                                                        padding='max_length',
+                                                        truncation='longest_first')
+            else:
+                encode_dict = self.tokenizer.encode_plus([item['texta']+'[SEP]'+item['textb']],
+                                                        max_length=self.max_length,
+                                                        padding='max_length',
+                                                        truncation='longest_first')
         else:
             encode_dict = self.tokenizer.encode_plus(item['texta'],
                                                      max_length=self.max_length,
@@ -150,8 +188,34 @@ class TaskDataModel(pl.LightningDataModule):
             id2label[i] = k
         return label2id, id2label
 
+class taskModel(nn.Module):
+    def __init__(self, args):
+        super().__init__()
+        self.args = args
+        self.config = config_dict[args.model_type].from_pretrained(
+            args.pretrained_model_path)
+        self.bert_encoder = model_dict[args.model_type].from_pretrained(
+            args.pretrained_model_path)
+        self.cls_layer = torch.nn.Linear(
+            in_features=self.config.hidden_size, out_features=self.args.num_labels)
+        self.loss_func = torch.nn.CrossEntropyLoss()
 
-class LitAutoEncoder(pl.LightningModule):
+    def forward(self, input_ids, attention_mask, token_type_ids, labels=None):
+        if self.args.model_type=='fengshen-megatron_t5':
+            bert_output = self.bert_encoder(input_ids=input_ids, attention_mask=attention_mask)  # (bsz, seq, dim)
+            encode = bert_output.last_hidden_state[:,0,:]
+        else:
+            bert_output = self.bert_encoder(input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)  # (bsz, seq, dim)
+            encode = bert_output[1]
+        logits = self.cls_layer(encode)
+        if labels!=None:
+            loss = self.loss_func(logits, labels.view(-1,))
+            return loss, logits
+        else:
+            return 0, logits
+
+
+class LitModel(pl.LightningModule):
 
     @staticmethod
     def add_model_specific_args(parent_args):
@@ -168,8 +232,7 @@ class LitAutoEncoder(pl.LightningModule):
         super().__init__()
         self.args = args
         self.num_data = num_data
-        self.model = AutoModelForSequenceClassification.from_pretrained(
-            self.args.pretrained_model_path, num_labels=self.args.num_labels)
+        self.model = taskModel(args)
 
     def setup(self, stage) -> None:
         if stage == 'fit':
@@ -179,11 +242,11 @@ class LitAutoEncoder(pl.LightningModule):
             print('Total training step:', self.total_step)
 
     def training_step(self, batch, batch_idx):
-        output = self.model(**batch)
-        acc = self.comput_metrix(output.logits, batch['labels'])
-        self.log('train_loss', output.loss)
+        loss,logits = self.model(**batch)
+        acc = self.comput_metrix(logits, batch['labels'])
+        self.log('train_loss', loss)
         self.log('train_acc', acc)
-        return output.loss
+        return loss
 
     def comput_metrix(self, logits, labels):
         y_pred = torch.argmax(logits, dim=-1)
@@ -194,9 +257,9 @@ class LitAutoEncoder(pl.LightningModule):
         return acc
 
     def validation_step(self, batch, batch_idx):
-        output = self.model(**batch)
-        acc = self.comput_metrix(output.logits, batch['labels'])
-        self.log('val_loss', output.loss)
+        loss,logits = self.model(**batch)
+        acc = self.comput_metrix(logits, batch['labels'])
+        self.log('val_loss', loss)
         self.log('val_acc', acc)
 
     def predict_step(self, batch, batch_idx):
@@ -279,6 +342,8 @@ def main():
     total_parser.add_argument('--pretrained_model_path', default='', type=str)
     total_parser.add_argument('--output_save_path',
                               default='./predict.json', type=str)
+    total_parser.add_argument('--model_type',
+                              default='huggingface-bert', type=str)
 
     # * Args for data preprocessing
     total_parser = TaskDataModel.add_data_specific_args(total_parser)
@@ -287,7 +352,7 @@ def main():
     total_parser = TaskModelCheckpoint.add_argparse_args(total_parser)
 
     # * Args for base model
-    total_parser = LitAutoEncoder.add_model_specific_args(total_parser)
+    total_parser = LitModel.add_model_specific_args(total_parser)
 
     args = total_parser.parse_args()
 
@@ -297,7 +362,7 @@ def main():
                                             )
 
     data_model = TaskDataModel(args)
-    model = LitAutoEncoder(args, len(data_model.train_dataloader()))
+    model = LitModel(args, len(data_model.train_dataloader()))
 
     trainer.fit(model, data_model)
     result = trainer.predict(model, data_model)

@@ -7,25 +7,25 @@
 #SBATCH --gres=gpu:1 # number of gpus per node
 #SBATCH --mail-type=ALL # send email when job begins, ends or failed etc. 
 
-BERT_NAME=macbert_base
+
+
+MODEL_TYPE=fengshen-roformer
+PRETRAINED_MODEL_PATH=IDEA-CCNL/Zhouwenwang-110M
+
 ROOT_PATH=cognitive_comp
 TASK=tnews
 
 DATA_DIR=/$ROOT_PATH/yangping/data/ChineseCLUE_DATA/${TASK}_public/
-
-PRETRAINED_MODEL_PATH=/$ROOT_PATH/yangping/pretrained_model/$BERT_NAME/
-
-CHECKPOINT_PATH=/$ROOT_PATH/yangping/checkpoints/modelevaluation/csl/
+CHECKPOINT_PATH=/$ROOT_PATH/yangping/checkpoints/modelevaluation/tnews/
 OUTPUT_PATH=/$ROOT_PATH/yangping/nlp/modelevaluation/output/predict.json
-
 
 DATA_ARGS="\
         --data_dir $DATA_DIR \
         --train_data train.json \
         --valid_data dev.json \
         --test_data test.json \
-        --train_batchsize 16 \
-        --valid_batchsize 64 \
+        --train_batchsize 32 \
+        --valid_batchsize 128 \
         --max_length 128 \
         --texta_name sentence \
         --label_name label \
@@ -48,6 +48,7 @@ MODEL_CHECKPOINT_ARGS="\
         --dirpath $CHECKPOINT_PATH \
         --filename model-{epoch:02d}-{val_acc:.4f} \
         "
+
 TRAINER_ARGS="\
         --max_epochs 7 \
         --gpus 1 \
@@ -60,6 +61,7 @@ TRAINER_ARGS="\
 options=" \
         --pretrained_model_path $PRETRAINED_MODEL_PATH \
         --output_save_path $OUTPUT_PATH \
+        --model_type $MODEL_TYPE \
         $DATA_ARGS \
         $MODEL_ARGS \
         $MODEL_CHECKPOINT_ARGS \
