@@ -13,18 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from fengshen.models.megatron_t5.configuration_megatron_t5 import T5Config
-from fengshen.models.megatron_t5.modeling_megatron_t5 import T5EncoderModel
-from fengshen.models.roformer.configuration_roformer import RoFormerConfig
-from fengshen.models.roformer.modeling_roformer import RoFormerModel
-from fengshen.models.longformer.configuration_longformer import LongformerConfig
-from fengshen.models.longformer.modeling_longformer import LongformerModel
+from fengshen import T5Config
+from fengshen import T5EncoderModel
+from fengshen import RoFormerConfig
+from fengshen import RoFormerModel
+from fengshen import LongformerConfig
+from fengshen import LongformerModel
+
 from transformers import (
     BertModel,
     BertConfig,
     MegatronBertModel,
     MegatronBertConfig
 )
+
 from transformers import BertTokenizer
 from transformers.optimization import get_linear_schedule_with_warmup
 from torch.utils.data import Dataset, DataLoader
