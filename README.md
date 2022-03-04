@@ -38,7 +38,9 @@ IDEA研究院正式宣布，我们开启 “封神榜”大模型开源计划。
 ![avatar](pic2.png)
 
 为了更好的体验，拥抱开源社区，封神榜的所有模型都转化并同步到了Huggingface社区，你可以通过几行代码就能轻松使用封神榜的所有模型，欢迎来[IDEA-CCNL的huggingface社区](https://huggingface.co/IDEA-CCNL)下载。
-  
+
+
+
 ## 二郎神系列
 
 Encoder结构为主的双向语言模型，专注于解决各种自然语言理解任务。
@@ -65,42 +67,17 @@ model = MegatronBertModel.from_pretrained("IDEA-CCNL/Erlangshen-1.3B")
 
 ```
 ### 使用示例
-为了便于开发者快速使用我们的开源模型，这里提供了一个下游任务的finetune示例脚本，使用的[CLUE](https://github.com/CLUEbenchmark/CLUE)上的afqmc语义匹配任务数据，运行脚本如下。其中DATA_PATH为数据路径，afqmc任务数据的[下载地址](https://github.com/CLUEbenchmark/CLUE)，PRETRAINED_MODEL_PATH为预训练模型的路径。你可以从HuggingFace把模型下载到本地路径，然后令PRETRAINED_MODEL_PATH等于你的模型存储路径。若你不想下载模型，可以令`PRETRAINED_MODEL_PATH="IDEA-CCNL/Erlangshen-1.3B"`，提供的脚本会自动下载模型到本地。
+为了便于开发者快速使用我们的开源模型，这里提供了一个下游任务的[finetune示例脚本](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh)，使用的[CLUE](https://github.com/CLUEbenchmark/CLUE)上的tnews新闻分类任务数据，运行脚本如下。其中DATA_PATH为数据路径，tnews任务数据的[下载地址](https://github.com/CLUEbenchmark/CLUE).
+#### 使用步骤如下：
+1、首先修改finetune示例脚本[fengshen/scripts/finetune_classification.sh](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh)中的model_type和pretrained_model_path参数。其他如batch_size、data_dir等参数可根据自己的设备修改。
 ``` sh
-python example/finetune.py " \
-        --train_data_path $TRAIN_DATA_PATH \
-        --dev_data_path $DEV_DATA_PATH \
-        --test_data_path $TSET_DATA_PATH \
-        --pretrained_model_path $PRETRAINED_MODEL_PATH \
-        --checkpoints ./model.pth \
-        --output_path ./afqmc_predict.json \
-        --log_file_path ./finetune.log \
-        --batch_size 32 \
-        --learning_rate 0.00002 \
-        --max_length 64 \
-        --epoch 7 \
-        --model_type megatron \
-            "
+MODEL_TYPE=huggingface-megatron_bert
+PRETRAINED_MODEL_PATH=IDEA-CCNL/Erlangshen-1.3B
 ```
-为了便于开发者在开源模型的基础上继续做任务相关的预训练，这里提供了一个继续预训练的pretraining脚本，运行脚本如下：
+2、然后运行：
 ``` sh
-python example/pretraining.py " \
-        --train_data_path $TRAIN_DATA_PATH \
-        --dev_data_path $DEV_DATA_PATH \
-        --test_data_path $TSET_DATA_PATH \
-        --pretrained_model_path $PRETRAINED_MODEL_PATH \
-        --checkpoints ./model.pth \
-        --output_path ./afqmc_predict.json \
-        --log_file_path ./pretraining.log \
-        --batch_size 128 \
-        --learning_rate 0.00002 \
-        --max_length 64 \
-        --epoch 135 \
-        --model_type megatron \
-            "
+sh finetune_classification.sh
 ```
-
-
 
 ### 下游效果
 |     模型   | afqmc    |  tnews  | iflytek    |  ocnli  |  cmnli  | wsc  | csl  |
@@ -118,11 +95,11 @@ IDEA研究院认知计算中心联合追一科技有限公司的新结构大模�
 [Huggingface 周文王-1.3B](https://huggingface.co/IDEA-CCNL/Zhouwenwang-1.3B)<br>
 [Huggingface 周文王-110M](https://huggingface.co/IDEA-CCNL/Zhouwenwang-110M)
 ### 模型加载
-由于我们现在的周文王结构是在追一科技之前的roformer结构进行的修改，而HuggingFace还没有周文王的模型结构。因此需要从本仓库导入[model](model)文件夹到你自己的工程根目录下。导入之后，即可按照下面的脚本从huggingface下载并加载对应的模型：
+由于我们现在的周文王结构是在追一科技之前的roformer结构进行的修改，而HuggingFace还没有周文王的模型结构。因此需要从本仓库的fengshen框架导入，需要将fengshen放在你的工程文件夹。按照下面的脚本从huggingface下载并加载对应的模型：
 
 ``` python
-from model.roformer.modeling_roformer import RoFormerModel            #从本仓库提供的roformer文件中导入roformer模型
-from model.roformer.configuration_roformer import RoFormerConfig
+from fengshen import RoFormerConfig
+from fengshen import RoFormerModel
 from transformers import BertTokenizer 
 
 tokenizer = BertTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
@@ -132,22 +109,14 @@ model = RoFormerModel.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
 
 
 ### 使用示例
-
+1、首先修改finetune示例脚本[fengshen/scripts/finetune_classification.sh](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh)中的model_type和pretrained_model_path参数。其他如batch_size、data_dir等参数可根据自己的设备修改。
 ``` sh
-python example/finetune.py " \
-        --train_data_path $TRAIN_DATA_PATH \
-        --dev_data_path $DEV_DATA_PATH \
-        --test_data_path $TSET_DATA_PATH \
-        --pretrained_model_path $PRETRAINED_MODEL_PATH \
-        --checkpoints ./model.pth \
-        --output_path ./afqmc_predict.json \
-        --log_file_path ./finetune.log \
-        --batch_size 32 \
-        --learning_rate 0.00002 \
-        --max_length 64 \
-        --epoch 7 \
-        --model_type roformer \
-            "
+MODEL_TYPE=fengshen-roformer
+PRETRAINED_MODEL_PATH=IDEA-CCNL/Zhouwenwang-110M
+```
+2、然后运行：
+``` sh
+sh finetune_classification.sh
 ```
 
 ### 下游效果
@@ -164,7 +133,7 @@ python example/finetune.py " \
 使用周文王-1.3B模型进行自然语言生成任务时，需要将token_type全部设置为1。周文王的生成例子如下：
 
 ```python
-from model.roformer.modeling_roformer import RoFormerModel
+from fengshen import RoFormerModel
 from transformers import BertTokenizer 
 import torch
 import numpy as np
@@ -228,42 +197,34 @@ Transformer结构为主的编解码语言模型，7.7亿参数的燃灯-770M大�
 [Huggingface 燃灯-770M](https://huggingface.co/IDEA-CCNL/Randeng-770M/)
 
 ### 模型加载
-由于T5结构的燃灯-770M模型是基于Megatron进行训练的，而Megatron的T5模型结构与HuggingFace的T5模型结构有略微的区别，不能直接使用HuggingFace的T5模型进行导入。因此需要从本仓库导入[model](model)文件夹到你自己的工程根目录下。导入之后，即可按照下面的脚本从huggingface下载并加载对应的模型：
+由于T5结构的燃灯-770M模型是基于Megatron进行训练的，而Megatron的T5模型结构与HuggingFace的T5模型结构有略微的区别，不能直接使用HuggingFace的T5模型进行导入。因此需要从本仓库的fengshen框架导入，需要将fengshen放在你的工程文件夹。导入之后，即可按照下面的脚本从huggingface下载并加载对应的模型：
 
 ``` python
-from model.megatron_t5.modeling_megatron_t5 import T5ForConditionalGeneration
-from model.megatron_t5.configuration_magetron_t5 import T5Config
-from model.megatron_t5.tokenization_megatron_t5 import T5Tokenizer
+from fengshen import T5Config
+from fengshen import T5EncoderModel
+from fengshen import T5Tokenizer
 
 tokenizer = T5Tokenizer.from_pretrained('IDEA-CCNL/Randeng-770M')
 config = T5Config.from_pretrained('IDEA-CCNL/Randeng-770M')
-model = T5ForConditionalGeneration.from_pretrained('IDEA-CCNL/Randeng-770M')
+model = T5EncoderModel.from_pretrained('IDEA-CCNL/Randeng-770M')
 ```
 
 ### 使用示例
-
-#### 下游任务使用示例
+1、首先修改finetune示例脚本[fengshen/scripts/finetune_classification.sh](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh)中的model_type和pretrained_model_path参数。其他如batch_size、data_dir等参数可根据自己的设备修改。
 ``` sh
-python example/finetune.py " \
-        --train_data_path $TRAIN_DATA_PATH \
-        --dev_data_path $DEV_DATA_PATH \
-        --test_data_path $TSET_DATA_PATH \
-        --pretrained_model_path $PRETRAINED_MODEL_PATH \
-        --checkpoints ./model.pth \
-        --output_path ./afqmc_predict.json \
-        --log_file_path ./finetune.log \
-        --batch_size 32 \
-        --learning_rate 0.00002 \
-        --max_length 64 \
-        --epoch 7 \
-        --model_type megatron_t5 \
-            "
+MODEL_TYPE=fengshen-megatron_t5
+PRETRAINED_MODEL_PATH=IDEA-CCNL/Randeng-770M
 ```
+2、然后运行：
+``` sh
+sh finetune_classification.sh
+```
+
 #### 生成任务使用示例
 
 ```python
-from model.megatron_t5.modeling_megatron_t5 import T5ForConditionalGeneration
-from model.megatron_t5.tokenization_megatron_t5 import T5Tokenizer
+from fengshen import T5ForConditionalGeneration
+from fengshen import T5Tokenizer
 
 tokenizer = T5Tokenizer.from_pretrained('IDEA-CCNL/Randeng-770M')
 model = T5ForConditionalGeneration.from_pretrained('IDEA-CCNL/Randeng-770M')

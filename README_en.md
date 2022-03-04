@@ -66,42 +66,20 @@ model = MegatronBertModel.from_pretrained("IDEA-CCNL/Erlangshen-1.3B")
 
 ```
 ### Example Usage
-For the convenience of developers, we offer an example script for downstream finetuning. The script uses the afqmc dataset from [CLUE](https://github.com/CLUEbenchmark/CLUE). DATA_PATH is the path of [afqmc](https://github.com/CLUEbenchmark/CLUE) dataset, and PRETRAINED_MODEL_PATH is the path of the pretrained model. You can download the model from Huggingface to your local directory, and then assign your model saving directory to PRETRAINED_MODEL_PATH. If you don't want to manually download the models, then let PRETRAINED_MODEL_PATH="IDEA-CCNL/Erlangshen-1.3B" and the script will automatically download the models.
+For the convenience of developers, we offer an example [script](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh) for downstream finetuning. The script uses the tnews dataset from [CLUE](https://github.com/CLUEbenchmark/CLUE). 
 
+#### Steps for usage
+
+1、fisrt,modify the MODEL_TYPE and PRETRAINING_MODEL_PATH parameters of [finetune script](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh), and other parameters can be modified according to your specific equipment.
 
 ``` sh
-python example/finetune.py " \
-        --train_data_path $TRAIN_DATA_PATH \
-        --dev_data_path $DEV_DATA_PATH \
-        --test_data_path $TSET_DATA_PATH \
-        --pretrained_model_path $PRETRAINED_MODEL_PATH \
-        --checkpoints ./model.pth \
-        --output_path ./afqmc_predict.json \
-        --log_file_path ./finetune.log \
-        --batch_size 32 \
-        --learning_rate 0.00002 \
-        --max_length 64 \
-        --epoch 7 \
-        --model_type megatron \
-            "
+MODEL_TYPE=huggingface-megatron_bert
+PRETRAINED_MODEL_PATH=IDEA-CCNL/Erlangshen-1.3B
 ```
-In order for the developers to do task-adaptive pretraining on the basis of the open-source models, we offer an example script for further pretraining. The script is as follows:
+2、run
 
 ``` sh
-python example/pretraining.py " \
-        --train_data_path $TRAIN_DATA_PATH \
-        --dev_data_path $DEV_DATA_PATH \
-        --test_data_path $TSET_DATA_PATH \
-        --pretrained_model_path $PRETRAINED_MODEL_PATH \
-        --checkpoints ./model.pth \
-        --output_path ./afqmc_predict.json \
-        --log_file_path ./pretraining.log \
-        --batch_size 128 \
-        --learning_rate 0.00002 \
-        --max_length 64 \
-        --epoch 135 \
-        --model_type megatron \
-            "
+sh finetune_classification.sh
 ```
 
 
@@ -121,11 +99,11 @@ This series, with models of newly-designed architectures, is developed collabora
 [Huggingface Zhouwenwang-1.3B](https://huggingface.co/IDEA-CCNL/Zhouwenwang-1.3B)<br>
 [Huggingface Zhouwenwang-110M](https://huggingface.co/IDEA-CCNL/Zhouwenwang-110M)
 ### Load the Models
-Currently our Zhouwenwang series of models are modified based on the Roformer structure from Zhuiyi Technology, and we have not added Zhouwenwang series to Huggingface yet. Therefore for now you need to load the model files from this repo to your own working directory, then you can follow the script below to download corresponding models from Huggingface and import them.
+Currently our Zhouwenwang series of models are modified based on the Roformer structure from Zhuiyi Technology, and we have not added Zhouwenwang series to Huggingface yet. Therefore for now you need to load the fengshen files from this repo to your own working directory, then you can follow the script below to download corresponding models from Huggingface and import them.
 
 ``` python
-from model.roformer.modeling_roformer import RoFormerModel            #Import Roformer Model from the Roformer Files in this Repo
-from model.roformer.configuration_roformer import RoFormerConfig
+from fengshen import RoFormerModel            #Import Roformer Model from the Roformer Files in this Repo
+from fengshen import RoFormerConfig
 from transformers import AutoTokenizer
 
 tokenizer = AutoTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
@@ -136,22 +114,18 @@ model = RoFormerModel.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
 
 ### Example Usage
 
+1、fisrt,modify the MODEL_TYPE and PRETRAINING_MODEL_PATH parameters of [finetune script](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh), and other parameters can be modified according to your specific equipment.
+
 ``` sh
-python example/finetune.py " \
-        --train_data_path $TRAIN_DATA_PATH \
-        --dev_data_path $DEV_DATA_PATH \
-        --test_data_path $TSET_DATA_PATH \
-        --pretrained_model_path $PRETRAINED_MODEL_PATH \
-        --checkpoints ./model.pth \
-        --output_path ./afqmc_predict.json \
-        --log_file_path ./finetune.log \
-        --batch_size 32 \
-        --learning_rate 0.00002 \
-        --max_length 64 \
-        --epoch 7 \
-        --model_type roformer \
-            "
+MODEL_TYPE=fengshen-roformer
+PRETRAINED_MODEL_PATH=IDEA-CCNL/Zhouwenwang-110M
 ```
+2、run
+
+``` sh
+sh finetune_classification.sh
+```
+
 
 ### Downstream Task Performance
 
@@ -167,7 +141,7 @@ When using Zhouwenwang-1.3B for NLU tasks, the token_type should be all set to 0
 When using Zhouwenwang-1.3B for NGL tasks, the token_type should be all set to 1. The performance of Zhouwenwang-1.3B on downstream tasks is as follows:
 
 ```python
-from model.roformer.modeling_roformer import RoFormerModel
+from fengshen import RoFormerModel
 from transformers import AutoTokenizer
 import torch
 import numpy as np
@@ -230,12 +204,12 @@ The Randing-770M model is trained with 280G datasets on 16 A100 GPUs for 14 days
 [Huggingface Randeng-770M](https://huggingface.co/IDEA-CCNL/Randeng-770M/)
 
 ### Load the Models
-Our Randeng-770M is trained based on the T5 structure of Megatron. Since the T5 model structure of Megatron is slightly different from the T5 model structure of Huggingface, directly importing Randeng using HuggingFace T5 is not supported. You need to load the model files from this repo to your own working directory, then you can follow the script below to download corresponding models from Huggingface and import them.
+Our Randeng-770M is trained based on the T5 structure of Megatron. Since the T5 model structure of Megatron is slightly different from the T5 model structure of Huggingface, directly importing Randeng using HuggingFace T5 is not supported. You need to load the fengshen files from this repo to your own working directory, then you can follow the script below to download corresponding models from Huggingface and import them.
 
 ``` python
-from model.megatron_t5.modeling_megatron_t5 import T5ForConditionalGeneration
-from model.megatron_t5.configuration_magetron_t5 import T5Config
-from model.megatron_t5.tokenization_megatron_t5 import T5Tokenizer
+from fengshen import T5ForConditionalGeneration
+from fengshen import T5Config
+from fengshen import T5Tokenizer
 
 tokenizer = T5Tokenizer.from_pretrained('IDEA-CCNL/Randeng-770M')
 config = T5Config.from_pretrained('IDEA-CCNL/Randeng-770M')
@@ -244,28 +218,24 @@ model = T5ForConditionalGeneration.from_pretrained('IDEA-CCNL/Randeng-770M')
 
 ### Example Usage
 
-#### Example for Downstream Task Usage
+1、fisrt,modify the MODEL_TYPE and PRETRAINING_MODEL_PATH parameters of [finetune script](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh), and other parameters can be modified according to your specific equipment.
+
 ``` sh
-python example/finetune.py " \
-        --train_data_path $TRAIN_DATA_PATH \
-        --dev_data_path $DEV_DATA_PATH \
-        --test_data_path $TSET_DATA_PATH \
-        --pretrained_model_path $PRETRAINED_MODEL_PATH \
-        --checkpoints ./model.pth \
-        --output_path ./afqmc_predict.json \
-        --log_file_path ./finetune.log \
-        --batch_size 32 \
-        --learning_rate 0.00002 \
-        --max_length 64 \
-        --epoch 7 \
-        --model_type megatron_t5 \
-            "
+MODEL_TYPE=fengshen-megatron_t5
+PRETRAINED_MODEL_PATH=IDEA-CCNL/Randeng-770M
 ```
+2、run
+
+``` sh
+sh finetune_classification.sh
+```
+
+
 #### Example for Generation Task
 
 ```python
-from model.megatron_t5.modeling_megatron_t5 import T5ForConditionalGeneration
-from model.megatron_t5.tokenization_megatron_t5 import T5Tokenizer
+from fengshen import T5ForConditionalGeneration
+from fengshen import T5Tokenizer
 
 tokenizer = T5Tokenizer.from_pretrained('IDEA-CCNL/Randeng-770M')
 model = T5ForConditionalGeneration.from_pretrained('IDEA-CCNL/Randeng-770M')
