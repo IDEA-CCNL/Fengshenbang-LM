@@ -4,7 +4,7 @@
   - [框架简介](#框架简介)
   - [依赖环境](#依赖环境)
   - [项目结构](#项目结构)
-  - [3分钟上手](#三分钟上手)
+  - [三分钟上手](#三分钟上手)
 
 
 ## 框架简介
@@ -39,3 +39,27 @@ FengShen训练框架是封神榜大模型开源计划的重要一环，在大模
 ├── scripts                     # 第三方脚本
 └── utils                       # 实用函数
 ```
+
+## 三分钟上手
+
+这里展示如何使用FengShen框架对模型进行Finetune，这里demo使用封神榜开源的35亿参数模型[闻仲](https://github.com/IDEA-CCNL/Fengshenbang-LM)做一个知识问答的下游任务Finetune。
+由于闻仲参数量过大，这里我们考虑使用Deepspeed对训练进行优化，使得能在单卡上对闻仲进行训练，这里测试使用一张A100进行。
+Deepspeed相关文档可以参考 https://deepspeed.readthedocs.io/en/latest/
+
+脚本位于scripts/fintune_wenzhong.sh，脚本内有部分slurm集群参数，用户可以根据需要保留或者删除。
+几乎所有的训练参数都被涵盖在脚本内，用户仅需要调整部分参数（数据集路径等等）即可快速复现。通过两步能快速修改我们的finetune脚本到用户自定义的下游任务上。
+整个训练的代码在fintune_wenzhong.py内。
+
+### Step 1 实现自己DataModule & Module
+
+DataModule主要是封装了各种数据处理的操作下里面，具体的文档可以参照lightning的[官方文档](https://pytorch-lightning.readthedocs.io/en/stable/api/pytorch_lightning.core.datamodule.html?highlight=datamodule)
+这里我们实现了一个QA的DataModule可供参考 data/task_dataloader/medicalQADataset.py
+同时，用户需要对huggingface的model进行封装，在这里用户可以自定义metrics的计算方式、validation等等，采用LightningModule的方式进行封装，同样可以参考lightning的[官方文档](https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html?highlight=LightningModule)
+我们这里依旧提供了一个demo，可以参照fintune_wenzhong.py，针对下游不同的任务进行不同的封装。
+
+### Step 2 修改scrpit参数
+
+在scripts/fintune_wenzhong.sh内涵盖了此次训练的所有参数，包括learning rate、deepspeed配置等等。利用Deepspeed stage 3我们可以轻松在单卡上进行闻仲的下游finetune。
+
+目前项目仍在快速推进当中，更多demo敬请期待
+
