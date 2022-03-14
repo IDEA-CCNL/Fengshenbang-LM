@@ -1,7 +1,0 @@
-| tuning_space      |   num_experiments |   best_metric_val | best_exp_name                          |
-|:------------------|------------------:|------------------:|:---------------------------------------|
-| z1                |                16 |           28.4198 | z1_gas1_tmbspg10                       |
-| z1_rbs_abs_tmbspg |                10 |           28.8952 | z1_rbs5.0e+08_abs1.0e+09_tmbspg10_gas1 |
-| global            |                26 |           28.8952 | z1_rbs5.0e+08_abs1.0e+09_tmbspg10_gas1 |
-
-Tuning completed in 0:36:32.120705. Total number of experiments: 26.
