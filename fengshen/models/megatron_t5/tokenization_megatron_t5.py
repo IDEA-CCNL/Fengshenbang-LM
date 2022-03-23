@@ -27,6 +27,5 @@ class T5Tokenizer():
         self.T5_special_tokens = ['[BOS]', '[EOS]']
         for i in range(self.extra_id_num):
             self.T5_special_tokens.append(f'<extra_id_{str(i)}>')
-        tokenizer = BertTokenizer.from_pretrained(vacob_path)
-        tokenizer.add_tokens(self.T5_special_tokens)
+        tokenizer = BertTokenizer.from_pretrained(vacob_path, additional_special_tokens=self.T5_special_tokens)
         return tokenizer
