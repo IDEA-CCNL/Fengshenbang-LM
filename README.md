@@ -15,11 +15,11 @@
 # 模型简介
 |模型|规模|结构|领域|适用任务|备注|
 |-|-|-|-|-|-|
-|二郎神|13亿参数（Erlangshen-1.3B）|Encoder结构为主的双向语言模型|通用|语言理解|最大的开源中文bert模型，小样本学习榜单FewCLUE达到sota|
-|周文王|13亿参数（Zhouwenwang-1.3B）|单双向统一语言模型|通用|语言理解+语言生成|基于roformer结构修改，最大的同时进行LM+MLM的模型|
-|闻仲|35亿参数（Wenzhong-3.5B）|Decoder结构为主的单向语言模型|通用|语言生成||
-|燃灯|7.7亿参数（Randeng-770M）|编码解码模型，transformer/T5结构为主|通用|语言理解+语言生成||
-|余元|35亿参数（Yuyuan-3.5B）|GPT-2结构的单向语言模型|医疗|语言生成|目前最大的开源GPT2医疗模型|
+|二郎神|13亿参数（Erlangshen-MegatronBert-1.3B）|Encoder结构为主的双向语言模型|通用|语言理解|最大的开源中文bert模型，小样本学习榜单FewCLUE达到sota|
+|周文王|13亿参数（Zhouwenwang-Unified-1.3B）|单双向统一语言模型|通用|语言理解+语言生成|基于roformer结构修改，最大的同时进行LM+MLM的模型|
+|闻仲|35亿参数（Wenzhong-GPT2-3.5B）|Decoder结构为主的单向语言模型|通用|语言生成||
+|燃灯|7.7亿参数（Randeng-MegatronT5-770M）|编码解码模型，transformer/T5结构为主|通用|语言理解+语言生成||
+|余元|35亿参数（Yuyuan-GPT2-3.5B）|GPT-2结构的单向语言模型|医疗|语言生成|目前最大的开源GPT2医疗模型|
 
 # Fengshenbang-LM
 最近两年，预训练逐渐成为整个认知智能的基础，自然语言和计算机视觉的算法全方面的依赖于预训练模型来构建。
@@ -54,16 +54,16 @@ Encoder结构为主的双向语言模型，专注于解决各种自然语言理�
 
 
 ### 模型下载地址
-[Huggingface 二郎神-1.3B](https://huggingface.co/IDEA-CCNL/Erlangshen-1.3B)
+[Huggingface 二郎神-1.3B](https://huggingface.co/IDEA-CCNL/Erlangshen-MegatronBert-1.3B)
 
 ### 模型加载
 ``` python
 from transformers import MegatronBertConfig, MegatronBertModel
 from transformers import BertTokenizer
 
-tokenizer = BertTokenizer.from_pretrained("IDEA-CCNL/Erlangshen-1.3B")
-config = MegatronBertConfig.from_pretrained("IDEA-CCNL/Erlangshen-1.3B")
-model = MegatronBertModel.from_pretrained("IDEA-CCNL/Erlangshen-1.3B")
+tokenizer = BertTokenizer.from_pretrained("IDEA-CCNL/Erlangshen-MegatronBert-1.3B")
+config = MegatronBertConfig.from_pretrained("IDEA-CCNL/Erlangshen-MegatronBert-1.3B")
+model = MegatronBertModel.from_pretrained("IDEA-CCNL/Erlangshen-MegatronBert-1.3B")
 
 ```
 ### 使用示例
@@ -72,7 +72,7 @@ model = MegatronBertModel.from_pretrained("IDEA-CCNL/Erlangshen-1.3B")
 1、首先修改finetune示例脚本[fengshen/scripts/finetune_classification.sh](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh)中的model_type和pretrained_model_path参数。其他如batch_size、data_dir等参数可根据自己的设备修改。
 ``` sh
 MODEL_TYPE=huggingface-megatron_bert
-PRETRAINED_MODEL_PATH=IDEA-CCNL/Erlangshen-1.3B
+PRETRAINED_MODEL_PATH=IDEA-CCNL/Erlangshen-MegatronBert-1.3B
 ```
 2、然后运行：
 ``` sh
@@ -83,7 +83,7 @@ sh finetune_classification.sh
 |     模型   | afqmc    |  tnews  | iflytek    |  ocnli  |  cmnli  | wsc  | csl  |
 | :--------:    | :-----:  | :----:  | :-----:   | :----: | :----: | :----: | :----: |
 | roberta-wwm-ext-large | 0.7514      |   0.5872    | 0.6152      |   0.777    | 0.814    | 0.8914    | 0.86    |
-| 二郎神-1.3B | 0.7608      |   0.5996    | 0.6234      |   0.7917    | 0.81    | 0.9243    | 0.872    |
+| Erlangshen-MegatronBert-1.3B | 0.7608      |   0.5996    | 0.6234      |   0.7917    | 0.81    | 0.9243    | 0.872    |
 
 ## 周文王系列
 
@@ -92,8 +92,8 @@ IDEA研究院认知计算中心联合追一科技有限公司的新结构大模�
 
 ### 模型下载地址
 
-[Huggingface 周文王-1.3B](https://huggingface.co/IDEA-CCNL/Zhouwenwang-1.3B)<br>
-[Huggingface 周文王-110M](https://huggingface.co/IDEA-CCNL/Zhouwenwang-110M)
+[Huggingface 周文王-1.3B](https://huggingface.co/IDEA-CCNL/Zhouwenwang-Unified-1.3B)<br>
+[Huggingface 周文王-110M](https://huggingface.co/IDEA-CCNL/Zhouwenwang-Unified-110M)
 ### 模型加载
 由于我们现在的周文王结构是在追一科技之前的roformer结构进行的修改，而HuggingFace还没有周文王的模型结构。因此需要从本仓库的fengshen框架导入，需要将fengshen放在你的工程文件夹。按照下面的脚本从huggingface下载并加载对应的模型：
 
@@ -102,9 +102,9 @@ from fengshen import RoFormerConfig
 from fengshen import RoFormerModel
 from transformers import BertTokenizer 
 
-tokenizer = BertTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
-config = RoFormerConfig.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
-model = RoFormerModel.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
+tokenizer = BertTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-Unified-110M')
+config = RoFormerConfig.from_pretrained('IDEA-CCNL/Zhouwenwang-Unified-110M')
+model = RoFormerModel.from_pretrained('IDEA-CCNL/Zhouwenwang-Unified-110M')
 ```
 
 
@@ -112,7 +112,7 @@ model = RoFormerModel.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
 1、首先修改finetune示例脚本[fengshen/scripts/finetune_classification.sh](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh)中的model_type和pretrained_model_path参数。其他如batch_size、data_dir等参数可根据自己的设备修改。
 ``` sh
 MODEL_TYPE=fengshen-roformer
-PRETRAINED_MODEL_PATH=IDEA-CCNL/Zhouwenwang-110M
+PRETRAINED_MODEL_PATH=IDEA-CCNL/Zhouwenwang-Unified-110M
 ```
 2、然后运行：
 ``` sh
@@ -127,7 +127,7 @@ sh finetune_classification.sh
 |     模型   | afqmc    |  tnews  | iflytek    |  ocnli  |  cmnli  | wsc  | csl  |
 | :--------:    | :-----:  | :----:  | :-----:   | :----: | :----: | :----: | :----: |
 | roberta-wwm-ext-large | 0.7514      |   0.5872    | 0.6152      |   0.777    | 0.814    | 0.8914    | 0.86    |
-| 周文王-1.3B | 0.7463     |   0.6036    | 0.6288     |   0.7654   | 0.7741    | 0.8849    | 0. 8777   |
+| Zhouwenwang-Unified-1.3B | 0.7463     |   0.6036    | 0.6288     |   0.7654   | 0.7741    | 0.8849    | 0. 8777   |
 
 #### 自然语言生成
 使用周文王-1.3B模型进行自然语言生成任务时，需要将token_type全部设置为1。周文王的生成例子如下：
@@ -141,8 +141,8 @@ import numpy as np
 sentence = '清华大学位于'
 max_length = 32
 
-tokenizer = BertTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
-model = RoFormerModel.from_pretrained('IDEA-CCNL/Zhouwenwang-110M')
+tokenizer = BertTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-Unified-110M')
+model = RoFormerModel.from_pretrained('IDEA-CCNL/Zhouwenwang-Unified-110M')
 
 for i in range(max_length):
     encode = [tokenizer.cls_token_id]+tokenizer.encode(sentence, add_special_tokens=False)
@@ -169,13 +169,13 @@ Decoder结构为主的单向语言模型，是一系列强大的生成模型。
 35亿参数的闻仲-3.5B大模型，采用100G数据，256张A100训练28小时。
 
 ### 模型下载地址
-[Huggingface 闻仲-3.5B](https://huggingface.co/IDEA-CCNL/Wenzhong-3.5B)
+[Huggingface 闻仲-3.5B](https://huggingface.co/IDEA-CCNL/Wenzhong-GPT2-3.5B)
 
 ### load model
 ```python 
 from transformers import GPT2Tokenizer, GPT2Model
-tokenizer = GPT2Tokenizer.from_pretrained('IDEA-CCNL/Wenzhong-3.5B')
-model = GPT2Model.from_pretrained('IDEA-CCNL/Wenzhong-3.5B')
+tokenizer = GPT2Tokenizer.from_pretrained('IDEA-CCNL/Wenzhong-GPT2-3.5B')
+model = GPT2Model.from_pretrained('IDEA-CCNL/Wenzhong-GPT2-3.5B')
 text = "Replace me by any text you'd like."
 encoded_input = tokenizer(text, return_tensors='pt')
 output = model(**encoded_input)
@@ -184,7 +184,7 @@ output = model(**encoded_input)
 ```python
 from transformers import pipeline, set_seed
 set_seed(55)
-generator = pipeline('text-generation', model='IDEA-CCNL/Wenzhong-3.5B')
+generator = pipeline('text-generation', model='IDEA-CCNL/Wenzhong-GPT2-3.5B')
 generator("北京是中国的", max_length=30, num_return_sequences=1)
 
 ```
@@ -194,7 +194,7 @@ generator("北京是中国的", max_length=30, num_return_sequences=1)
 Transformer结构为主的编解码语言模型，7.7亿参数的燃灯-770M大模型，采用280G数据，16张A100训练14天。
 
 ### 模型下载地址
-[Huggingface 燃灯-770M](https://huggingface.co/IDEA-CCNL/Randeng-770M/)
+[Huggingface 燃灯-770M](https://huggingface.co/IDEA-CCNL/Randeng-MegatronT5-770M/)
 
 ### 模型加载
 由于T5结构的燃灯-770M模型是基于Megatron进行训练的，而Megatron的T5模型结构与HuggingFace的T5模型结构有略微的区别，不能直接使用HuggingFace的T5模型进行导入。因此需要从本仓库的fengshen框架导入，需要将fengshen放在你的工程文件夹。导入之后，即可按照下面的脚本从huggingface下载并加载对应的模型：
@@ -204,16 +204,16 @@ from fengshen import T5Config
 from fengshen import T5EncoderModel
 from fengshen import T5Tokenizer
 
-tokenizer = T5Tokenizer.from_pretrained('IDEA-CCNL/Randeng-770M')
-config = T5Config.from_pretrained('IDEA-CCNL/Randeng-770M')
-model = T5EncoderModel.from_pretrained('IDEA-CCNL/Randeng-770M')
+tokenizer = T5Tokenizer.from_pretrained('IDEA-CCNL/Randeng-MegatronT5-770M')
+config = T5Config.from_pretrained('IDEA-CCNL/Randeng-MegatronT5-770M')
+model = T5EncoderModel.from_pretrained('IDEA-CCNL/Randeng-MegatronT5-770M')
 ```
 
 ### 使用示例
 1、首先修改finetune示例脚本[fengshen/scripts/finetune_classification.sh](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh)中的model_type和pretrained_model_path参数。其他如batch_size、data_dir等参数可根据自己的设备修改。
 ``` sh
 MODEL_TYPE=fengshen-megatron_t5
-PRETRAINED_MODEL_PATH=IDEA-CCNL/Randeng-770M
+PRETRAINED_MODEL_PATH=IDEA-CCNL/Randeng-MegatronT5-770M
 ```
 2、然后运行：
 ``` sh
@@ -226,8 +226,8 @@ sh finetune_classification.sh
 from fengshen import T5ForConditionalGeneration
 from fengshen import T5Tokenizer
 
-tokenizer = T5Tokenizer.from_pretrained('IDEA-CCNL/Randeng-770M')
-model = T5ForConditionalGeneration.from_pretrained('IDEA-CCNL/Randeng-770M')
+tokenizer = T5Tokenizer.from_pretrained('IDEA-CCNL/Randeng-MegatronT5-770M')
+model = T5ForConditionalGeneration.from_pretrained('IDEA-CCNL/Randeng-MegatronT5-770M')
 
 output = model.generate(tokenizer.encode(tokenizer.encode('北京是中国的<extra_id_0>')))
 print(tokenizer.decode(output))
@@ -243,13 +243,13 @@ print(tokenizer.decode(output))
 
 
 ### 模型下载地址
-[Huggingface 余元-3.5B](https://huggingface.co/IDEA-CCNL/Yuyuan-3.5B)
+[Huggingface 余元-3.5B](https://huggingface.co/IDEA-CCNL/Yuyuan-GPT2-3.5B)
 
 ### load model
 ```python 
 from transformers import GPT2Tokenizer, GPT2Model
-tokenizer = GPT2Tokenizer.from_pretrained('IDEA-CCNL/Yuyuan-3.5B')
-model = GPT2Model.from_pretrained('IDEA-CCNL/Yuyuan-3.5B')
+tokenizer = GPT2Tokenizer.from_pretrained('IDEA-CCNL/Yuyuan-GPT2-3.5B')
+model = GPT2Model.from_pretrained('IDEA-CCNL/Yuyuan-GPT2-3.5B')
 text = "Replace me by any text you'd like."
 encoded_input = tokenizer(text, return_tensors='pt')
 output = model(**encoded_input)
@@ -258,7 +258,7 @@ output = model(**encoded_input)
 ```python
 from transformers import pipeline, set_seed
 set_seed(55)
-generator = pipeline('text-generation', model='IDEA-CCNL/Yuyuan-3.5B')
+generator = pipeline('text-generation', model='IDEA-CCNL/Yuyuan-GPT2-3.5B')
 generator("Diabetics should not eat", max_length=30, num_return_sequences=1)
 
 ```
