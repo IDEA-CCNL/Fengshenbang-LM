@@ -95,8 +95,8 @@ def denoise_generate(model,
 
 if __name__ == "__main__":
     device = 1
-    tokenizer = TransfoXLDenoiseTokenizer.from_pretrained('IDEA-CCNL/Transformer-XL-denoise-1.1B')
-    model = TransfoXLDenoiseModel.from_pretrained('IDEA-CCNL/Transformer-XL-denoise-1.1B')
+    tokenizer = TransfoXLDenoiseTokenizer.from_pretrained('IDEA-CCNL/Bigan-Transformer-XL-denoise-1.1B')
+    model = TransfoXLDenoiseModel.from_pretrained('IDEA-CCNL/Bigan-Transformer-XL-denoise-1.1B')
     input_text = "凡是有成就的人, 都很严肃地对待生命自己的"
     res = denoise_generate(model, tokenizer, input_text)
     print(res)
