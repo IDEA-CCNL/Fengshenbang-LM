@@ -17,7 +17,7 @@
 
 import math
 import torch
-import torch.utils.checkpoint
+import torch.utils.checkpoint as checkpoint
 import torch.nn.functional as F
 from dataclasses import dataclass
 from typing import Optional, Tuple
@@ -27,7 +27,6 @@ from transformers.modeling_utils import (
 )
 from transformers.modeling_outputs import ModelOutput
 from .configuration_transfo_xl_denoise import TransfoXLDenoiseConfig
-
 
 
 _CHECKPOINT_FOR_DOC = "transformer-xl-1b-base"
@@ -98,10 +97,12 @@ Transfo_XL_Denoise_PRETRAINED_MODEL_ARCHIVE_LIST = [
     "transformer-xl-1b-base",
 ]
 
+
 @dataclass
 class TransfoXLDenoiseModelOutput(ModelOutput):
     logits: torch.FloatTensor = None
     hidden_states: Optional[Tuple[torch.FloatTensor]] = None
+
 
 class PositionalEmbedding(torch.nn.Module):
     def __init__(self, hidden_size):
@@ -121,10 +122,12 @@ class PositionalEmbedding(torch.nn.Module):
         else:
             return pos_emb[None, :, :]
 
+
 def ensure_divisibility(numerator, denominator):
     """Ensure that numerator is divisible by the denominator."""
     assert numerator % denominator == 0, '{} is not divisible by {}'.format(
         numerator, denominator)
+
 
 def divide(numerator, denominator):
     """Ensure that numerator is divisible by the denominator and return
@@ -132,13 +135,16 @@ def divide(numerator, denominator):
     ensure_divisibility(numerator, denominator)
     return numerator // denominator
 
+
 def scaled_init_method(sigma, num_layers):
     """Init method based on N(0, sigma/sqrt(2*num_layers)."""
     std = sigma / math.sqrt(2.0 * num_layers)
+
     def init_(tensor):
         return torch.nn.init.normal_(tensor, mean=0.0, std=std)
 
     return init_
+
 
 def unscaled_init_method(sigma):
     """Init method based on N(0, sigma)."""
@@ -147,14 +153,17 @@ def unscaled_init_method(sigma):
 
     return init_
 
+
 @torch.jit.script
 def gelu_impl(x):
-     """OpenAI's gelu implementation."""
-     return 0.5 * x * (1.0 + torch.tanh(0.7978845608028654 * x *
-                                        (1.0 + 0.044715 * x * x)))
+    """OpenAI's gelu implementation."""
+    return 0.5 * x * (1.0 + torch.tanh(0.7978845608028654 * x *
+                                       (1.0 + 0.044715 * x * x)))
+
 
 def gelu(x):
     return gelu_impl(x)
+
 
 class GPT2SelfAttention(torch.nn.Module):
     """Parallel self-attention layer for GPT2.
@@ -182,6 +191,7 @@ class GPT2SelfAttention(torch.nn.Module):
         b: batch size
         s: sequence length
     """
+
     def __init__(self, hidden_size, num_attention_heads,
                  attention_dropout_prob, output_dropout_prob,
                  init_method, output_layer_init_method=None, relative_encoding=False):
@@ -214,8 +224,8 @@ class GPT2SelfAttention(torch.nn.Module):
         size [b, np, s, hn].
         """
         new_tensor_shape = tensor.size()[:-1] + \
-                           (self.num_attention_heads_per_partition,
-                            self.hidden_size_per_attention_head)
+            (self.num_attention_heads_per_partition,
+             self.hidden_size_per_attention_head)
         tensor = tensor.view(*new_tensor_shape)
         return tensor.permute(0, 2, 1, 3)
 
@@ -286,7 +296,8 @@ class GPT2SelfAttention(torch.nn.Module):
         value_layer = self._transpose_for_scores(mixed_value_layer)
         if self.relative_encoding:
             relative_layer = self.relative(position_embeddings)
-            relative_layer = self._transpose_for_scores(relative_layer)  # 1 (bsz) x n_head x klen x d_head
+            relative_layer = self._transpose_for_scores(
+                relative_layer)  # 1 (bsz) x n_head x klen x d_head
             # Raw attention scores. [b, np, qs, ks]
             rw_head_q = query_layer + r_w_bias.unsqueeze(1)
             ac_score = torch.matmul(rw_head_q, key_layer.transpose(-1, -2))
@@ -304,7 +315,7 @@ class GPT2SelfAttention(torch.nn.Module):
 
         # Apply the left to right attention mask.
         attention_scores = torch.mul(attention_scores, ltor_mask) - \
-                           10000.0 * (1.0 - ltor_mask)
+            10000.0 * (1.0 - ltor_mask)
 
         # Attention probabilities. [b, np, s, s]
         attention_probs = torch.nn.Softmax(dim=-1)(attention_scores)
@@ -319,7 +330,7 @@ class GPT2SelfAttention(torch.nn.Module):
         # [b, s, np, hn]
         context_layer = context_layer.permute(0, 2, 1, 3).contiguous()
         new_context_layer_shape = context_layer.size()[:-2] + \
-                                  (self.hidden_size_per_partition,)
+            (self.hidden_size_per_partition,)
         # [b, s, hp]
         context_layer = context_layer.view(*new_context_layer_shape)
 
@@ -328,6 +339,7 @@ class GPT2SelfAttention(torch.nn.Module):
         output = self.output_dropout(output)
 
         return output
+
 
 class GPT2MLP(torch.nn.Module):
     """MLP for GPT2.
@@ -370,6 +382,7 @@ class GPT2MLP(torch.nn.Module):
         output = self.dropout(output)
         return output
 
+
 class GPT2TransformerLayer(torch.nn.Module):
     """A single layer transformer for GPT2.
 
@@ -398,6 +411,7 @@ class GPT2TransformerLayer(torch.nn.Module):
                                   mlp output) initialization. If None,
                                   use `init_method`.
     """
+
     def __init__(self,
                  hidden_size,
                  num_attention_heads,
@@ -427,7 +441,7 @@ class GPT2TransformerLayer(torch.nn.Module):
 
         # Layernorm on the input data.
         self.post_attention_layernorm = torch.nn.LayerNorm(hidden_size,
-                                                  eps=layernorm_epsilon)
+                                                           eps=layernorm_epsilon)
 
         # MLP
         self.mlp = GPT2MLP(
@@ -444,7 +458,8 @@ class GPT2TransformerLayer(torch.nn.Module):
         layernorm_output = self.input_layernorm(hidden_states)
         mem = self.input_layernorm(mem) if mem is not None else None
         # Self attention.
-        attention_output = self.attention(layernorm_output, ltor_mask, position_embeddings, r_w_bias, r_r_bias, mem)
+        attention_output = self.attention(
+            layernorm_output, ltor_mask, position_embeddings, r_w_bias, r_r_bias, mem)
         # Residual connection.
         # print(f'hz {hidden_states.shape}, attn {attention_output.shape}')
         layernorm_input = hidden_states + attention_output
@@ -456,6 +471,7 @@ class GPT2TransformerLayer(torch.nn.Module):
         output = layernorm_input + mlp_output
 
         return output
+
 
 class GPT2Transformer(torch.nn.Module):
     """GPT-2 transformer.
@@ -491,6 +507,7 @@ class GPT2Transformer(torch.nn.Module):
                                             scaling for the output weights (
                                             output of self attention and mlp).
     """
+
     def __init__(self,
                  num_layers,
                  hidden_size,
@@ -515,7 +532,7 @@ class GPT2Transformer(torch.nn.Module):
         output_layer_init_method = None
         if use_scaled_init_for_output_weights:
             output_layer_init_method = scaled_init_method(init_method_std,
-                                                      num_layers)
+                                                          num_layers)
         # Embeddings dropout
         self.embedding_dropout = torch.nn.Dropout(embedding_dropout_prob)
         self.relative_encoding = relative_encoding
@@ -560,14 +577,13 @@ class GPT2Transformer(torch.nn.Module):
         # Final layer norm before output.
         self.final_layernorm = torch.nn.LayerNorm(hidden_size, eps=layernorm_epsilon)
 
-
     def forward(self, hidden_states, position_ids, attention_mask, *mems):
         batch_size, query_length = hidden_states.size()[:2]
         memory_length = mems[0].size(1) if mems else 0
         key_length = query_length + memory_length
         attention_mask = attention_mask[:, :, :, -query_length - memory_length:]
         if self.relative_encoding:
-            ## why drop twice here
+            # why drop twice here
             # hidden_states = self.embedding_dropout(hidden_states)
             position_sequence = torch.arange(key_length - 1, -1, -1.0, device=hidden_states.device,
                                              dtype=hidden_states.dtype)
@@ -583,6 +599,7 @@ class GPT2Transformer(torch.nn.Module):
             mem_layers = [hidden_states.detach()]
         else:
             mem_layers = []
+
         def custom(start, end):
             def custom_forward(*inputs):
                 layers_ = self.layers[start:end]
@@ -600,17 +617,17 @@ class GPT2Transformer(torch.nn.Module):
             return custom_forward
 
         if self.checkpoint_activations:
-            l = 0
+            la = 0
             num_layers = len(self.layers)
             chunk_length = self.checkpoint_num_layers
-            while l < num_layers:
+            while la < num_layers:
                 args = [hidden_states, attention_mask]
                 if self.relative_encoding:
                     args += [position_embeddings, self.r_w_bias, self.r_r_bias]
                 if mems:
-                    args += mems[l: l + chunk_length]
-                hidden_states = checkpoint(custom(l, l + chunk_length), *args)
-                l += chunk_length
+                    args += mems[la: la + chunk_length]
+                hidden_states = checkpoint(custom(la, la + chunk_length), *args)
+                la += chunk_length
         else:
             for i, layer in enumerate(self.layers):
                 args = [hidden_states, attention_mask]
@@ -638,8 +655,10 @@ class GPT2Transformer(torch.nn.Module):
                 if new_memory_length <= query_length:
                     new_mems.append(hiddens[i][:, -new_memory_length:])
                 else:
-                    new_mems.append(torch.cat((mems[i][:, -new_memory_length+query_length:], hiddens[i]), dim=1))
+                    new_mems.append(
+                        torch.cat((mems[i][:, -new_memory_length+query_length:], hiddens[i]), dim=1))
         return new_mems
+
 
 class TransfoXLDenoisePreTrainedModel(PreTrainedModel):
     """
@@ -654,7 +673,8 @@ class TransfoXLDenoisePreTrainedModel(PreTrainedModel):
 
     def _init_weights(self, module):
         """ Initialize the weights """
-        pass  # to bypass the not implement error 
+        pass  # to bypass the not implement error
+
 
 class TransfoXLDenoiseModel(TransfoXLDenoisePreTrainedModel):
     """GPT-2 Language model.
@@ -663,24 +683,23 @@ class TransfoXLDenoiseModel(TransfoXLDenoisePreTrainedModel):
     serial depending on the `parallel_output` flag.
     """
 
-    def __init__(self, config:TransfoXLDenoiseConfig):
+    def __init__(self, config: TransfoXLDenoiseConfig):
         super().__init__(config)
         self.config = config
         # Word embeddings (parallel).
         self.word_embeddings = torch.nn.Embedding(config.vocab_size, config.hidden_size)
         # Transformer
         self.transformer = GPT2Transformer(config.num_layers,
-                                            config.hidden_size,
-                                            config.num_attention_heads,
-                                            config.max_sequence_length,
-                                            config.max_memory_length,
-                                            config.embedding_dropout_prob,
-                                            config.attention_dropout_prob,
-                                            config.output_dropout_prob,
-                                            config.checkpoint_activations,
-                                            config.checkpoint_num_layers,
-                                            relative_encoding=config.relative_encoding)
-
+                                           config.hidden_size,
+                                           config.num_attention_heads,
+                                           config.max_sequence_length,
+                                           config.max_memory_length,
+                                           config.embedding_dropout_prob,
+                                           config.attention_dropout_prob,
+                                           config.output_dropout_prob,
+                                           config.checkpoint_activations,
+                                           config.checkpoint_num_layers,
+                                           relative_encoding=config.relative_encoding)
 
     def forward(
         self,
@@ -704,7 +723,8 @@ class TransfoXLDenoiseModel(TransfoXLDenoisePreTrainedModel):
 
             - 1 for tokens that are **not masked**,
             - 0 for tokens that are **masked**.
-        past_key_values (`tuple(tuple(torch.FloatTensor))` of length `config.n_layers` with each tuple having 4 tensors of shape `(batch_size, num_heads, sequence_length - 1, embed_size_per_head)`):
+        past_key_values (`tuple(tuple(torch.FloatTensor))` of length `config.n_layers` with
+        each tuple having 4 tensors of shape `(batch_size, num_heads, sequence_length - 1, embed_size_per_head)`):
             Contains precomputed key and value hidden states of the attention blocks. Can be used to speed up decoding.
             If `past_key_values` are used, the user can optionally input only the last `decoder_input_ids`
             (those that don't have their past key value states given to this model) of shape `(batch_size, 1)`
@@ -733,7 +753,8 @@ class TransfoXLDenoiseModel(TransfoXLDenoisePreTrainedModel):
         embeddings = self.word_embeddings(input_ids)
 
         # Transformer.
-        transformer_output = self.transformer(embeddings, position_ids, attention_mask, *hidden_states)
+        transformer_output = self.transformer(
+            embeddings, position_ids, attention_mask, *hidden_states)
         logits, *hidden_states = transformer_output
         logits = F.linear(logits, self.word_embeddings.weight)
 

@@ -37,7 +37,8 @@ class TransfoXLDenoiseConfig(PretrainedConfig):
 
     Args:
         vocab_size (`int`, *optional*, defaults to 30522):
-            Vocabulary size of the TransfoXLDenoise model. Defines the number of different tokens that can be represented by the
+            Vocabulary size of the TransfoXLDenoise model. Defines the number of different
+            tokens that can be represented by the
             `inputs_ids` passed when calling [`~TransfoXLDenoiseModel`] or
             [`~TFTransfoXLDenoiseModel`].
         hidden_size (`int`, *optional*, defaults to 768):
@@ -84,7 +85,6 @@ class TransfoXLDenoiseConfig(PretrainedConfig):
     ```
 """
     model_type = "transfo_xl_denoise"
-    
 
     def __init__(
         self,
@@ -116,6 +116,4 @@ class TransfoXLDenoiseConfig(PretrainedConfig):
         self.checkpoint_num_layers = checkpoint_num_layers
         self.parallel_output = parallel_output
         self.relative_encoding = relative_encoding
-        super().__init__( **kwargs )
-
-    
+        super().__init__(**kwargs)

@@ -14,16 +14,15 @@
 # limitations under the License.
 """Tokenization classes for TransfoXLDenoise."""
 
-import torch
 import sentencepiece as spm
-from collections import namedtuple
 from transformers.tokenization_utils import PreTrainedTokenizer
 
 VOCAB_FILES_NAMES = {"vocab_file": "spiece.model"}
 
 PRETRAINED_VOCAB_FILES_MAP = {
     "vocab_file": {
-        "transformer-xl-1b-base": "https://huggingface.co/IDEA-CCNL/Transformer-XL-denoise-1.1B/resolve/main/spiece.model",
+        "transformer-xl-1b-base":
+            "https://huggingface.co/IDEA-CCNL/Transformer-XL-denoise-1.1B/resolve/main/spiece.model",
     },
 }
 
@@ -34,7 +33,7 @@ PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES = {
 
 class TransfoXLDenoiseTokenizer(PreTrainedTokenizer):
     """
-    Construct a TransfoXLDenoise tokenizer. Based on pretrained sentence piece 
+    Construct a TransfoXLDenoise tokenizer. Based on pretrained sentence piece
 
     Args:
         vocab_file (`str`):
@@ -81,6 +80,3 @@ class TransfoXLDenoiseTokenizer(PreTrainedTokenizer):
         """ Converts a sequence of tokens (string) in a single string. """
         out_string = "".join(tokens).replace(self.SPIECE_UNDERLINE, " ").strip()
         return out_string
-
-
-
