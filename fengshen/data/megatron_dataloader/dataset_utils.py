@@ -19,12 +19,10 @@
 # with some modifications.
 
 import math
-import os
 import time
 import collections
 
 import numpy as np
-import torch
 import re
 
 from fengshen.data.megatron_dataloader.utils import (
@@ -225,10 +223,10 @@ def create_masked_lm_predictions(tokens,
         # then try to remove "##" which is added previously
         new_token_ids = []
         for token_id in output_tokens:
-            token = tokenizer.tokenizer.convert_ids_to_tokens([token_id])[0]
+            token = tokenizer.convert_ids_to_tokens([token_id])[0]
             if len(re.findall('##[\u4E00-\u9FA5]', token)) > 0:
                 token = token[2:]
-            new_token_id = tokenizer.tokenizer.convert_tokens_to_ids([token])[
+            new_token_id = tokenizer.convert_tokens_to_ids([token])[
                 0]
             new_token_ids.append(new_token_id)
         output_tokens = new_token_ids
@@ -330,11 +328,11 @@ def create_masked_lm_predictions(tokens,
                     if np_rng.random() < 0.5:
                         # 如果是中文全词mask，去掉tokens里的##
                         token_id = tokens[index]
-                        token = tokenizer.tokenizer.convert_ids_to_tokens([token_id])[
+                        token = tokenizer.convert_ids_to_tokens([token_id])[
                             0]
                         if len(re.findall('##[\u4E00-\u9FA5]', token)) > 0:
                             token = token[2:]
-                        new_token_id = tokenizer.tokenizer.convert_tokens_to_ids([token])[
+                        new_token_id = tokenizer.convert_tokens_to_ids([token])[
                             0]
                         masked_token = new_token_id
                     # 10% of the time, replace with random word
@@ -682,58 +680,19 @@ def get_samples_mapping(indexed_dataset,
     indexmap_filename += '_{}s'.format(seed)
     indexmap_filename += '.npy'
 
-    # Build the indexed mapping if not exist.
-    if torch.distributed.get_rank() == 0 and \
-       not os.path.isfile(indexmap_filename):
-        print(' > WARNING: could not find index map file {}, building '
-              'the indices on rank 0 ...'.format(indexmap_filename))
-
-        # Make sure the types match the helpers input types.
-        assert indexed_dataset.doc_idx.dtype == np.int64
-        assert indexed_dataset.sizes.dtype == np.int32
-
-        # Build samples mapping
-        verbose = torch.distributed.get_rank() == 0
-        start_time = time.time()
-        print_rank_0(' > building sapmles index mapping for {} ...'.format(
-            name))
-        # First compile and then import.
-        from fengshen.data.megatron_dataloader import helpers
-        samples_mapping = helpers.build_mapping(
-            indexed_dataset.doc_idx,
-            indexed_dataset.sizes,
-            num_epochs,
-            max_num_samples,
-            max_seq_length,
-            short_seq_prob,
-            seed,
-            verbose,
-            2 if binary_head else 1)
-        print_rank_0(' > done building sapmles index maping')
-        np.save(indexmap_filename, samples_mapping, allow_pickle=True)
-        print_rank_0(' > saved the index mapping in {}'.format(
-            indexmap_filename))
-        # Make sure all the ranks have built the mapping
-        print_rank_0(' > elasped time to build and save samples mapping '
-                     '(seconds): {:4f}'.format(
-                         time.time() - start_time))
-        torch.distributed.barrier()
-    else:
-        torch.distributed.barrier()
-
     # This should be a barrier but nccl barrier assumes
     # device_index=rank which is not the case for model
     # parallel case
     # ganruyi comment
     # counts = torch.cuda.LongTensor([1])
     # torch.distributed.all_reduce(
-        # counts, group=mpu.get_data_parallel_group())
+    # counts, group=mpu.get_data_parallel_group())
     # torch.distributed.all_reduce(
-        # counts, group=mpu.get_pipeline_model_parallel_group())
+    # counts, group=mpu.get_pipeline_model_parallel_group())
     # assert counts[0].item() == (
     #    torch.distributed.get_world_size() //
     #    torch.distributed.get_world_size(
-        # group=mpu.get_tensor_model_parallel_group()))
+    # group=mpu.get_tensor_model_parallel_group()))
 
     # Load indexed dataset.
     print_rank_0(' > loading indexed mapping from {}'.format(
