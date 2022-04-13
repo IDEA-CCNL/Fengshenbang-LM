@@ -19,11 +19,10 @@ def test():
     tokenizer = T5Tokenizer.from_pretrained("google/mt5-small")
     article = "UN Offizier sagt, dass weiter verhandelt werden muss in Syrien."
     summary = "Weiter Verhandlung in Syrien."
-    article = '''日前，方舟子发文直指林志颖旗下爱碧丽推销假保健品，引起哗然。调查发现，爱碧丽没有自己的生产加工厂。
-                 其胶原蛋白饮品无核心研发，全部代工生产。
-                 号称有“逆生长”功效的爱碧丽“梦幻奇迹限量组”售价>高达1080元，实际成本仅为每瓶4元！'''
+    article = "日前，方舟子发文直指林志颖旗下爱碧丽推销假保健品，引起哗然。调查发现，爱碧丽没有自己的生产加工厂。 \
+    其胶原蛋白饮品无核心研发，全部代工生产。号称有“逆生长”功效的爱碧丽“梦幻奇迹限量组”售价>高达1080元，实际成本仅为每瓶4元！"
     summary = "林志颖公司疑涉虚假营销无厂房无研发"
-    inputs = tokenizer(article, return_tensors="pt")
+    inputs = tokenizer(article, rturn_tensors="pt")
     tt = tokenizer.encode_plus(summary, max_length=64,
                                padding='max_length', truncation='longest_first')
     print('tt:', tt)
@@ -224,3 +223,11 @@ def main():
 if __name__ == '__main__':
     main()
     # test()
+
+'''
+python examples/mt5_summary.py --gpus=1 --test_data=test_public.jsonl
+--default_root_dir=/cognitive_comp/ganruyi/fengshen/mt5_summary/eval
+--do_eval_only
+--resume_from_checkpoint=/cognitive_comp/ganruyi/fengshen/mt5_summary/ckpt/model-epoch=01-train_loss=1.9166.ckpt
+--strategy=ddp
+'''

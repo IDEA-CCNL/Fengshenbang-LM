@@ -24,13 +24,13 @@ from transformers import (
 )
 import pytorch_lightning as pl
 
-from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
+from pytorch_lightning.callbacks import ModelCheckpoint
 from torch.utils.data import Dataset, DataLoader
 from transformers.optimization import get_linear_schedule_with_warmup
+# from fengshen import AutoModelForSequenceClassification
+# from fengshen import AutoTokenizer
 import argparse
 # os.environ["CUDA_VISIBLE_DEVICES"] = '7'
-import transformers
-transformers.logging.set_verbosity_error()
 
 
 class TaskDataset(Dataset):
@@ -161,10 +161,10 @@ class LitAutoEncoder(pl.LightningModule):
 
     def __init__(self, args, num_data):
         super().__init__()
+        self.args = args
         self.num_data = num_data
         self.model = AutoModelForSequenceClassification.from_pretrained(
-            args.pretrained_model_path, num_labels=args.num_labels)
-        self.save_hyperparameters(args)
+            self.args.pretrained_model_path, num_labels=self.args.num_labels)
 
     def setup(self, stage) -> None:
         if stage == 'fit':
@@ -178,7 +178,6 @@ class LitAutoEncoder(pl.LightningModule):
         acc = self.comput_metrix(output.logits, batch['labels'])
         self.log('train_loss', output.loss)
         self.log('train_acc', acc)
-        self.log('mem_usage', torch.cuda.memory_allocated() / (1024 * 1024))
         return output.loss
 
     def comput_metrix(self, logits, labels):
@@ -207,14 +206,14 @@ class LitAutoEncoder(pl.LightningModule):
         paras = [{
             'params':
             [p for n, p in paras if not any(nd in n for nd in no_decay)],
-            'weight_decay': self.hparams.weight_decay
+            'weight_decay': self.args.weight_decay
         }, {
             'params': [p for n, p in paras if any(nd in n for nd in no_decay)],
             'weight_decay': 0.0
         }]
-        optimizer = torch.optim.AdamW(paras, lr=self.hparams.learning_rate)
+        optimizer = torch.optim.AdamW(paras, lr=self.args.learning_rate)
         scheduler = get_linear_schedule_with_warmup(
-            optimizer, int(self.total_step * self.hparams.warmup),
+            optimizer, int(self.total_step * self.args.warmup),
             self.total_step)
 
         return [{
@@ -228,7 +227,7 @@ class LitAutoEncoder(pl.LightningModule):
 
 
 class TaskModelCheckpoint:
-    @ staticmethod
+    @staticmethod
     def add_argparse_args(parent_args):
         parser = parent_args.add_argument_group('BaseModel')
 
@@ -275,8 +274,6 @@ def main():
     total_parser.add_argument('--pretrained_model_path', default='', type=str)
     total_parser.add_argument('--output_save_path',
                               default='./predict.json', type=str)
-    total_parser.add_argument('--deepspeed', default='', type=str)
-    total_parser.add_argument('--local_rank', default=0, type=int)
 
     # * Args for data preprocessing
     total_parser = TaskDataModel.add_data_specific_args(total_parser)
@@ -289,17 +286,14 @@ def main():
 
     args = total_parser.parse_args()
 
-    if len(args.deepspeed) > 0:
-        os.environ['PL_DEEPSPEED_CONFIG_PATH'] = args.deepspeed
-
     checkpoint_callback = TaskModelCheckpoint(args).callbacks
-    lr_monitor = LearningRateMonitor(logging_interval='step')
     trainer = pl.Trainer.from_argparse_args(args,
-                                            callbacks=[checkpoint_callback, lr_monitor]
+                                            callbacks=[checkpoint_callback]
                                             )
 
     data_model = TaskDataModel(args)
     model = LitAutoEncoder(args, len(data_model.train_dataloader()))
+
     trainer.fit(model, data_model)
     result = trainer.predict(model, data_model)
     save_test(result, args, data_model)
