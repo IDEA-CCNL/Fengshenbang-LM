@@ -157,8 +157,8 @@ def unscaled_init_method(sigma):
 @torch.jit.script
 def gelu_impl(x):
     """OpenAI's gelu implementation."""
-    return 0.5 * x * (1.0 + torch.tanh(0.7978845608028654 * x *
-                                       (1.0 + 0.044715 * x * x)))
+    return 0.5 * x * (1.0 + torch.tanh(0.7978845608028654 * x
+                                       * (1.0 + 0.044715 * x * x)))
 
 
 def gelu(x):
@@ -206,7 +206,8 @@ class GPT2SelfAttention(torch.nn.Module):
         self.num_attention_heads_per_partition = num_attention_heads
         self.relative_encoding = relative_encoding
         # Strided linear layer.
-        self.query_key_value = torch.nn.Linear(hidden_size, 3*hidden_size, bias=True)
+        self.query_key_value = torch.nn.Linear(hidden_size,
+                                               3 * hidden_size, bias=True)
 
         if relative_encoding:
             self.relative = torch.nn.Linear(hidden_size, hidden_size, bias=True)
@@ -367,9 +368,9 @@ class GPT2MLP(torch.nn.Module):
         if output_layer_init_method is None:
             output_layer_init_method = init_method
         # Project to 4h.
-        self.dense_h_to_4h = torch.nn.Linear(hidden_size, 4*hidden_size)
+        self.dense_h_to_4h = torch.nn.Linear(hidden_size, 4 * hidden_size)
         # Project back to h.
-        self.dense_4h_to_h = torch.nn.Linear(4*hidden_size, hidden_size)
+        self.dense_4h_to_h = torch.nn.Linear(4 * hidden_size, hidden_size)
         self.dropout = torch.nn.Dropout(output_dropout_prob)
 
     def forward(self, hidden_states):
@@ -656,7 +657,8 @@ class GPT2Transformer(torch.nn.Module):
                     new_mems.append(hiddens[i][:, -new_memory_length:])
                 else:
                     new_mems.append(
-                        torch.cat((mems[i][:, -new_memory_length+query_length:], hiddens[i]), dim=1))
+                        torch.cat(
+                            (mems[i][:, -new_memory_length + query_length:], hiddens[i]), dim=1))
         return new_mems
 
 

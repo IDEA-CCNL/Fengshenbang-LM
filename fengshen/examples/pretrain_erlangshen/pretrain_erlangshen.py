@@ -145,7 +145,7 @@ class MegatronBertLGTN(LightningModule):
         y_pred = y_pred.view(size=(-1,))
         y_true = labels.view(size=(-1,)).float()
         corr = torch.eq(y_pred, y_true)
-        acc = torch.sum(corr.float())/labels.size()[0]
+        acc = torch.sum(corr.float()) / labels.size()[0]
         return acc
 
     def validation_step(self, batch, batch_idx):
