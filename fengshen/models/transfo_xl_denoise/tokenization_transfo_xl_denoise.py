@@ -22,7 +22,7 @@ VOCAB_FILES_NAMES = {"vocab_file": "spiece.model"}
 PRETRAINED_VOCAB_FILES_MAP = {
     "vocab_file": {
         "transformer-xl-1b-base":
-            "https://huggingface.co/IDEA-CCNL/Transformer-XL-denoise-1.1B/resolve/main/spiece.model",
+            "https://huggingface.co/IDEA-CCNL/Bigan-Transformer-XL-denoise-1.1B/resolve/main/spiece.model",
     },
 }
 
