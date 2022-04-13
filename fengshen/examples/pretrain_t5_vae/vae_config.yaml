@@ -1,0 +1,5 @@
+latent_dim: 64
+pooling_strategy: max
+min_z: 0.5
+denoise_percentage: 0.15
+decoder_unfreeze_step: 1000

@@ -44,8 +44,8 @@ async def flask_gen(text: str = Body('', title='原文', embed=True),
     text = 'summary:'+text
     print(text)
     # inputs = tokenizer(text, return_tensors='pt')
-    inputs = tokenizer.encode_plus(text, max_length=128,
-                                   padding='max_length', truncation=True, return_tensors='pt')
+    inputs = tokenizer.encode_plus(
+        text, max_length=128, padding='max_length', truncation=True, return_tensors='pt')
     # print(inputs)
     if is_beam_search:
         generated_ids = model.model.generate(
@@ -83,12 +83,11 @@ async def flask_gen(text: str = Body('', title='原文', embed=True),
 
 if __name__ == '__main__':
     uvicorn.run(app, host="0.0.0.0", port=6607, log_level="debug")
-#     article = "日前，方舟子发文直指林志颖旗下爱碧丽推销假保健品，引起哗然。调查发现，爱碧丽没有自己的生产加工厂。
-#                   其胶原蛋白饮品无核心研发，全部代工生产。号称有“逆生长”功效的爱碧丽“梦幻奇迹限量组”售价>高达1080元，实际成本仅为每瓶4元！"
+# #     article = "日前，方舟子发文直指林志颖旗下爱碧丽推销假保健品，引起哗然。调查发现，
+# 爱碧丽没有自己的生产加工厂。其胶原蛋白饮品无核心研发，全部代工生产。号称有“逆生长”功效的爱碧丽“梦幻奇迹限量组”售价>高达1080元，实际成本仅为每瓶4元！"
 #     article = '''在北京冬奥会自由式滑雪女子坡面障碍技巧决赛中，中国选手谷爱凌夺得银牌。祝贺谷爱凌！
 # 今天上午，自由式滑雪女子坡面障碍技巧决赛举行。决赛分三轮进行，取选手最佳成绩排名决出奖牌。
 # 第一跳，中国选手谷爱凌获得69.90分。在12位选手中排名第三。完成动作后，谷爱凌又扮了个鬼脸，甚是可爱。
 # 第二轮中，谷爱凌在道具区第三个障碍处失误，落地时摔倒。获得16.98分。网友：摔倒了也没关系，继续加油！
-# 在第二跳失误摔倒的情况下，谷爱凌顶住压力，第三跳稳稳发挥，流畅落地！获得86.23分！此轮比赛，
-# 共12位选手参赛，谷爱凌第10位出场。网友：看比赛时我比谷爱凌紧张，加油！'''
+# 在第二跳失误摔倒的情况下，谷爱凌顶住压力，第三跳稳稳发挥，流畅落地！获得86.23分！此轮比赛，共12位选手参赛，谷爱凌第10位出场。网友：看比赛时我比谷爱凌紧张，加油！'''
     # flask_gen(article, length=30)

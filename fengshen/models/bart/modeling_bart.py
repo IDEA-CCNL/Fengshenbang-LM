@@ -10,9 +10,9 @@ import torch.nn.functional as F
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-from transformers.file_utils import add_end_docstrings, replace_return_docstrings
-from transformers.modeling_outputs import ModelOutput, Seq2SeqLMOutput
-from transformers.models.bart import BartPretrainedModel, BartConfig, BartModel
+from transformers.file_utils import *
+from transformers.modeling_outputs import *
+from transformers.models.bart import *
 from transformers.models.bart.modeling_bart import BartClassificationHead
 
 
@@ -49,8 +49,7 @@ BART_GENERATION_EXAMPLE = r"""
 
         >>> # Generate Summary
         >>> summary_ids = model.generate(inputs['input_ids'], num_beams=4, max_length=5, early_stopping=True)
-        >>> print([tokenizer.decode(g, skip_special_tokens=True,
-                    clean_up_tokenization_spaces=False) for g in summary_ids])
+        >>> print([tokenizer.decode(g, skip_special_tokens=True, clean_up_tokenization_spaces=False) for g in summary_ids])
 
     Mask filling example::
 
@@ -165,13 +164,10 @@ class BartForTextInfill(BartPretrainedModel):
         **unused,
     ):
         r"""
-        labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`,
-                `optional`, defaults to :obj:`None`):
+        labels (:obj:`torch.LongTensor` of shape :obj:`(batch_size, sequence_length)`, `optional`, defaults to :obj:`None`):
             Labels for computing the masked language modeling loss.
-            Indices should either be in ``[0, ..., config.vocab_size]``
-                or -100 (see ``input_ids`` docstring).
-            Tokens with indices set to ``-100`` are ignored (masked),
-                the loss is only computed for the tokens
+            Indices should either be in ``[0, ..., config.vocab_size]`` or -100 (see ``input_ids`` docstring).
+            Tokens with indices set to ``-100`` are ignored (masked), the loss is only computed for the tokens
             with labels in ``[0, ..., config.vocab_size]``.
 
     Returns:
@@ -202,11 +198,10 @@ class BartForTextInfill(BartPretrainedModel):
             labels = unused.pop("lm_labels")
         if "decoder_cached_states" in unused:
             warnings.warn(
-                "The `decoder_cached_states` argument is deprecated and will be removed in a future version, "
-                + "use `decoder_past_key_values` instead.",
+                "The `decoder_cached_states` argument is deprecated and will be removed in a future version, use `decoder_past_key_values` instead.",
                 FutureWarning,
             )
-            unused.pop("decoder_cached_states")
+            decoder_past_key_values = unused.pop("decoder_cached_states")
         return_dict = return_dict if return_dict is not None else False
 
         if labels is not None:

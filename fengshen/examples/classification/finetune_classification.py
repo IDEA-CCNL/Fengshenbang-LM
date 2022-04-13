@@ -13,35 +13,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from logging import basicConfig
 import torch
-from torch import nn
 import json
 from tqdm import tqdm
-from typing import Optional
 import os
 import numpy as np
-import sys
 from transformers import (
-    AutoTokenizer,
+    BertTokenizer,
     AutoModelForSequenceClassification
 )
 import pytorch_lightning as pl
 
 from pytorch_lightning.callbacks import ModelCheckpoint
-from pytorch_lightning import Trainer
 from torch.utils.data import Dataset, DataLoader
 from transformers.optimization import get_linear_schedule_with_warmup
 # from fengshen import AutoModelForSequenceClassification
 # from fengshen import AutoTokenizer
 import argparse
-os.environ["CUDA_VISIBLE_DEVICES"] = '7'
+# os.environ["CUDA_VISIBLE_DEVICES"] = '7'
 
 
 class TaskDataset(Dataset):
     def __init__(self, data_path, args, label2id):
         super().__init__()
-        self.tokenizer = AutoTokenizer.from_pretrained(
+        self.tokenizer = BertTokenizer.from_pretrained(
             args.pretrained_model_path)
         self.label2id = label2id
         self.max_length = args.max_length
@@ -73,7 +68,7 @@ class TaskDataset(Dataset):
 
     def encode(self, item):
         if item['texta'] != '' and item['textb'] != '':
-            encode_dict = self.tokenizer.encode_plus([item['texta'], item['textb']],
+            encode_dict = self.tokenizer.encode_plus(item['texta'], item['textb'],
                                                      max_length=self.max_length,
                                                      padding='max_length',
                                                      truncation='longest_first')
