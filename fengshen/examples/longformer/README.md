@@ -1,10 +1,3 @@
----
-language: 
-  - zh
-license: apache-2.0
-widget:
-- text: "生活的真谛是[MASK]。"
----
 # longformer model (Chinese)，one model of [Fengshenbang-LM](https://github.com/IDEA-CCNL/Fengshenbang-LM).
 We modify the original position code of longformer to rotational position coding，and on the basis of [chinese_roformer_L-12_H-768_A-12.zip](https://github.com/ZhuiyiTechnology/roformer), use 180G of data to continue training
 
