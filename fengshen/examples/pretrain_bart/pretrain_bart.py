@@ -18,7 +18,7 @@ import torch
 
 def padding_to_maxlength(ids, max_length, pad_id):
     cur_len = len(ids)
-    len_diff = max_length-len(ids)
+    len_diff = max_length - len(ids)
     return ids + [pad_id] * len_diff, [1] * cur_len + [0] * len_diff
 
 
@@ -30,7 +30,7 @@ def truncate_input_sequence(document, max_num_tokens):
         tokens_to_trunc = total_length - max_num_tokens
         while tokens_to_trunc > 0:
             if len(document[-1]) >= tokens_to_trunc:
-                document[-1] = document[-1][:len(document[-1])-tokens_to_trunc]
+                document[-1] = document[-1][:len(document[-1]) - tokens_to_trunc]
                 tokens_to_trunc = 0
             else:
                 tokens_to_trunc -= len(document[-1])

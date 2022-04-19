@@ -100,8 +100,8 @@ class FinetuneSummary(pl.LightningModule):
     def setup(self, stage) -> None:
         if stage == 'fit':
             num_gpus = self.trainer.gpus if self.trainer.gpus is not None else 0
-            self.total_step = int(self.trainer.max_epochs * self.num_data /
-                                  (max(1, num_gpus) * self.trainer.accumulate_grad_batches))
+            self.total_step = int(self.trainer.max_epochs * self.num_data
+                                  / (max(1, num_gpus) * self.trainer.accumulate_grad_batches))
             print('Total training step:', self.total_step)
 
     def training_step(self, batch, batch_idx):
@@ -117,7 +117,7 @@ class FinetuneSummary(pl.LightningModule):
         y_pred = y_pred.view(size=(-1,))
         y_true = labels.view(size=(-1,)).float()
         corr = torch.eq(y_pred, y_true)
-        acc = torch.sum(corr.float())/labels.size()[0]
+        acc = torch.sum(corr.float()) / labels.size()[0]
         return acc
 
     def validation_step(self, batch, batch_idx):
@@ -182,8 +182,8 @@ def save_test(data, args, data_model):
                 tmp_result['label'] = summary
                 tmp_result['origin_text'] = text
                 json_data = json.dumps(tmp_result, ensure_ascii=False)
-                f.write(json_data+'\n')
-    print('save the result to '+args.output_save_path)
+                f.write(json_data + '\n')
+    print('save the result to ' + args.output_save_path)
 
 
 def main():
