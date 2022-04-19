@@ -19,7 +19,7 @@ from tqdm import tqdm
 import os
 import numpy as np
 from transformers import (
-    AutoTokenizer,
+    BertTokenizer,
     AutoModelForSequenceClassification
 )
 import pytorch_lightning as pl
@@ -35,7 +35,7 @@ import argparse
 class TaskDataset(Dataset):
     def __init__(self, data_path, args, label2id):
         super().__init__()
-        self.tokenizer = AutoTokenizer.from_pretrained(
+        self.tokenizer = BertTokenizer.from_pretrained(
             args.pretrained_model_path, use_fast=False)
         self.label2id = label2id
         self.max_length = args.max_length

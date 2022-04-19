@@ -1,12 +1,14 @@
 #!/bin/bash
 #SBATCH --job-name=afqmc # create a short name for your job
 #SBATCH --nodes=1 # node count
-#SBATCH --ntasks=8 # total number of tasks across all nodes
-#SBATCH --cpus-per-task=30 # cpu-cores per task (>1 if multi-threaded tasks)
-#SBATCH --gres=gpu:8 # number of gpus per node
+#SBATCH --ntasks=4 # total number of tasks across all nodes
+#SBATCH --cpus-per-task=20 # cpu-cores per task (>1 if multi-threaded tasks)
+#SBATCH --gres=gpu:4 # number of gpus per node
 #SBATCH --mail-type=ALL # send email when job begins, ends or failed etc. 
 #SBATCH -o %x-%j.log # output and error file name (%x=job name, %j=job id)
 
+set -x -e
+echo "START TIME: $(date)"
 
 export TORCH_EXTENSIONS_DIR=/cognitive_comp/gaoxinyu/cache/torch_extendsions
 
@@ -19,7 +21,7 @@ LABEL_NAME=label
 ID_NAME=id
 
 
-BATCH_SIZE=4
+BATCH_SIZE=8
 VAL_BATCH_SIZE=32
 ZERO_STAGE=2
 STRATEGY=deepspeed_stage_${ZERO_STAGE}
@@ -42,7 +44,7 @@ config_json="./ds_config.json"
 cat <<EOT > $config_json
 {
   "train_micro_batch_size_per_gpu": $BATCH_SIZE,
-  "steps_per_print": 100,
+  "steps_per_print": 1000,
   "gradient_clipping": 0.1,
   "zero_optimization": {
         "stage": 2
@@ -52,21 +54,21 @@ cat <<EOT > $config_json
     "params": {
       "lr": 1e-7,
       "eps": 1e-12,
-      "weight_decay": 1e-2
+      "weight_decay": 1e-1
     }
   },
   "scheduler": {
     "type": "WarmupLR",
     "params":{
-      "warmup_min_lr": 5e-10,
-      "warmup_max_lr": 1e-7,
+      "warmup_min_lr": 1e-8,
+      "warmup_max_lr": 1e-6,
       "warmup_num_steps": 400,
       "warmup_type": "linear"
     }
   },
   "zero_allow_untested_optimizer": false,
   "fp16": {
-    "enabled": false,
+    "enabled": true,
     "loss_scale": 0,
     "loss_scale_window": 1000,
     "hysteresis": 2,
@@ -90,7 +92,7 @@ DATA_ARGS="\
         --test_data test.json \
         --train_batchsize $BATCH_SIZE \
         --valid_batchsize $VAL_BATCH_SIZE \
-        --max_length 64 \
+        --max_length 128 \
         --texta_name $TEXTA_NAME \
         --textb_name $TEXTB_NAME \
         --label_name $LABEL_NAME \
@@ -108,8 +110,8 @@ MODEL_CHECKPOINT_ARGS="\
         --monitor val_acc \
         --save_top_k 3 \
         --mode max \
-        --every_n_train_steps 10000 \
-        --save_weights_only \
+        --every_n_train_steps 0 \
+        --save_weights_only True \
         --dirpath $CHECKPOINT_PATH \
         --filename model-{epoch:02d}-{val_acc:.4f} \
         "
@@ -117,12 +119,13 @@ MODEL_CHECKPOINT_ARGS="\
 
 TRAINER_ARGS="\
         --max_epochs 67 \
-        --gpus 8 \
+        --gpus 4 \
         --num_nodes 1 \
         --strategy $STRATEGY \
         --gradient_clip_val 1.0 \
         --check_val_every_n_epoch 1 \
         --val_check_interval 100 \
+        --precision 16 \
         --default_root_dir $DEFAULT_ROOT_DIR \
         "
 
@@ -139,5 +142,5 @@ DOCKER_PATH=/cognitive_comp/gaoxinyu/docker/pytorch21_06_py3_docker_image_v2.sif
 SCRIPT_PATH=/cognitive_comp/gaoxinyu/github/Fengshenbang-LM/fengshen/examples/classification/finetune_classification.py
 
 # python3 $SCRIPT_PATH $options
-srun singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $DOCKER_PATH python3 $SCRIPT_PATH $options
+srun -N 1 --job-name=afqmc --jobid=151522 --ntasks=4 --cpus-per-task=15 --gres=gpu:4 -o %x-%j.log singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $DOCKER_PATH python3 $SCRIPT_PATH $options
 

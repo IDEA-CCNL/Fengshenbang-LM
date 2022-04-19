@@ -1,15 +1,15 @@
 #!/bin/bash
 #SBATCH --job-name=bart_summary
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=2
-#SBATCH --gres=gpu:2               # number of gpus
+#SBATCH --ntasks-per-node=4
+#SBATCH --gres=gpu:4               # number of gpus
 #SBATCH -o %x-%j.log
 
 set -x -e
 
 echo "START TIME: $(date)"
 MODEL_NAME=bart-base
-MICRO_BATCH_SIZE=8
+MICRO_BATCH_SIZE=16
 ROOT_DIR=/cognitive_comp/gaoxinyu/ln_model/finetune/${MODEL_NAME}
 
 ZERO_STAGE=1
@@ -39,7 +39,7 @@ cat <<EOT > $config_json
         0.95
       ],
       "eps": 1e-8,
-      "weight_decay": 1e-2
+      "weight_decay": 5e-2
     }
   },
   "scheduler": {
@@ -69,7 +69,7 @@ EOT
 
 TRAINER_ARGS="
     --max_epochs 2 \
-    --gpus 2 \
+    --gpus 4 \
     --num_nodes 1 \
     --strategy deepspeed_stage_${ZERO_STAGE} \
     --default_root_dir $ROOT_DIR \
@@ -78,6 +78,7 @@ TRAINER_ARGS="
     --monitor train_loss \
     --mode min \
     --save_last \
+    --every_n_train_steps 0 \
 "
 DATA_DIR=/cognitive_comp/ganruyi/data_datasets_LCSTS_LCSTS/
 prompt="summary:"
@@ -96,6 +97,7 @@ MODEL_ARGS="
     --output_save_path $ROOT_DIR/mt5_large_predict_lcsts.json \
     --learning_rate 1e-4 \
     --weight_decay 0.1 \
+    --precision 16 \
     --warmup 0.01 \
 "
 
@@ -115,4 +117,5 @@ echo $CMD
 
 # to debug - add echo (it exits and prints what it would have launched)
 #run_cmd="$PY_LAUNCHER $CMD"
-srun singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c 'python $CMD'
+# srun --nodes=1 --gres=gpu:4 --ntasks-per-node=4 --cpus-per-gpu=20 
+singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c 'python $CMD'
