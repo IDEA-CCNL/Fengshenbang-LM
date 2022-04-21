@@ -150,17 +150,20 @@ def main():
                                              )
         trainer.fit(model, data_model)
 
-        result = trainer.predict(model, data_model)
-        with open('test_results.txt', 'wt', encoding='utf-8') as w:
-            for line in result:
-                w.writelines(line)
+        # result = trainer.predict(model, data_model)
+        # with open('test_results.txt', 'wt', encoding='utf-8') as w:
+        #     for line in result:
+        #         w.writelines(line)
+
+        model.model.save_pretrained(
+            '/cognitive_comp/wuziwei/pretrained_model_hf')
     else:
         print('save to hf.....')
         trainer = Trainer.from_argparse_args(args)
         model = GPT2FinetuneMedicalQA(
             args, len(data_model.predict_dataloader()))
 
-        result = trainer.validate(
+        result = trainer.predict(
             model, data_model, ckpt_path='/cognitive_comp/wuziwei/task/fs_medical_qa_finetune/ckpt/last.ckpt')
         # with open('test_results.txt','wt',encoding='utf-8') as w:
         #     for line in result:
