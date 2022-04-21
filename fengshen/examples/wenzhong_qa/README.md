@@ -41,8 +41,35 @@ smoth method:
 | Fengshen | 0.717829796617609 | 0.6516910802858905 | 0.5859726677095979 | 0.525510691686505  |
 | Magetron | 0.776190980974117 | 0.6749801211321476 | 0.5897846253142169 | 0.5230773076722481 |
 #### 使用方式：
-支持直接用Haggingface或者pytorch-lightning框架调用。由于在finetune的时候，加入了prompt，在问答的时候，输入应该是：
+支持直接用Haggingface或者pytorch-lightning框架调用。由于在finetune的时候，加入了prompt，在问答的时候，输入应该是："
+`Question:your question about medical? answer:`",接着模型就回以续写的方式回答你的问题。用huggingface的调用代码可以参考下面的代码：
 ```python 
-Question:your question about medical? answer:
+from transformers import GPT2Tokenizer,GPT2LMHeadModel
+model_path = 'pretrained_model_hf/yuyuanQA-v1' # input your own model file path
+model = GPT2LMHeadModel.from_pretrained(model_path)
+tokenizer = GPT2Tokenizer.from_pretrained(model_path)
+model = model.cuda(6) # move your model to the GPU
+model.eval() # just do predict
+
+def answering(question):
+# question = "What should gout patients pay attention to in diet?"
+    inputs = tokenizer(f'Question:{question} answer:',return_tensors='pt').input_ids.to(model.device)
+    
+    generation_output = model.generate(input_ids = inputs,
+                                return_dict_in_generate=True,
+                                output_scores=True,
+                                max_length=150,
+                                # max_new_tokens=80,
+                                do_sample=True,
+                                top_p = 0.9,
+                                eos_token_id=50256,
+                                pad_token_id=0,
+                                num_return_sequences = 5)
+    answers = []
+    for idx,sentence in enumerate(generation_output.sequences):
+        next_sentence = tokenizer.decode(sentence).split('<|endoftext|>')[0]
+        answer = next_sentence.split(sep='answer:',maxsplit=1)[1]
+        answers.append(answer)
+    return answers
+answering('your question?')
 ```
-接着模型就回以续写的方式回答你的问题。
