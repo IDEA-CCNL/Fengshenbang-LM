@@ -22,7 +22,7 @@ finetune的模型是yuyuan模型，余元模型是GPT2的结构，在预训练�
 ```
 ### finetune框架以及参数配置
 #### 框架 ：
-finetune的框架是IDEA研究院CCNL小组整合各大框架的优点开源的[封神框架](https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen)，具体代码可以参考[inetune_medicalQA.py](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/dev_wzw/fengshen/examples/wenzhong_qa/finetune_medicalQA.py)和[medicalQADataset.py](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/dev_wzw/fengshen/data/task_dataloader/medicalQADataset.py)。
+finetune的框架是IDEA研究院CCNL小组整合各大框架的优点开源的[封神框架](https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen)，具体代码可以参考[finetune_medicalQA.py](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/dev_wzw/fengshen/examples/wenzhong_qa/finetune_medicalQA.py)和[medicalQADataset.py](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/dev_wzw/fengshen/data/task_dataloader/medicalQADataset.py)。
 #### 训练参数：
 训练参数，我们采用了deepspeed相关的配置，用2个集群的节点共16张A100，在很短的时间内完成了finetune。具体参数配置可以参考[finetune_GPT2_medicalQA.sh](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/dev_wzw/fengshen/examples/wenzhong_qa/finetune_GPT2_medicalQA.sh)
 ### finetune后的效果以及使用
