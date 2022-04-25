@@ -1,18 +1,15 @@
 from transformers import BartForConditionalGeneration, T5Tokenizer, BartConfig
 from pytorch_lightning import (
-    LightningDataModule,
     LightningModule,
     Trainer,
     loggers,
 )
 from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
-from typing import Optional
 from dataclasses import dataclass
 import random
 import os
 import numpy as np
 import argparse
-from torch.utils.data import DataLoader
 import torch
 
 
@@ -44,6 +41,18 @@ class TextFillingCollator:
     max_seq_length: int = 512
     masked_lm_prob: float = 0.15
 
+    @ staticmethod
+    def add_data_specific_args(parent_args):
+        parser = parent_args.add_argument_group('Bart Text Filling Collator')
+        parser.add_argument('--max_seq_length', default=512, type=int)
+        parser.add_argument('--masked_lm_prob', default=0.15, type=float)
+        return parent_args
+
+    def __init__(self, tokenizer, args):
+        self.tokenizer = tokenizer
+        self.max_seq_length = args.max_seq_length
+        self.masked_lm_prob = args.masked_lm_prob
+
     def create_noised_input(self, tokens_x):
         masked_number = 0
         noised_x = []
@@ -53,7 +62,7 @@ class TextFillingCollator:
             noised_sent = []
             while j < len(sent):
                 if random.random() < self.masked_lm_prob:
-                    num_tokens_to_mask = np.random.poisson(lam=3) + 1
+                    num_tokens_to_mask = np.random.poisson(lam=3)
                     masked_number += num_tokens_to_mask
                     if num_tokens_to_mask > 0:
                         noised_sent.append(self.tokenizer.mask_token)
@@ -106,6 +115,10 @@ class TextFillingCollator:
             # 需要补充 bos , eos, 所以最长长度需要-2
             trunc = truncate_input_sequence(s['tokenized_text'], self.max_seq_length - 2)
             g = self.generate_sample(trunc)
+            while len(g[0]) > self.max_seq_length:
+                # text filling在span=0时会insert一个mask，导致input_ids超长，这个时候做二次判断再截断一次
+                trunc = trunc[:-1]
+                g = self.generate_sample(trunc)
             input_ids.append(g[0])
             labels.append(g[1])
             attn_mask.append(g[2])
@@ -117,73 +130,6 @@ class TextFillingCollator:
             'decoder_attention_mask': torch.tensor(decoder_attn_mask),
             'labels': torch.tensor(labels),
         }
-
-
-class BartTextFillingData(LightningDataModule):
-    @ staticmethod
-    def add_data_specific_args(parent_args):
-        parser = parent_args.add_argument_group('Bart Text Filling DataModule')
-        parser.add_argument('--num_workers', default=8, type=int)
-        parser.add_argument('--train_batchsize', default=32, type=int)
-        parser.add_argument('--eval_batchsize', default=32, type=int)
-        parser.add_argument('--test_batchsize', default=32, type=int)
-        parser.add_argument('--datasets_name', type=str)
-        parser.add_argument('--max_seq_length', default=512, type=int)
-        parser.add_argument('--masked_lm_prob', default=0.15, type=float)
-        return parent_args
-
-    def __init__(
-        self,
-        tokenizer,
-        args,
-        **kwargs,
-    ):
-        super().__init__()
-        import sys
-        sys.path.append('../../')
-        from data.fs_datasets import load_dataset
-        self.datasets = load_dataset(
-            args.datasets_name, num_proc=args.num_workers)
-        self.tokenizer = tokenizer
-        self.save_hyperparameters(args)
-
-    def setup(self, stage: Optional[str] = None) -> None:
-        # generate collator
-        self.collator = TextFillingCollator(
-            self.tokenizer,
-            self.hparams.max_seq_length,
-            self.hparams.masked_lm_prob)
-        self.train = DataLoader(
-            self.datasets['train'],
-            batch_size=self.hparams.train_batchsize,
-            shuffle=True,
-            num_workers=self.hparams.num_workers,
-            collate_fn=self.collator,
-        )
-        self.val = DataLoader(
-            self.datasets['test'],
-            batch_size=self.hparams.eval_batchsize,
-            shuffle=False,
-            num_workers=self.hparams.num_workers,
-            collate_fn=self.collator,
-        )
-        self.test = DataLoader(
-            self.datasets['test'],
-            batch_size=self.hparams.test_batchsize,
-            shuffle=False,
-            num_workers=self.hparams.num_workers,
-            collate_fn=self.collator,
-        )
-        return
-
-    def train_dataloader(self):
-        return self.train
-
-    def val_dataloader(self):
-        return self.val
-
-    def test_dataloader(self):
-        return self.test
 
 
 class CustomCKPT:
@@ -200,6 +146,7 @@ class CustomCKPT:
         parser.add_argument('--save_top_k', default=3, type=float)
         parser.add_argument('--every_n_train_steps', default=100, type=float)
         parser.add_argument('--save_weights_only', action='store_true', default=False)
+        parser.add_argument('--every_n_epochs', default=1, type=int)
 
         return parent_args
 
@@ -211,7 +158,8 @@ class CustomCKPT:
                                          save_weights_only=args.save_weights_only,
                                          dirpath=args.dirpath,
                                          filename=args.filename,
-                                         save_last=args.save_last)
+                                         save_last=args.save_last,
+                                         every_n_epochs=args.every_n_epochs)
 
 
 class BartLightning(LightningModule):
@@ -244,7 +192,7 @@ class BartLightning(LightningModule):
 
     def training_step(self, batch, batch_idx):
         output = self.model(**batch)
-        self.log('train_loss', output.loss)
+        self.log('train_loss', output.loss, sync_dist=True)
         return output.loss
 
     def comput_metrix(self, logits, labels):
@@ -258,16 +206,24 @@ class BartLightning(LightningModule):
     def validation_step(self, batch, batch_idx):
         output = self.model(**batch)
         acc = self.comput_metrix(output.logits, batch['labels'])
-        self.log('val_loss', output.loss)
-        self.log('val_acc', acc)
+        self.log('val_loss', output.loss, sync_dist=True)
+        self.log('val_acc', acc, sync_dist=True)
+
+    def on_save_checkpoint(self, checkpoint) -> None:
+        module.model.save_pretrained(os.path.join(
+            self.hparams.default_root_dir, 'hf_pretrain_model'))
 
 
 if __name__ == '__main__':
     args_parser = argparse.ArgumentParser()
-    args_parser = BartTextFillingData.add_data_specific_args(args_parser)
+    import sys
+    sys.path.append('../../')
+    from data.universal_datamodule import UniversalDataModule
+    args_parser = UniversalDataModule.add_data_specific_args(args_parser)
     args_parser = Trainer.add_argparse_args(args_parser)
     args_parser = BartLightning.add_module_specific_args(args_parser)
     args_parser = CustomCKPT.add_argparse_args(args_parser)
+    args_parser = TextFillingCollator.add_data_specific_args(args_parser)
     args_parser.add_argument('--deepspeed')
     args_parser.add_argument('--pretrain_sp_tokenizer', type=str, )
     args = args_parser.parse_args()
@@ -277,7 +233,10 @@ if __name__ == '__main__':
                                             extra_ids=0)
     tokenizer.bos_token = '<s>'
     tokenizer.mask_token = '<mask>'
-    data_module = BartTextFillingData(tokenizer, args)
+
+    collator = TextFillingCollator(tokenizer, args)
+
+    data_module = UniversalDataModule(tokenizer=tokenizer, args=args, collate_fn=collator)
     module = BartLightning(args)
     lr_monitor = LearningRateMonitor(logging_interval='step')
     logger = loggers.TensorBoardLogger(save_dir=os.path.join(
@@ -300,6 +259,3 @@ if __name__ == '__main__':
                                              checkpoint_callback])
 
     trainer.fit(module, data_module)
-
-    module.model.save_pretrained(os.path.join(
-        args.default_root_dir, 'hf_pretrain_model'))
