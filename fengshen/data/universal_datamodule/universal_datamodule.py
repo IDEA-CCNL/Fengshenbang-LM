@@ -43,7 +43,7 @@ class UniversalDataModule(LightningDataModule):
         )
         self.val = DataLoader(
             self.datasets[self.hparams.val_datasets_field],
-            batch_size=self.hparams.eval_batchsize,
+            batch_size=self.hparams.val_batchsize,
             shuffle=False,
             num_workers=self.hparams.num_workers,
             collate_fn=self.collate_fn,
