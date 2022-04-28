@@ -65,10 +65,11 @@ DATA_ARGS="\
         --pretrain_sp_tokenizer /cognitive_comp/common_data/tokenizers/sentence_piece_bpe/bpe_v40000_s42_cov0.9995_max6_corpus1M.model \
         --num_workers 30 \
         --train_batchsize $MICRO_BATCH_SIZE \
-        --eval_batchsize 32 \
+        --val_batchsize 32 \
         --test_batchsize 32  \
         --max_seq_length 1024 \
         --masked_lm_prob 0.15 \
+        --val_datasets_field test \
         "
 
 MODEL_ARGS="\
@@ -82,6 +83,7 @@ MODEL_CHECKPOINT_ARGS="\
         --monitor train_loss \
         --save_top_k 3 \
         --mode min \
+        --save_last \
         --every_n_train_steps 50000 \
         --dirpath /cognitive_comp/gaoxinyu/ln_model/ckpt/fengshen-$MODEL_NAME \
         --filename model-{step:02d}-{train_loss:.4f} \
@@ -89,7 +91,7 @@ MODEL_CHECKPOINT_ARGS="\
 TRAINER_ARGS="\
         --gradient_clip_val 1.0 \
         --max_epochs 1 \
-        --gpus 8 \
+        --gpus 1 \
         --num_nodes 1 \
         --strategy deepspeed_stage_1 \
         --log_every_n_steps 100 \
@@ -110,6 +112,6 @@ export options=" \
 SINGULARITY_PATH=/cognitive_comp/gaoxinyu/docker/pytorch21_06_py3_docker_image_v2.sif
 export SCRIPT_PATH=/cognitive_comp/gaoxinyu/github/Fengshenbang-LM/fengshen/examples/pretrain_bart/pretrain_bart.py
 
-srun singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c 'python3 $SCRIPT_PATH $options'
+singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c 'python3 $SCRIPT_PATH $options'
 # singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $DOCKER_PATH python3 $SCRIPT_PATH $options
 

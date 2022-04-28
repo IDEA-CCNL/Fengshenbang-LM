@@ -1,10 +1,10 @@
-from transformers import BartForConditionalGeneration, T5Tokenizer, BartConfig
+from transformers import BartForConditionalGeneration, T5Tokenizer
 from pytorch_lightning import (
     LightningModule,
     Trainer,
     loggers,
 )
-from pytorch_lightning.callbacks import ModelCheckpoint, LearningRateMonitor
+from pytorch_lightning.callbacks import LearningRateMonitor
 from dataclasses import dataclass
 import random
 import os
@@ -132,36 +132,6 @@ class TextFillingCollator:
         }
 
 
-class CustomCKPT:
-    @staticmethod
-    def add_argparse_args(parent_args):
-        parser = parent_args.add_argument_group('ckpt call back')
-
-        parser.add_argument('--monitor', default='train_loss', type=str)
-        parser.add_argument('--mode', default='min', type=str)
-        parser.add_argument('--dirpath', default='./ckpt/', type=str)
-        parser.add_argument(
-            '--filename', default='model-{epoch:02d}-{train_loss:.4f}', type=str)
-        parser.add_argument('--save_last', action='store_true', default=True)
-        parser.add_argument('--save_top_k', default=3, type=float)
-        parser.add_argument('--every_n_train_steps', default=100, type=float)
-        parser.add_argument('--save_weights_only', action='store_true', default=False)
-        parser.add_argument('--every_n_epochs', default=1, type=int)
-
-        return parent_args
-
-    def __init__(self, args):
-        self.callbacks = ModelCheckpoint(monitor=args.monitor,
-                                         save_top_k=args.save_top_k,
-                                         mode=args.mode,
-                                         every_n_train_steps=args.every_n_train_steps,
-                                         save_weights_only=args.save_weights_only,
-                                         dirpath=args.dirpath,
-                                         filename=args.filename,
-                                         save_last=args.save_last,
-                                         every_n_epochs=args.every_n_epochs)
-
-
 class BartLightning(LightningModule):
     @staticmethod
     def add_module_specific_args(parent_parser):
@@ -175,8 +145,7 @@ class BartLightning(LightningModule):
     def __init__(self, args, **kwargs) -> None:
         super().__init__()
         self.save_hyperparameters(args)
-        self.model_config = BartConfig.from_pretrained(args.model_path)
-        self.model = BartForConditionalGeneration(config=self.model_config)
+        self.model = BartForConditionalGeneration.from_pretrained(args.model_path)
 
     def setup(self, stage) -> None:
         if stage == 'fit':
@@ -210,8 +179,10 @@ class BartLightning(LightningModule):
         self.log('val_acc', acc, sync_dist=True)
 
     def on_save_checkpoint(self, checkpoint) -> None:
-        module.model.save_pretrained(os.path.join(
-            self.hparams.default_root_dir, 'hf_pretrain_model'))
+        if self.trainer._accelerator_connector.cluster_environment.global_rank() == 0:
+            self.model.save_pretrained(os.path.join(
+                self.trainer.checkpoint_callback.dirpath,
+                'hf_pretrained_epoch{}_step{}'.format(checkpoint['epoch'], checkpoint['global_step'])))
 
 
 if __name__ == '__main__':
@@ -219,10 +190,11 @@ if __name__ == '__main__':
     import sys
     sys.path.append('../../')
     from data.universal_datamodule import UniversalDataModule
+    from utils import UniversalCheckpoint
     args_parser = UniversalDataModule.add_data_specific_args(args_parser)
     args_parser = Trainer.add_argparse_args(args_parser)
     args_parser = BartLightning.add_module_specific_args(args_parser)
-    args_parser = CustomCKPT.add_argparse_args(args_parser)
+    args_parser = UniversalCheckpoint.add_argparse_args(args_parser)
     args_parser = TextFillingCollator.add_data_specific_args(args_parser)
     args_parser.add_argument('--deepspeed')
     args_parser.add_argument('--pretrain_sp_tokenizer', type=str, )
@@ -235,14 +207,15 @@ if __name__ == '__main__':
     tokenizer.mask_token = '<mask>'
 
     collator = TextFillingCollator(tokenizer, args)
-
     data_module = UniversalDataModule(tokenizer=tokenizer, args=args, collate_fn=collator)
+
     module = BartLightning(args)
+
     lr_monitor = LearningRateMonitor(logging_interval='step')
     logger = loggers.TensorBoardLogger(save_dir=os.path.join(
         args.default_root_dir, 'logs/'),
         name=os.path.basename(os.path.dirname(args.model_path)))
-    checkpoint_callback = CustomCKPT(args).callbacks
+    checkpoint_callback = UniversalCheckpoint(args).callbacks
 
     if args.resume_from_checkpoint is not None and \
             not os.path.exists(args.resume_from_checkpoint):
