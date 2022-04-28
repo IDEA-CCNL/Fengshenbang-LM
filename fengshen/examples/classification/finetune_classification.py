@@ -30,14 +30,13 @@ from transformers.optimization import get_linear_schedule_with_warmup
 # from fengshen import AutoModelForSequenceClassification
 # from fengshen import AutoTokenizer
 import argparse
-# os.environ["CUDA_VISIBLE_DEVICES"] = '7'
 
 
 class TaskDataset(Dataset):
     def __init__(self, data_path, args, label2id):
         super().__init__()
         self.tokenizer = BertTokenizer.from_pretrained(
-            args.pretrained_model_path)
+            args.pretrained_model_path, use_fast=False)
         self.label2id = label2id
         self.max_length = args.max_length
         self.data = self.load_data(data_path, args)
@@ -77,13 +76,11 @@ class TaskDataset(Dataset):
                                                      max_length=self.max_length,
                                                      padding='max_length',
                                                      truncation='longest_first')
-
-        return {
-            "input_ids": torch.tensor(encode_dict['input_ids']).long(),
-            "token_type_ids": torch.tensor(encode_dict['token_type_ids']).long(),
-            "attention_mask": torch.tensor(encode_dict['attention_mask']).float(),
-            "labels": torch.tensor(item['labels']).long(),
-        }
+        samples = {}
+        for k, v in encode_dict.items():
+            samples[k] = torch.tensor(v)
+        samples['labels'] = torch.tensor(item['labels']).long()
+        return samples
 
 
 class TaskDataModel(pl.LightningDataModule):
@@ -292,8 +289,9 @@ def main():
                                             )
 
     data_model = TaskDataModel(args)
+    print('---load data end---', flush=True)
     model = LitAutoEncoder(args, len(data_model.train_dataloader()))
-
+    print('---load model end---', flush=True)
     trainer.fit(model, data_model)
     result = trainer.predict(model, data_model)
     save_test(result, args, data_model)

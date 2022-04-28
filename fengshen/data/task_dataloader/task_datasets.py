@@ -16,7 +16,7 @@ class LCSTSDataset(Dataset):
     def __init__(self, data_path, args):
         super().__init__()
         self.tokenizer = AutoTokenizer.from_pretrained(
-            args.pretrained_model_path)
+            args.pretrained_model_path, use_fast=False)
         self.data = self.load_data(data_path)
         self.prompt = args.prompt
         self.max_enc_length = args.max_enc_length

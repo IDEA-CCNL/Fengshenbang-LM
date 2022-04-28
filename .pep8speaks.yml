@@ -15,7 +15,7 @@ pycodestyle:  # Same as scanner.linter value. Other option is flake8
         
 flake8:  # Valid if scanner.linter is flake8
     max-line-length: 150
-    ignore: [E203,E266,E501,W503,F403,F401,E402,F841,E741,F821]
+    ignore: [E203,E266,E501,W503,F403,F401,E402,F841,E741,F821,E226,W504,E731,C406]
     exclude: []
     count: False
     show-source: False
