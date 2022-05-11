@@ -1,4 +1,7 @@
+from fengshen.utils.utils import chinese_char_tokenize
+from torchmetrics.text.rouge import ROUGEScore
 from fengshen.utils.universal_checkpoint import UniversalCheckpoint
+from builtins import list, print
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from transformers.optimization import get_linear_schedule_with_warmup
 from pytorch_lightning import Trainer, loggers
@@ -11,7 +14,7 @@ import sys
 from pytorch_lightning.callbacks import LearningRateMonitor
 sys.path.append('../../../')
 
-# os.environ["CUDA_VISIBLE_DEVICES"] = '4,5,6,7'
+os.environ["CUDA_VISIBLE_DEVICES"] = '6,7'
 
 
 class FinetuneSummary(pl.LightningModule):
@@ -22,6 +25,7 @@ class FinetuneSummary(pl.LightningModule):
         parser.add_argument('--learning_rate', default=1e-4, type=float)
         parser.add_argument('--weight_decay', default=0.1, type=float)
         parser.add_argument('--warmup', default=0.01, type=float)
+        parser.add_argument('--rouge_keys', default='rougeL,rouge1,rouge2', type=str)
         return parent_args
 
     def __init__(self, args):
@@ -29,6 +33,10 @@ class FinetuneSummary(pl.LightningModule):
         self.save_hyperparameters(args)
         self.model = AutoModelForSeq2SeqLM.from_pretrained(
             args.pretrained_model_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.hparams.pretrained_model_path, use_fast=False)
+        self.rouge_keys = tuple(args.rouge_keys.split(','))
+        self.rouge_metric = ROUGEScore(rouge_keys=self.rouge_keys, normalizer=lambda x: x)
 
     def setup(self, stage) -> None:
         if stage == 'fit':
@@ -50,7 +58,35 @@ class FinetuneSummary(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         output = self.model(input_ids=batch['input_ids'],
                             attention_mask=batch['attention_mask'], labels=batch['labels'])
+        generated_ids = self.model.generate(
+            input_ids=batch['input_ids'],
+            attention_mask=batch['attention_mask'],
+            max_length=self.hparams.max_dec_length
+        )
+
+        preds = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        labels = self.tokenizer.batch_decode(
+            batch['labels'], skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        # save preds for every rank
+        prefix, ext = os.path.splitext(self.hparams.output_save_path)
+        file_path_rank = '{}_{}{}'.format(
+            prefix, self.trainer._accelerator_connector.cluster_environment.global_rank(), ext)
+        self.save_prediction_to_file(preds=preds, texts=batch['text'],
+                                     summarys=batch['summary'], file_path=file_path_rank)
+        # you need to split chinese char with space for rouge metric
+        new_preds = [chinese_char_tokenize(p) for p in preds]
+        new_labels = [chinese_char_tokenize(label) for label in labels]
+        # update metric
+        self.rouge_metric.update(preds=new_preds, target=new_labels)
         self.log('val_loss', output.loss, sync_dist=True)
+
+    def validation_epoch_end(self, outputs):
+        # compute metric for all process
+        rouge_dict = self.rouge_metric.compute()
+        for k, v in rouge_dict.items():
+            self.log('val_{}'.format(k), v, sync_dist=True)
+        if self.trainer._accelerator_connector.cluster_environment.global_rank() == 0:
+            print('rouge:\n', rouge_dict)
 
     def on_save_checkpoint(self, checkpoint) -> None:
         if self.trainer._accelerator_connector.cluster_environment.global_rank() == 0:
@@ -58,15 +94,32 @@ class FinetuneSummary(pl.LightningModule):
                 self.trainer.checkpoint_callback.dirpath,
                 'hf_pretrained_epoch{}_step{}'.format(checkpoint['epoch'], checkpoint['global_step'])))
 
+    def save_prediction_to_file(self, preds, texts, summarys, file_path):
+        with open(file_path, 'a', encoding='utf-8') as f:
+            for idx, pred in enumerate(preds):
+                text = texts[idx]
+                summary = summarys[idx]
+                tmp_result = dict()
+                tmp_result['pred'] = pred
+                tmp_result['label'] = summary
+                tmp_result['text'] = text
+                json_data = json.dumps(tmp_result, ensure_ascii=False)
+                f.write(json_data + '\n')
+
     def predict_step(self, batch, batch_idx):
-        text = batch['text']
-        summary = batch['summary']
+        # print(batch)
+        texts = batch['text']
+        # output summary and metrics
         generated_ids = self.model.generate(
             input_ids=batch['input_ids'],
             attention_mask=batch['attention_mask'],
-            max_length=self.args.max_dec_length
+            max_length=self.hparams.max_dec_length
         )
-        return {"pred": generated_ids, "text": text, "summary": summary}
+        preds = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        labels = self.tokenizer.batch_decode(
+            batch['labels'], skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        print(batch_idx, len(preds), len(labels))
+        self.save_prediction_to_file(preds, texts, labels)
 
     def configure_optimizers(self):
         no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
@@ -93,28 +146,6 @@ class FinetuneSummary(pl.LightningModule):
                 'frequency': 1
             }
         }]
-
-
-def save_test(data, args, data_model):
-    tokenizer = AutoTokenizer.from_pretrained(
-        args.pretrained_model_path, use_fast=False)
-    with open(os.path.join(args.output_save_path), 'w', encoding='utf-8') as f:
-        for _, batch in enumerate(data):
-            texts = batch['text']
-            summarys = batch['summary']
-            preds = batch['pred']
-            for idx, pred_ids in enumerate(preds):
-                text = texts[idx]
-                summary = summarys[idx]
-                tmp_result = dict()
-                preds = [tokenizer.decode(g, skip_special_tokens=True, clean_up_tokenization_spaces=True)
-                         for g in pred_ids]
-                tmp_result['summary'] = ''.join(preds)
-                tmp_result['label'] = summary
-                tmp_result['origin_text'] = text
-                json_data = json.dumps(tmp_result, ensure_ascii=False)
-                f.write(json_data + '\n')
-    print('save the result to ' + args.output_save_path)
 
 
 def main():
@@ -150,11 +181,9 @@ def main():
         trainer.fit(model, data_model)
     else:
         trainer = Trainer.from_argparse_args(args)
-        model = FinetuneSummary.load_from_checkpoint(
-            args.resume_from_checkpoint, args=args)
-        result = trainer.predict(model, data_model)
-        if torch.distributed.get_rank() == 0:
-            save_test(result, args, data_model)
+        model = FinetuneSummary(args)
+        # trainer.predict(model, data_model)
+        trainer.validate(model, data_model)
 
 
 if __name__ == '__main__':

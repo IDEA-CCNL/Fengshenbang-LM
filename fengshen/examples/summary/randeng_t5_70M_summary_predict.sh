@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=randeng_t5_77M_summary
+#SBATCH --job-name=randeng_t5_77M_summary_predict
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=2
 #SBATCH --gres=gpu:2               # number of gpus
@@ -9,7 +9,7 @@
 set -x -e
 
 echo "START TIME: $(date)"
-MODEL_NAME=randeng_t5_77M_summary_test
+MODEL_NAME=randeng_t5_77M_summary_predict
 MICRO_BATCH_SIZE=16
 ROOT_DIR=/cognitive_comp/ganruyi/experiments/${MODEL_NAME}
 if [ ! -d ${ROOT_DIR} ];then
@@ -17,6 +17,12 @@ if [ ! -d ${ROOT_DIR} ];then
   echo ${ROOT_DIR} created!!!!!!!!!!!!!!
 else
   echo ${ROOT_DIR} exist!!!!!!!!!!!!!!!
+fi
+
+output_save_path=$ROOT_DIR/randeng_t5_77M_predict_lcsts.json
+if [ -f ${output_save_path} ];then
+  echo ${output_save_path} exist, rm it!!!!!!!!!!!!!!!!!
+  rm ${output_save_path}
 fi
 
 ZERO_STAGE=1
@@ -76,11 +82,12 @@ export PL_DEEPSPEED_CONFIG_PATH=$config_json
 export TORCH_EXTENSIONS_DIR=/cognitive_comp/ganruyi/tmp/torch_extendsions
 export MASTER_PORT=$[RANDOM%10000+50000]
 
+# --strategy deepspeed_stage_${ZERO_STAGE} \
 TRAINER_ARGS="
     --max_epochs 1 \
     --gpus 2 \
     --num_nodes 1 \
-    --strategy deepspeed_stage_${ZERO_STAGE} \
+    --strategy ddp \
     --default_root_dir $ROOT_DIR \
     --dirpath $ROOT_DIR/ckpt \
     --save_top_k 3 \
@@ -96,18 +103,21 @@ DATA_ARGS="
     --train_batchsize $MICRO_BATCH_SIZE \
     --valid_batchsize $MICRO_BATCH_SIZE \
     --train_data train.jsonl\
-    --valid_data valid.jsonl\
-    --test_data  valid.jsonl\
+    --valid_data valid1.jsonl\
+    --test_data  valid1.jsonl\
     --prompt $prompt \
 "
+# --pretrained_model_path /cognitive_comp/ganruyi/experiments/randeng_t5_77M_summary/ckpt/hf_pretrained_epoch1_step75019 \
 
 MODEL_ARGS="
-    --pretrained_model_path /cognitive_comp/ganruyi/experiments/t5_cn_small_pretrain_v2/Randeng-T5-77M \
+    --pretrained_model_path /cognitive_comp/gaoxinyu/pretrained_model/bart-759M \
     --output_save_path $ROOT_DIR/randeng_t5_77M_predict_lcsts.json \
     --learning_rate 1e-4 \
     --weight_decay 0.1 \
     --precision 16 \
     --warmup 0.01 \
+    --do_eval_only \
+    --max_dec_length 32 \
 "
 
 SCRIPTS_PATH=/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/examples/summary/seq2seq_summary.py
@@ -121,6 +131,5 @@ export CMD=" \
     "
 echo $CMD
 source activate base
-python $CMD
-# srun python $CMD
 # srun singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c '/home/ganruyi/anaconda3/bin/python $CMD'
+python $CMD
