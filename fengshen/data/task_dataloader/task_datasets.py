@@ -49,7 +49,7 @@ class LCSTSDataset(Dataset):
         enc_sizes = []
         dec_sizes = []
         for line in tqdm(lines):
-            obj = json.loads(line)
+            obj = json.loads(line.strip())
             source = obj['text']
             target = obj['summary']
             enc_input_ids = self.tokenizer.encode(source)
@@ -125,8 +125,8 @@ class LCSTSDataModel(pl.LightningDataModule):
         if not args.do_eval_only:
             self.train_data = LCSTSDataset(os.path.join(
                 args.data_dir, args.train_data), args)
-            self.valid_data = LCSTSDataset(os.path.join(
-                args.data_dir, args.valid_data), args)
+        self.valid_data = LCSTSDataset(os.path.join(
+            args.data_dir, args.valid_data), args)
         self.test_data = LCSTSDataset(os.path.join(
             args.data_dir, args.test_data), args)
 
