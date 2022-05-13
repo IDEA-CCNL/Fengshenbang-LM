@@ -41,20 +41,17 @@ cat <<EOT > $config_json
     "type": "Adam",
     "params": {
       "lr": 1e-4,
-      "betas": [
-        0.9,
-        0.95
-      ],
-      "eps": 1e-8,
-      "weight_decay": 5e-2
+      "weight_decay": 1e-2
     }
   },
   "scheduler": {
-    "type": "WarmupLR",
-    "params":{
-      "warmup_min_lr": 5e-6,
-      "warmup_max_lr": 1e-4
-    }
+    "params": {
+      "warmup_max_lr": 1e-04,
+      "warmup_min_lr": 1e-05,
+      "total_num_steps": 60000,
+      "warmup_num_steps" : 500
+    },
+    "type": "WarmupDecayLR"  
   },
   "zero_allow_untested_optimizer": false,
   "fp16": {
@@ -88,6 +85,7 @@ TRAINER_ARGS="
     --mode min \
     --save_last \
     --every_n_train_steps 0 \
+    --val_check_interval 0.5 \
 "
 DATA_DIR=/cognitive_comp/ganruyi/data_datasets_LCSTS_LCSTS/
 prompt="summary:"
@@ -98,16 +96,11 @@ DATA_ARGS="
     --train_data train.jsonl\
     --valid_data valid.jsonl\
     --test_data  valid.jsonl\
-    --prompt $prompt \
 "
-
+# --prompt $prompt \
 MODEL_ARGS="
     --pretrained_model_path /cognitive_comp/ganruyi/experiments/t5_cn_small_pretrain_v2/Randeng-T5-77M \
     --output_save_path $ROOT_DIR/randeng_t5_77M_predict_lcsts.json \
-    --learning_rate 1e-4 \
-    --weight_decay 0.1 \
-    --precision 16 \
-    --warmup 0.01 \
 "
 
 SCRIPTS_PATH=/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/examples/summary/seq2seq_summary.py
