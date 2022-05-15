@@ -105,8 +105,8 @@ DATA_ARGS="
     --train_data train.jsonl\
     --valid_data valid1.jsonl\
     --test_data  valid1.jsonl\
-    --prompt $prompt \
 "
+# --prompt $prompt \
 # --pretrained_model_path /cognitive_comp/ganruyi/experiments/randeng_t5_77M_summary/ckpt/hf_pretrained_epoch1_step75019 \
 
 MODEL_ARGS="

@@ -1,20 +1,16 @@
+from fengshen.utils.universal_checkpoint import UniversalCheckpoint
 from fengshen.utils.utils import chinese_char_tokenize
 from torchmetrics.text.rouge import ROUGEScore
-from fengshen.utils.universal_checkpoint import UniversalCheckpoint
-from builtins import list, print
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-from transformers.optimization import get_linear_schedule_with_warmup
 from pytorch_lightning import Trainer, loggers
 import pytorch_lightning as pl
 import json
 import argparse
-import torch
 import os
 import sys
 from pytorch_lightning.callbacks import LearningRateMonitor
 sys.path.append('../../../')
-
-os.environ["CUDA_VISIBLE_DEVICES"] = '6,7'
+os.environ["CUDA_VISIBLE_DEVICES"] = '3,4'
 
 
 class FinetuneSummary(pl.LightningModule):
@@ -55,6 +51,15 @@ class FinetuneSummary(pl.LightningModule):
         self.log('train_loss', output.loss, sync_dist=True)
         return output.loss
 
+    def on_validation_start(self) -> None:
+        # rm file at validation start
+        prefix, ext = os.path.splitext(self.hparams.output_save_path)
+        file_path_rank = '{}_{}{}'.format(
+            prefix, self.trainer._accelerator_connector.cluster_environment.global_rank(), ext)
+        if os.path.exists(file_path_rank):
+            print('rm {}'.format(file_path_rank))
+            os.remove(file_path_rank)
+
     def validation_step(self, batch, batch_idx):
         output = self.model(input_ids=batch['input_ids'],
                             attention_mask=batch['attention_mask'], labels=batch['labels'])
@@ -83,6 +88,8 @@ class FinetuneSummary(pl.LightningModule):
     def validation_epoch_end(self, outputs):
         # compute metric for all process
         rouge_dict = self.rouge_metric.compute()
+        # reset the metric after once validation
+        self.rouge_metric.reset()
         for k, v in rouge_dict.items():
             self.log('val_{}'.format(k), v, sync_dist=True)
         if self.trainer._accelerator_connector.cluster_environment.global_rank() == 0:
@@ -122,30 +129,8 @@ class FinetuneSummary(pl.LightningModule):
         self.save_prediction_to_file(preds, texts, labels)
 
     def configure_optimizers(self):
-        no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
-        paras = list(
-            filter(lambda p: p[1].requires_grad, self.named_parameters()))
-        paras = [{
-            'params':
-            [p for n, p in paras if not any(nd in n for nd in no_decay)],
-            'weight_decay': self.args.weight_decay
-        }, {
-            'params': [p for n, p in paras if any(nd in n for nd in no_decay)],
-            'weight_decay': 0.0
-        }]
-        optimizer = torch.optim.AdamW(paras, lr=self.args.learning_rate)
-        scheduler = get_linear_schedule_with_warmup(
-            optimizer, int(self.total_step * self.args.warmup),
-            self.total_step)
-
-        return [{
-            'optimizer': optimizer,
-            'lr_scheduler': {
-                'scheduler': scheduler,
-                'interval': 'step',
-                'frequency': 1
-            }
-        }]
+        # using deepspeed optimizer config
+        pass
 
 
 def main():
