@@ -32,11 +32,11 @@ And the world needs an answer for this.
 
 IDEA (International Digital Economy Academy) officially announces the launch of "Fengshenbang" open source project. It open sources a series of large-scale natural languguage pretrained models. These models will bring comprehensive coverage across various model architectures, sizes and expertise domains. We guarantee that we will optimize the models continuously with new datasets and latest algorithms. We aim to build universal infrastructure for Chinese cognitive intelligence and prevent duplicative construction, and hence save computing resources for the community.
 
-![avatar](pic1_eng.png)
+![avatar](pics/pic1_eng.png)
 
 We also call for businesses, universities and institutions to join us with the project and build the sytem of large-scale open-source models collaboratively. We envision that, in the near future, the first choice when in need of a new pretrained model should be selecting one in closest proximity to the desired scale,architecture and domain from the series, followed by further training. After obtaining a trained new model, we shall add it back to the series of open-source models for future usage. In this way we build the open-source system iteratively and collaboratively while individuals could get desired models using minimal computing resources. 
 
-![avatar](pic2_eng.png)
+![avatar](pics/pic2_eng.png)
 
 For better open source experience, all models of the Fengshenbang series are synchronized within the Huggingface community, and can be obtained for use within few lines of code. Welcome to download and use our models from our repo at [IDEA-CCNL at HuggingFace](https://huggingface.co/IDEA-CCNL).
 
@@ -283,7 +283,7 @@ generator("Diabetics should not eat", max_length=30, num_return_sequences=1)
 }
 ```
 # Contact
-![avartar](contactus.png)
+![avartar](pics/contactus.png)
 
 # License
 
