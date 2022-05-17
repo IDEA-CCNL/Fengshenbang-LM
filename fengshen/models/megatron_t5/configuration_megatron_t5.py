@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" MegatronT5 model configuration """
+""" T5 model configuration """
 from collections import OrderedDict
 from typing import Any, Dict, Iterable, Mapping, Optional
 
@@ -26,36 +26,36 @@ from transformers.utils import logging
 
 logger = logging.get_logger(__name__)
 
-MegatronT5_PRETRAINED_CONFIG_ARCHIVE_MAP = {
-    "MegatronT5-small": "https://huggingface.co/MegatronT5-small/resolve/main/config.json",
-    "MegatronT5-base": "https://huggingface.co/MegatronT5-base/resolve/main/config.json",
-    "MegatronT5-large": "https://huggingface.co/MegatronT5-large/resolve/main/config.json",
-    "MegatronT5-3b": "https://huggingface.co/MegatronT5-3b/resolve/main/config.json",
-    "MegatronT5-11b": "https://huggingface.co/MegatronT5-11b/resolve/main/config.json",
+T5_PRETRAINED_CONFIG_ARCHIVE_MAP = {
+    "T5-small": "https://huggingface.co/T5-small/resolve/main/config.json",
+    "T5-base": "https://huggingface.co/T5-base/resolve/main/config.json",
+    "T5-large": "https://huggingface.co/T5-large/resolve/main/config.json",
+    "T5-3b": "https://huggingface.co/T5-3b/resolve/main/config.json",
+    "T5-11b": "https://huggingface.co/T5-11b/resolve/main/config.json",
 }
 
 
-class MegatronT5Config(PretrainedConfig):
+class T5Config(PretrainedConfig):
     r"""
-    This is the configuration class to store the configuration of a :class:`~transformers.MegatronT5Model` or a
-    :class:`~transformers.TFMegatronT5Model`. It is used to instantiate a MegatronT5 model according to the specified arguments,
+    This is the configuration class to store the configuration of a :class:`~transformers.T5Model` or a
+    :class:`~transformers.TFT5Model`. It is used to instantiate a T5 model according to the specified arguments,
     defining the model architecture. Instantiating a configuration with the defaults will yield a similar configuration
-    to that of the MegatronT5 `MegatronT5-small <https://huggingface.co/MegatronT5-small>`__ architecture.
+    to that of the T5 `T5-small <https://huggingface.co/T5-small>`__ architecture.
 
     Configuration objects inherit from :class:`~transformers.PretrainedConfig` and can be used to control the model
     outputs. Read the documentation from :class:`~transformers.PretrainedConfig` for more information.
 
     Arguments:
         vocab_size (:obj:`int`, `optional`, defaults to 32128):
-            Vocabulary size of the MegatronT5 model. Defines the number of different tokens that can be represented by the
-            :obj:`inputs_ids` passed when calling :class:`~transformers.MegatronT5Model` or :class:`~transformers.TFMegatronT5Model`.
+            Vocabulary size of the T5 model. Defines the number of different tokens that can be represented by the
+            :obj:`inputs_ids` passed when calling :class:`~transformers.T5Model` or :class:`~transformers.TFT5Model`.
         d_model (:obj:`int`, `optional`, defaults to 512):
             Size of the encoder layers and the pooler layer.
         d_kv (:obj:`int`, `optional`, defaults to 64):
             Size of the key, query, value projections per attention head. :obj:`d_kv` has to be equal to :obj:`d_model
             // num_heads`.
         d_ff (:obj:`int`, `optional`, defaults to 2048):
-            Size of the intermediate feed forward layer in each :obj:`MegatronT5Block`.
+            Size of the intermediate feed forward layer in each :obj:`T5Block`.
         num_layers (:obj:`int`, `optional`, defaults to 6):
             Number of hidden layers in the Transformer encoder.
         num_decoder_layers (:obj:`int`, `optional`):
@@ -73,14 +73,14 @@ class MegatronT5Config(PretrainedConfig):
             A factor for initializing all weight matrices (should be kept to 1, used internally for initialization
             testing).
         feed_forward_proj (:obj:`string`, `optional`, defaults to :obj:`"relu"`):
-            Type of feed forward layer to be used. Should be one of :obj:`"relu"` or :obj:`"gated-gelu"`. MegatronT5v1.1 uses
-            the :obj:`"gated-gelu"` feed forward projection. Original MegatronT5 uses :obj:`"relu"`.
+            Type of feed forward layer to be used. Should be one of :obj:`"relu"` or :obj:`"gated-gelu"`. T5v1.1 uses
+            the :obj:`"gated-gelu"` feed forward projection. Original T5 uses :obj:`"relu"`.
         use_cache (:obj:`bool`, `optional`, defaults to :obj:`True`):
             Whether or not the model should return the last key/values attentions (not used by all models).
         gradient_checkpointing (:obj:`bool`, `optional`, defaults to :obj:`False`):
             If True, use gradient checkpointing to save memory at the expense of slower backward pass.
     """
-    model_type = "MegatronT5"
+    model_type = "T5"
     keys_to_ignore_at_inference = ["past_key_values"]
 
     def __init__(
@@ -140,7 +140,7 @@ class MegatronT5Config(PretrainedConfig):
         return self.num_layers
 
 
-class MegatronT5OnnxConfig(OnnxConfigWithPast):
+class T5OnnxConfig(OnnxConfigWithPast):
     @property
     def inputs(self) -> Mapping[str, Mapping[int, str]]:
         common_inputs = OrderedDict(
