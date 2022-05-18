@@ -28,6 +28,7 @@
 |[太乙](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%A4%AA%E4%B9%99%E7%B3%BB%E5%88%97/index.html)|8千万-1亿参数|双流结构|多模态|多模态语义理解||
 
 [封神榜模型下载链接](https://huggingface.co/IDEA-CCNL)
+
 [封神榜模型训练手册](https://fengshenbang-doc.readthedocs.io/zh/latest/index.html)
 
 # Fengshenbang-LM
