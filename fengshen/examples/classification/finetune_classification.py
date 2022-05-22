@@ -12,41 +12,31 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-from fengshen import T5Config
-from fengshen import T5EncoderModel
-from fengshen import RoFormerConfig
-from fengshen import RoFormerModel
-from fengshen import LongformerConfig
-from fengshen import LongformerModel
-
+from fengshen.models.megatron_t5 import T5Config
+from fengshen.models.megatron_t5 import T5EncoderModel
+from fengshen.models.roformer import RoFormerConfig
+from fengshen.models.roformer import RoFormerModel
+from fengshen.models.longformer import LongformerConfig
+from fengshen.models.longformer import LongformerModel
+import numpy as np
+import os
+from tqdm import tqdm
+import json
+import torch
+import pytorch_lightning as pl
+import argparse
+from pytorch_lightning.callbacks import ModelCheckpoint
+from torch.utils.data import Dataset, DataLoader
+from transformers.optimization import get_linear_schedule_with_warmup
+from transformers import BertTokenizer
 from transformers import (
     BertModel,
     BertConfig,
     MegatronBertModel,
     MegatronBertConfig
 )
-
-from transformers import BertTokenizer
-from transformers.optimization import get_linear_schedule_with_warmup
-from torch.utils.data import Dataset, DataLoader
-from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks import ModelCheckpoint
-import argparse
-import pytorch_lightning as pl
-from logging import basicConfig
-import torch
-from torch import nn
-import json
-from tqdm import tqdm
-from typing import Optional
-import os
-import numpy as np
 import sys
-
-from transformers.utils.dummy_pt_objects import BertModel, MegatronBertModel
-sys.path.append('./')
-
+sys.path.append('../../../')
 
 os.environ["CUDA_VISIBLE_DEVICES"] = '6'
 
@@ -116,13 +106,11 @@ class TaskDataset(Dataset):
                                                      max_length=self.max_length,
                                                      padding='max_length',
                                                      truncation='longest_first')
-
-        return {
-            "input_ids": torch.tensor(encode_dict['input_ids']).long(),
-            "token_type_ids": torch.tensor(encode_dict['token_type_ids']).long(),
-            "attention_mask": torch.tensor(encode_dict['attention_mask']).float(),
-            "labels": torch.tensor(item['labels']).long(),
-        }
+        samples = {}
+        for k, v in encode_dict.items():
+            samples[k] = torch.tensor(v)
+        samples['labels'] = torch.tensor(item['labels']).long()
+        return samples
 
 
 class TaskDataModel(pl.LightningDataModule):
@@ -185,7 +173,7 @@ class TaskDataModel(pl.LightningDataModule):
         return label2id, id2label
 
 
-class taskModel(nn.Module):
+class taskModel(torch.nn.Module):
     def __init__(self, args):
         super().__init__()
         self.args = args
@@ -207,7 +195,7 @@ class taskModel(nn.Module):
                 input_ids=input_ids, attention_mask=attention_mask, token_type_ids=token_type_ids)  # (bsz, seq, dim)
             encode = bert_output[1]
         logits = self.cls_layer(encode)
-        if labels != None:
+        if labels is not None:
             loss = self.loss_func(logits, labels.view(-1,))
             return loss, logits
         else:

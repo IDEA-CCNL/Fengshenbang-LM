@@ -1,0 +1,3 @@
+[submodule "fengshen/data/fs_datasets"]
+	path = fengshen/data/fs_datasets
+	url = git@github.com:IDEA-CCNL/fs_datasets.git 

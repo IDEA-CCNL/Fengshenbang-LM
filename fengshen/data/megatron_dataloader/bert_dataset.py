@@ -25,23 +25,16 @@ from fengshen.data.megatron_dataloader.utils import (
 from fengshen.data.megatron_dataloader.dataset_utils import (
     get_samples_mapping,
     get_a_and_b_segments,
-    truncate_segments,
     create_masked_lm_predictions,
-    get_indexed_dataset_,
-    get_train_valid_test_split_
+    create_tokens_and_tokentypes,
 )
-import jieba.analyse
-
-
-tokenizer = None
-ignore_labels = -100
 
 
 class BertDataset(torch.utils.data.Dataset):
 
     def __init__(self, name, indexed_dataset, data_prefix,
                  num_epochs, max_num_samples, masked_lm_prob,
-                 max_seq_length, short_seq_prob, seed, binary_head):
+                 max_seq_length, short_seq_prob, seed, binary_head, tokenizer, masking_style):
         # Params to store.
         self.name = name
         self.seed = seed
@@ -49,6 +42,7 @@ class BertDataset(torch.utils.data.Dataset):
         self.max_seq_length = max_seq_length
         self.short_seq_prob = short_seq_prob
         self.binary_head = binary_head
+        self.masking_style = masking_style
 
         # Dataset.
         self.indexed_dataset = indexed_dataset
@@ -65,6 +59,14 @@ class BertDataset(torch.utils.data.Dataset):
                                                    self.name,
                                                    self.binary_head)
         print_rank_0(self.samples_mapping.size)
+        inv_vocab = {v: k for k, v in tokenizer.vocab.items()}
+        self.vocab_id_list = list(inv_vocab.keys())
+        self.vocab_id_to_token_dict = inv_vocab
+        self.cls_id = tokenizer.cls_token_id
+        self.sep_id = tokenizer.sep_token_id
+        self.mask_id = tokenizer.mask_token_id
+        self.pad_id = tokenizer.pad_token_id
+        self.tokenizer = tokenizer
 
     def __len__(self):
         return self.samples_mapping.shape[0]
@@ -75,66 +77,26 @@ class BertDataset(torch.utils.data.Dataset):
         # Note that this rng state should be numpy and not python since
         # python randint is inclusive whereas the numpy one is exclusive.
         # We % 2**32 since numpy requres the seed to be between 0 and 2**32 - 1
-        np_rng = np.random.RandomState(seed=((self.seed + idx) % 2 ** 32))
-
-        return build_training_sample(sample,
-                                     seq_length,
-                                     np_rng, self.masked_lm_prob)
-
-
-def truncate_segments(source_a, source_b, masked_labels_a, masked_labels_b, max_num_tokens, np_rng):
-    """Truncates a pair of sequences to a maximum sequence length."""
-    rands = np.random.random()
-    while len(source_a) + len(source_b) > max_num_tokens:
-        #
-        if len(source_a) > len(source_b):
-            if rands < 0.5:
-                source_a = source_a[1:]
-                masked_labels_a = masked_labels_a[1:]
-            else:
-                source_a = source_a[:-1]
-                masked_labels_a = masked_labels_a[:-1]
-        else:
-            if rands < 0.5:
-                source_b = source_b[1:]
-                masked_labels_b = masked_labels_b[1:]
-            else:
-                source_b = source_b[:-1]
-                masked_labels_b = masked_labels_b[:-1]
-
-    source = []
-    tokentype = []
-    source.append(tokenizer.cls_token_id)
-    source.extend(source_a)
-    source.append(tokenizer.sep_token_id)
-
-    token_a_length = len(source)
-    tokentype.extend([0] * token_a_length)
-    source.extend(source_b)
-    source.append(tokenizer.sep_token_id)
-    tokentype.extend([1] * (len(source) - token_a_length))
-
-    attention_mask = [1] * len(source)
-
-    labels = []
-    labels.append(ignore_labels)
-    labels.extend(masked_labels_a)
-    labels.append(ignore_labels)
-    labels.extend(masked_labels_b)
-    labels.append(ignore_labels)
-
-    while len(source) < 512:
-        source.append(0)
-        tokentype.append(0)
-        attention_mask.append(0)
-        labels.append(ignore_labels)
-
-    return source, tokentype, attention_mask, labels
+        np_rng = np.random.RandomState(seed=((self.seed + idx) % 2**32))
+        return build_training_sample(sample, seq_length,
+                                     self.max_seq_length,  # needed for padding
+                                     self.vocab_id_list,
+                                     self.vocab_id_to_token_dict,
+                                     self.cls_id, self.sep_id,
+                                     self.mask_id, self.pad_id,
+                                     self.masked_lm_prob, np_rng,
+                                     self.binary_head,
+                                     tokenizer=self.tokenizer,
+                                     masking_style=self.masking_style)
 
 
 def build_training_sample(sample,
-                          target_seq_length,
-                          np_rng, masked_lm_prob):
+                          target_seq_length, max_seq_length,
+                          vocab_id_list, vocab_id_to_token_dict,
+                          cls_id, sep_id, mask_id, pad_id,
+                          masked_lm_prob, np_rng, binary_head,
+                          tokenizer,
+                          masking_style='bert'):
     """Biuld training sample.
 
     Arguments:
@@ -154,190 +116,83 @@ def build_training_sample(sample,
               the opper bound whereas the numpy one is exclusive.
     """
 
-    tokens_a, tokens_b, is_next_random = get_a_and_b_segments(sample,
-                                                              np_rng)
+    if binary_head:
+        # We assume that we have at least two sentences in the sample
+        assert len(sample) > 1
+    assert target_seq_length <= max_seq_length
+
+    # Divide sample into two segments (A and B).
+    if binary_head:
+        tokens_a, tokens_b, is_next_random = get_a_and_b_segments(sample,
+                                                                  np_rng)
+    else:
+        tokens_a = []
+        for j in range(len(sample)):
+            tokens_a.extend(sample[j])
+        tokens_b = []
+        is_next_random = False
+
+    # Truncate to `target_sequence_length`.
+    max_num_tokens = target_seq_length
+    ''''
+    truncated = truncate_segments(tokens_a, tokens_b, len(tokens_a),
+                                  len(tokens_b), max_num_tokens, np_rng)
+    '''
+
+    # Build tokens and toketypes.
+    tokens, tokentypes = create_tokens_and_tokentypes(tokens_a, tokens_b,
+                                                      cls_id, sep_id)
 
     # Masking.
-    source_a, masked_labels_a = create_masked_lm_predictions(
-        tokens_a, masked_lm_prob=masked_lm_prob)
-    source_b, masked_labels_b = create_masked_lm_predictions(
-        tokens_b, masked_lm_prob=masked_lm_prob)
+    max_predictions_per_seq = masked_lm_prob * max_num_tokens
+    (tokens, masked_positions, masked_labels, _, _) = create_masked_lm_predictions(
+        tokens, vocab_id_list, vocab_id_to_token_dict, masked_lm_prob,
+        cls_id, sep_id, mask_id, max_predictions_per_seq, np_rng,
+        tokenizer=tokenizer,
+        masking_style=masking_style)
 
-    sources, tokentype, attention_mask, labels = truncate_segments(source_a,
-                                                                   source_b,
-                                                                   masked_labels_a,
-                                                                   masked_labels_b,
-                                                                   target_seq_length,
-                                                                   np_rng)
-    # print('source',sources)
+    # Padding.
+    tokens_np, tokentypes_np, labels_np, padding_mask_np, loss_mask_np \
+        = pad_and_convert_to_numpy(tokens, tokentypes, masked_positions,
+                                   masked_labels, pad_id, max_seq_length)
 
     train_sample = {
-        'input_ids': torch.tensor(sources),
-        'attention_mask': torch.tensor(attention_mask),
-        'token_type_ids': torch.tensor(tokentype),
-        'labels': torch.tensor(labels),
-        'next_sentence_label': int(is_next_random)}
-    # print(train_sample)
-    # for i in range(120):
-    #     print(labels[i],sources[i],tokenizer.decode([sources[i]]))
-
+        'input_ids': tokens_np,
+        'token_type_ids': tokentypes_np,
+        'labels': labels_np,
+        'next_sentence_label': int(is_next_random),
+        'attention_mask': padding_mask_np}
     return train_sample
 
 
-def token_process(token_id):
-    rand = np.random.random()
-    if rand <= 0.8:
-        return tokenizer.mask_token_id
-    elif rand <= 0.9:
-        return token_id
-    else:
-        return np.random.randint(1, len(tokenizer))
+def pad_and_convert_to_numpy(tokens, tokentypes, masked_positions,
+                             masked_labels, pad_id, max_seq_length):
+    """Pad sequences and convert them to numpy."""
 
+    # Some checks.
+    num_tokens = len(tokens)
+    padding_length = max_seq_length - num_tokens
+    assert padding_length >= 0
+    assert len(tokentypes) == num_tokens
+    assert len(masked_positions) == len(masked_labels)
 
-def word_segment(text):
-    return list(jieba.cut(text))
+    # Tokens and token types.
+    filler = [pad_id] * padding_length
+    tokens_np = np.array(tokens + filler, dtype=np.int64)
+    tokentypes_np = np.array(tokentypes + filler, dtype=np.int64)
 
+    # Padding mask.
+    padding_mask_np = np.array([1] * num_tokens + [0] * padding_length,
+                               dtype=np.int64)
 
-def sentence_process(text, mask_rate):
-    """单个文本的处理函数
-    流程：分词，然后转id，按照mask_rate构建全词mask的序列
-          来指定哪些token是否要被mask
-    """
-    max_ngram = 3
-    ngrams = np.arange(1, max_ngram + 1, dtype=np.int64)
-    pvals = 1. / np.arange(1, max_ngram + 1)
-    pvals /= pvals.sum(keepdims=True)  # p(n) = 1/n / sigma(1/k)
-    word_list = word_segment(text)
-    # print('word_list',word_list)
+    # Lables and loss mask.
+    labels = [-100] * max_seq_length
+    loss_mask = [0] * max_seq_length
+    for i in range(len(masked_positions)):
+        assert masked_positions[i] < num_tokens
+        labels[masked_positions[i]] = masked_labels[i]
+        loss_mask[masked_positions[i]] = 1
+    labels_np = np.array(labels, dtype=np.int64)
+    loss_mask_np = np.array(loss_mask, dtype=np.int64)
 
-    mask_ids, labels = [], []
-
-    record = []
-    for i in range(len(word_list)):
-        rands = np.random.random()
-        if i in record:
-            continue
-        if rands > mask_rate:
-            word = word_list[i]
-            word_encode = tokenizer.encode(word, add_special_tokens=False)
-            for token in word_encode:
-                mask_ids.append(token)
-                labels.append(ignore_labels)
-            record.append(i)
-        else:
-            n = np.random.choice(ngrams, p=pvals)
-            for index in range(n):
-                ind = index + i
-                if ind in record or ind >= len(word_list):
-                    continue
-                record.append(ind)
-                word = word_list[ind]
-                word_encode = tokenizer.encode(word, add_special_tokens=False)
-                for token in word_encode:
-                    mask_ids.append(token_process(token))
-                    labels.append(token)
-
-    return mask_ids, labels
-
-
-def create_masked_lm_predictions(tokens, masked_lm_prob):
-    """Creates the predictions for the masked LM objective."""
-
-    text = ''
-    for token in tokens:
-        # print('token',token)
-        token = tokenizer.decode([token])
-        if token[:2] == '##':  # 去掉词干前缀
-            token = token[2:]
-        if token[0] == '[' and token[-1] == ']':  # 去掉token
-            token = '“'
-        text += token
-    # print('text:',text)
-    output_tokens, masked_lm_labels = sentence_process(text, mask_rate=0.15)
-
-    return output_tokens, masked_lm_labels
-
-
-def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
-                                    train_valid_test_num_samples,
-                                    max_seq_length,
-                                    masked_lm_prob, short_seq_prob, seed,
-                                    skip_warmup, binary_head):
-    # Indexed dataset.
-    indexed_dataset = get_indexed_dataset_(data_prefix,
-                                           data_impl,
-                                           skip_warmup)
-
-    # Get start and end indices of train/valid/train into doc-idx
-    # Note that doc-idx is desinged to be num-docs + 1 so we can
-    # easily iterate over it.
-    total_num_of_documents = indexed_dataset.doc_idx.shape[0] - 1
-
-    splits = get_train_valid_test_split_(splits_string, total_num_of_documents)
-
-    # Print stats about the splits.
-    print_rank_0(' > dataset split:')
-
-    def print_split_stats(name, index):
-        print_rank_0('    {}:'.format(name))
-        print_rank_0('     document indices in [{}, {}) total of {} '
-                     'documents'.format(splits[index], splits[index + 1],
-                                        splits[index + 1] - splits[index]))
-        start_index = indexed_dataset.doc_idx[splits[index]]
-        end_index = indexed_dataset.doc_idx[splits[index + 1]]
-        print_rank_0('     sentence indices in [{}, {}) total of {} '
-                     'sentences'.format(start_index, end_index,
-                                        end_index - start_index))
-
-    print_split_stats('train', 0)
-    print_split_stats('validation', 1)
-    print_split_stats('test', 2)
-
-    splits = splits[::-1]
-    for idx, s in enumerate(splits):
-        if idx == 1 or idx == 2:
-            splits[idx] = splits[idx - 1] - 300
-    splits = splits[::-1]
-
-    def build_dataset(index, name):
-        dataset = None
-        if splits[index + 1] > splits[index]:
-            # Get the pointer to the original doc-idx so we can set it later.
-            doc_idx_ptr = indexed_dataset.get_doc_idx()
-            # Slice the doc-idx
-            start_index = splits[index]
-            # Add +1 so we can index into the dataset to get the upper bound.
-            end_index = splits[index + 1] + 1
-            # New doc_idx view.
-            indexed_dataset.set_doc_idx(doc_idx_ptr[start_index:end_index])
-
-            # Build the dataset accordingly.
-            kwargs = dict(
-                name=name,
-                data_prefix=data_prefix,
-                num_epochs=1,
-                max_num_samples=None,
-                max_seq_length=max_seq_length,
-                seed=seed,
-            )
-
-            dataset = BertDataset(
-                indexed_dataset=indexed_dataset,
-                masked_lm_prob=masked_lm_prob,
-                short_seq_prob=short_seq_prob,
-                binary_head=binary_head,
-                **kwargs
-            )
-
-            # Set the original pointer so dataset remains the main dataset.
-            indexed_dataset.set_doc_idx(doc_idx_ptr)
-            # Checks.
-            assert indexed_dataset.doc_idx[0] == 0
-            assert indexed_dataset.doc_idx.shape[0] == \
-                (total_num_of_documents + 1)
-        return dataset
-
-    train_dataset = build_dataset(0, 'train')
-    valid_dataset = build_dataset(1, 'valid')
-
-    return train_dataset, valid_dataset
+    return tokens_np, tokentypes_np, labels_np, padding_mask_np, loss_mask_np

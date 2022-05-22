@@ -10,7 +10,7 @@
 
 
 MODEL_TYPE=fengshen-roformer
-PRETRAINED_MODEL_PATH=IDEA-CCNL/Zhouwenwang-110M
+PRETRAINED_MODEL_PATH=IDEA-CCNL/Zhouwenwang-Unified-110M
 
 ROOT_PATH=cognitive_comp
 TASK=tnews

@@ -206,7 +206,8 @@ PARALLELIZE_DOCSTRING = r"""
 
     Example::
 
-            # Here is an example of a device map on a machine with 4 GPUs using T5-3b, which has a total of 24 attention modules:
+    # Here is an example of a device map on a machine with 4 GPUs using T5-3b,
+    # which has a total of 24 attention modules:
             model = T5ForConditionalGeneration.from_pretrained('T5-3b')
             device_map = {0: [0, 1, 2],
 
@@ -788,7 +789,8 @@ class T5Block(nn.Module):
         else:
             outputs = outputs + attention_outputs
 
-        # hidden-states, present_key_value_states, (self-attention position bias), (self-attention weights), (cross-attention position bias), (cross-attention weights)
+        # hidden-states, present_key_value_states, (self-attention position bias),
+        # (self-attention weights), (cross-attention position bias), (cross-attention weights)
         return outputs
 
 
@@ -822,7 +824,8 @@ class T5PreTrainedModel(PreTrainedModel):
             module.weight.data.fill_(factor * 1.0)
         elif isinstance(module, (T5Model, T5ForConditionalGeneration, T5EncoderModel)):
             # Mesh TensorFlow embeddings initialization
-            # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/layers.py#L1624
+            # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d
+            # /mesh_tensorflow/layers.py#L1624
             # @IDEA modified -> module.shared.weight -> module.shared.word_embeddings.weight
             # module.shared.weight.data.normal_(mean=0.0, std=factor * 1.0)
             module.shared.word_embeddings.weight.data.normal_(
@@ -831,8 +834,10 @@ class T5PreTrainedModel(PreTrainedModel):
                 mean=0.0, std=factor * 1.0)
         elif isinstance(module, T5DenseReluDense):
             # Mesh TensorFlow FF initialization
-            # See https://github.com/tensorflow/mesh/blob/master/mesh_tensorflow/transformer/transformer_layers.py#L56
-            # and https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/layers.py#L89
+            # See https://github.com/tensorflow/mesh/blob/master/mesh_tensorflow
+            # /transformer/transformer_layers.py#L56
+            # and https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/
+            # mesh_tensorflow/layers.py#L89
             module.wi.weight.data.normal_(
                 mean=0.0, std=factor * ((self.config.d_model) ** -0.5))
             if hasattr(module.wi, "bias") and module.wi.bias is not None:
@@ -848,15 +853,16 @@ class T5PreTrainedModel(PreTrainedModel):
                 module.wi_0.bias.data.zero_()
             module.wi_1.weight.data.normal_(
                 mean=0.0, std=factor * ((self.config.d_model) ** -0.5))
-            if hasattr(module.wi_1, "bias") and module.wi_1.bias is not None:
-                module.wi_1.bias.data.zero_()
+            if hasattr(module.wi, "bias") and module.wi.bias is not None:
+                module.wi.bias.data.zero_()
             module.wo.weight.data.normal_(
                 mean=0.0, std=factor * ((self.config.d_ff) ** -0.5))
             if hasattr(module.wo, "bias") and module.wo.bias is not None:
                 module.wo.bias.data.zero_()
         elif isinstance(module, T5Attention):
             # Mesh TensorFlow attention initialization to avoid scaling before softmax
-            # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/transformer/attention.py#L136
+            # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d
+            # /mesh_tensorflow/transformer/attention.py#L136
             d_model = self.config.d_model
             key_value_proj_dim = self.config.d_kv
             n_heads = self.config.num_heads
@@ -883,7 +889,8 @@ class T5PreTrainedModel(PreTrainedModel):
 
         assert (
             decoder_start_token_id is not None
-        ), "self.model.config.decoder_start_token_id has to be defined. In T5 it is usually set to the pad_token_id. See T5 docs for more information"
+        ), "self.model.config.decoder_start_token_id has to be defined. "\
+            "In T5 it is usually set to the pad_token_id. See T5 docs for more information"
 
         # shift inputs to the right
         if is_torch_fx_proxy(input_ids):
@@ -965,7 +972,8 @@ class T5Stack(T5PreTrainedModel):
         self.embed_tokens = embed_tokens
         self.is_decoder = config.is_decoder
 
-        # @IDEA modified -> has_relative_attention_bias=bool(i == 0)) for i in range(config.num_layers) -> has_relative_attention_bias=False
+        # @IDEA modified -> has_relative_attention_bias=bool(i == 0)) for i in range(config.num_layers)
+        # -> has_relative_attention_bias=False
         self.block = nn.ModuleList(
             [T5Block(config, has_relative_attention_bias=False)
              for _ in range(config.num_layers)]
@@ -1070,7 +1078,8 @@ class T5Stack(T5PreTrainedModel):
 
         if inputs_embeds is None:
             assert self.embed_tokens is not None, "You have to initialize the model with valid token embeddings"
-            # @IDEA modified -> self.embed_tokens(input_ids=input_ids) -> self.embed_tokens(input_ids=input_ids,osition_ids=position_ids,)
+            # @IDEA modified -> self.embed_tokens(input_ids=input_ids) ->
+            # self.embed_tokens(input_ids=input_ids,osition_ids=position_ids,)
             # inputs_embeds = self.embed_tokens(input_ids=input_ids)
             inputs_embeds = self.embed_tokens(input_ids=input_ids)
 
@@ -1198,7 +1207,8 @@ class T5Stack(T5PreTrainedModel):
                 )
 
             # layer_outputs is a tuple with:
-            # hidden-states, key-value-states, (self-attention position bias), (self-attention weights), (cross-attention position bias), (cross-attention weights)
+            # hidden-states, key-value-states, (self-attention position bias), (self-attention weights),
+            # (cross-attention position bias), (cross-attention weights)
             if use_cache is False:
                 layer_outputs = layer_outputs[:1] + (None,) + layer_outputs[1:]
 
@@ -1313,7 +1323,8 @@ T5_INPUTS_DOCSTRING = """
 
             To know more on how to prepare :obj:`decoder_input_ids` for pretraining take a look at `T5 Training
             <./T5.html#training>`__.
-        decoder_attention_mask (:obj:`torch.BoolTensor` of shape :obj:`(batch_size, target_sequence_length)`, `optional`):
+        decoder_attention_mask (:obj:`torch.BoolTensor` of shape
+        :obj:`(batch_size, target_sequence_length)`, `optional`):
             Default behavior: generate a tensor that ignores pad tokens in :obj:`decoder_input_ids`. Causal mask will
             also be used by default.
         head_mask (:obj:`torch.FloatTensor` of shape :obj:`(num_heads,)` or :obj:`(num_layers, num_heads)`, `optional`):
@@ -1323,14 +1334,16 @@ T5_INPUTS_DOCSTRING = """
             - 1 indicates the head is **not masked**,
             - 0 indicates the head is **masked**.
 
-        decoder_head_mask (:obj:`torch.FloatTensor` of shape :obj:`(num_heads,)` or :obj:`(num_layers, num_heads)`, `optional`):
+        decoder_head_mask (:obj:`torch.FloatTensor` of shape :obj:`(num_heads,)` or
+        :obj:`(num_layers, num_heads)`, `optional`):
             Mask to nullify selected heads of the self-attention modules in the decoder. Mask values selected in ``[0,
             1]``:
 
             - 1 indicates the head is **not masked**,
             - 0 indicates the head is **masked**.
 
-        cross_attn_head_mask (:obj:`torch.Tensor` of shape :obj:`(num_heads,)` or :obj:`(num_layers, num_heads)`, `optional`):
+        cross_attn_head_mask (:obj:`torch.Tensor` of shape :obj:`(num_heads,)` or
+        :obj:`(num_layers, num_heads)`, `optional`):
                 Mask to nullify selected heads of the cross-attention modules in the decoder. Mask values selected in
                 ``[0, 1]``:
 
@@ -1342,7 +1355,8 @@ T5_INPUTS_DOCSTRING = """
             `attentions`) :obj:`last_hidden_state` of shape :obj:`(batch_size, sequence_length, hidden_size)` is a
             sequence of hidden states at the output of the last layer of the encoder. Used in the cross-attention of
             the decoder.
-        past_key_values (:obj:`tuple(tuple(torch.FloatTensor))` of length :obj:`config.n_layers` with each tuple having 4 tensors of shape :obj:`(batch_size, num_heads, sequence_length - 1, embed_size_per_head)`):
+        past_key_values (:obj:`tuple(tuple(torch.FloatTensor))` of length :obj:`config.n_layers` with each tuple having
+        4 tensors of shape :obj:`(batch_size, num_heads, sequence_length - 1, embed_size_per_head)`):
             Contains precomputed key and value hidden states of the attention blocks. Can be used to speed up decoding.
 
             If :obj:`past_key_values` are used, the user can optionally input only the last :obj:`decoder_input_ids`
@@ -1352,7 +1366,8 @@ T5_INPUTS_DOCSTRING = """
             Optionally, instead of passing :obj:`input_ids` you can choose to directly pass an embedded representation.
             This is useful if you want more control over how to convert :obj:`input_ids` indices into associated
             vectors than the model's internal embedding lookup matrix.
-        decoder_inputs_embeds (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, target_sequence_length, hidden_size)`, `optional`):
+        decoder_inputs_embeds (:obj:`torch.FloatTensor` of shape :obj:`(batch_size, target_sequence_length, hidden_size)
+        `, `optional`):
             Optionally, instead of passing :obj:`decoder_input_ids` you can choose to directly pass an embedded
             representation. If :obj:`past_key_values` is used, optionally only the last :obj:`decoder_inputs_embeds`
             have to be input (see :obj:`past_key_values`). This is useful if you want more control over how to convert
@@ -1558,7 +1573,8 @@ class T5Model(T5PreTrainedModel):
             >>> tokenizer = T5Tokenizer.from_pretrained('T5-small')
             >>> model = T5Model.from_pretrained('T5-small')
 
-            >>> input_ids = tokenizer("Studies have been shown that owning a dog is good for you", return_tensors="pt").input_ids  # Batch size 1
+            >>> input_ids = tokenizer("Studies have been shown that owning a dog is good for you",
+            return_tensors="pt").input_ids  # Batch size 1
             >>> decoder_input_ids = tokenizer("Studies show that", return_tensors="pt").input_ids  # Batch size 1
 
             >>> # forward pass
@@ -1792,7 +1808,8 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
             >>> logits = outputs.logits
 
             >>> # inference
-            >>> input_ids = tokenizer("summarize: studies have shown that owning a dog is good for you", return_tensors="pt").input_ids  # Batch size 1
+            >>> input_ids = tokenizer("summarize: studies have shown that owning a dog is good for you",
+            return_tensors="pt").input_ids  # Batch size 1
             >>> outputs = model.generate(input_ids)
             >>> print(tokenizer.decode(outputs[0], skip_special_tokens=True))
             >>> # studies have shown that owning a dog is good for you.
@@ -1875,7 +1892,8 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
 
         # if self.config.tie_word_embeddings:
         #     # Rescale output before projecting on vocab
-        #     # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/transformer/transformer.py#L586
+        #     # See https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/
+        #       mesh_tensorflow/transformer/transformer.py#L586
         #     sequence_output = sequence_output * (self.model_dim ** -0.5)
 
         lm_logits = torch.nn.functional.linear(
@@ -1886,7 +1904,8 @@ class T5ForConditionalGeneration(T5PreTrainedModel):
             loss_fct = CrossEntropyLoss(ignore_index=-100)
             loss = loss_fct(
                 lm_logits.view(-1, lm_logits.size(-1)), labels.view(-1))
-            # @IDEA modified(thom): Add z_loss https://github.com/tensorflow/mesh/blob/fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/layers.py#L666
+            # @IDEA modified(thom): Add z_loss https://github.com/tensorflow/mesh/blob/
+            # fa19d69eafc9a482aff0b59ddd96b025c0cb207d/mesh_tensorflow/layers.py#L666
 
         if not return_dict:
             output = (lm_logits,) + decoder_outputs[1:] + encoder_outputs
@@ -2047,7 +2066,8 @@ class T5EncoderModel(T5PreTrainedModel):
             >>> from transformers import T5Tokenizer, T5EncoderModel
             >>> tokenizer = T5Tokenizer.from_pretrained('T5-small')
             >>> model = T5EncoderModel.from_pretrained('T5-small')
-            >>> input_ids = tokenizer("Studies have been shown that owning a dog is good for you", return_tensors="pt").input_ids  # Batch size 1
+            >>> input_ids = tokenizer("Studies have been shown that owning a dog is good for you",
+        return_tensors="pt").input_ids  # Batch size 1
             >>> outputs = model(input_ids=input_ids)
             >>> last_hidden_states = outputs.last_hidden_state
         """

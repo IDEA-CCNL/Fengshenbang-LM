@@ -1,29 +1,27 @@
-from fengshen.data.task_dataloader.task_datasets import LCSTSDataModel
-from transformers import T5Tokenizer, MT5ForConditionalGeneration
+from transformers import AutoTokenizer, BartForConditionalGeneration
 from transformers.optimization import get_linear_schedule_with_warmup
 from pytorch_lightning import Trainer, loggers
 from pytorch_lightning.callbacks import ModelCheckpoint
-from transformers import AutoTokenizer
 import pytorch_lightning as pl
 import json
 import argparse
 import torch
 import os
 import sys
-sys.path.append('./')
+sys.path.append('../../../')
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = '4,5,6,7'
 
 
 def test():
-    tokenizer = T5Tokenizer.from_pretrained("google/mt5-small")
+    tokenizer = AutoTokenizer.from_pretrained(
+        "/cognitive_comp/gaoxinyu/pretrained_model/bart-base", use_fast=False)
     article = "UN Offizier sagt, dass weiter verhandelt werden muss in Syrien."
     summary = "Weiter Verhandlung in Syrien."
-    article = '''日前，方舟子发文直指林志颖旗下爱碧丽推销假保健品，引起哗然。调查发现，爱碧丽没有自己的生产加工厂。
-                 其胶原蛋白饮品无核心研发，全部代工生产。
-                 号称有“逆生长”功效的爱碧丽“梦幻奇迹限量组”售价>高达1080元，实际成本仅为每瓶4元！'''
+    article = "日前，方舟子发文直指林志颖旗下爱碧丽推销假保健品，引起哗然。调查发现，爱碧丽没有自己的生产加工厂。 \
+    其胶原蛋白饮品无核心研发，全部代工生产。号称有“逆生长”功效的爱碧丽“梦幻奇迹限量组”售价>高达1080元，实际成本仅为每瓶4元！"
     summary = "林志颖公司疑涉虚假营销无厂房无研发"
-    inputs = tokenizer(article, return_tensors="pt")
+    inputs = tokenizer(article, rturn_tensors="pt")
     tt = tokenizer.encode_plus(summary, max_length=64,
                                padding='max_length', truncation='longest_first')
     print('tt:', tt)
@@ -33,15 +31,16 @@ def test():
     print('labels:', labels)
     print('origin labels:', tokenizer.decode(labels['input_ids'][0]))
 
-    model = MT5ForConditionalGeneration.from_pretrained("google/mt5-small")
+    model = BartForConditionalGeneration.from_pretrained(
+        "/cognitive_comp/gaoxinyu/pretrained_model/bart-base")
     # outputs = model(input_ids=inputs["input_ids"], labels=labels["input_ids"])
     # print(outputs.keys())
 
     # evaluation
     model.eval()
     generated_ids = model.generate(
-        input_ids=inputs['input_ids'],
-        attention_mask=inputs['attention_mask'],
+        input_ids=torch.tensor([inputs['input_ids']]),
+        attention_mask=torch.tensor([inputs['attention_mask']]),
         max_length=150,
         num_beams=2,
         repetition_penalty=2.5,
@@ -53,7 +52,7 @@ def test():
     print(preds)
 
 
-class MT5FinetuneSummaryModelCheckpoint:
+class FinetuneSummaryModelCheckpoint:
     @staticmethod
     def add_argparse_args(parent_args):
         parser = parent_args.add_argument_group('BaseModel')
@@ -81,7 +80,7 @@ class MT5FinetuneSummaryModelCheckpoint:
                                          save_last=args.save_last)
 
 
-class MT5FinetuneSummary(pl.LightningModule):
+class FinetuneSummary(pl.LightningModule):
 
     @staticmethod
     def add_model_specific_args(parent_args):
@@ -96,13 +95,13 @@ class MT5FinetuneSummary(pl.LightningModule):
         self.args = args
         self.num_data = num_data
         print('num_data:', num_data)
-        self.model = MT5ForConditionalGeneration.from_pretrained(args.pretrained_model_path)
+        self.model = BartForConditionalGeneration.from_pretrained(args.pretrained_model_path)
 
     def setup(self, stage) -> None:
         if stage == 'fit':
             num_gpus = self.trainer.gpus if self.trainer.gpus is not None else 0
-            self.total_step = int(self.trainer.max_epochs * self.num_data /
-                                  (max(1, num_gpus) * self.trainer.accumulate_grad_batches))
+            self.total_step = int(self.trainer.max_epochs * self.num_data
+                                  / (max(1, num_gpus) * self.trainer.accumulate_grad_batches))
             print('Total training step:', self.total_step)
 
     def training_step(self, batch, batch_idx):
@@ -118,7 +117,7 @@ class MT5FinetuneSummary(pl.LightningModule):
         y_pred = y_pred.view(size=(-1,))
         y_true = labels.view(size=(-1,)).float()
         corr = torch.eq(y_pred, y_true)
-        acc = torch.sum(corr.float())/labels.size()[0]
+        acc = torch.sum(corr.float()) / labels.size()[0]
         return acc
 
     def validation_step(self, batch, batch_idx):
@@ -167,7 +166,7 @@ class MT5FinetuneSummary(pl.LightningModule):
 
 
 def save_test(data, args, data_model):
-    tokenizer = AutoTokenizer.from_pretrained(args.pretrained_model_path)
+    tokenizer = AutoTokenizer.from_pretrained(args.pretrained_model_path, use_fast=False)
     with open(os.path.join(args.output_save_path), 'w', encoding='utf-8') as f:
         for _, batch in enumerate(data):
             texts = batch['text']
@@ -183,8 +182,8 @@ def save_test(data, args, data_model):
                 tmp_result['label'] = summary
                 tmp_result['origin_text'] = text
                 json_data = json.dumps(tmp_result, ensure_ascii=False)
-                f.write(json_data+'\n')
-    print('save the result to '+args.output_save_path)
+                f.write(json_data + '\n')
+    print('save the result to ' + args.output_save_path)
 
 
 def main():
@@ -193,18 +192,19 @@ def main():
     total_parser.add_argument('--pretrained_model_path', default='google/mt5-small', type=str)
     total_parser.add_argument('--output_save_path', default='./predict.json', type=str)
     # * Args for data preprocessing
+    from fengshen.data.task_dataloader.task_datasets import LCSTSDataModel
     total_parser = LCSTSDataModel.add_data_specific_args(total_parser)
     # * Args for training
     total_parser = Trainer.add_argparse_args(total_parser)
-    total_parser = MT5FinetuneSummaryModelCheckpoint.add_argparse_args(total_parser)
-    total_parser = MT5FinetuneSummary.add_model_specific_args(total_parser)
+    total_parser = FinetuneSummaryModelCheckpoint.add_argparse_args(total_parser)
+    total_parser = FinetuneSummary.add_model_specific_args(total_parser)
     # * Args for base model
     args = total_parser.parse_args()
 
     data_model = LCSTSDataModel(args)
     if not args.do_eval_only:
-        model = MT5FinetuneSummary(args, len(data_model.train_dataloader()))
-        checkpoint_callback = MT5FinetuneSummaryModelCheckpoint(args).callbacks
+        model = FinetuneSummary(args, len(data_model.train_dataloader()))
+        checkpoint_callback = FinetuneSummaryModelCheckpoint(args).callbacks
         logger = loggers.TensorBoardLogger(save_dir=os.path.join(
             args.default_root_dir, 'log/'), name='mt5_summary')
         trainer = Trainer.from_argparse_args(args,
@@ -214,7 +214,7 @@ def main():
         trainer.fit(model, data_model)
     else:
         trainer = Trainer.from_argparse_args(args)
-        model = MT5FinetuneSummary.load_from_checkpoint(
+        model = FinetuneSummary.load_from_checkpoint(
             args.resume_from_checkpoint, args=args, num_data=len(data_model.predict_dataloader()))
     result = trainer.predict(model, data_model)
     if torch.distributed.get_rank() == 0:
@@ -224,3 +224,11 @@ def main():
 if __name__ == '__main__':
     main()
     # test()
+
+'''
+python examples/mt5_summary.py --gpus=1 --test_data=test_public.jsonl
+--default_root_dir=/cognitive_comp/ganruyi/fengshen/mt5_summary/eval
+--do_eval_only
+--resume_from_checkpoint=/cognitive_comp/ganruyi/fengshen/mt5_summary/ckpt/model-epoch=01-train_loss=1.9166.ckpt
+--strategy=ddp
+'''

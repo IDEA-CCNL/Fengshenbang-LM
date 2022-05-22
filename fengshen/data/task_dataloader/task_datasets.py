@@ -16,7 +16,7 @@ class LCSTSDataset(Dataset):
     def __init__(self, data_path, args):
         super().__init__()
         self.tokenizer = AutoTokenizer.from_pretrained(
-            args.pretrained_model_path)
+            args.pretrained_model_path, use_fast=False)
         self.data = self.load_data(data_path)
         self.prompt = args.prompt
         self.max_enc_length = args.max_enc_length
@@ -49,7 +49,7 @@ class LCSTSDataset(Dataset):
         enc_sizes = []
         dec_sizes = []
         for line in tqdm(lines):
-            obj = json.loads(line)
+            obj = json.loads(line.strip())
             source = obj['text']
             target = obj['summary']
             enc_input_ids = self.tokenizer.encode(source)
@@ -75,12 +75,17 @@ class LCSTSDataset(Dataset):
         return samples
 
     def encode(self, item):
-        encode_dict = self.tokenizer.encode_plus(self.prompt + item['text'], max_length=self.max_enc_length,
-                                                 padding='max_length',
-                                                 truncation=True, return_tensors='pt')
-        decode_dict = self.tokenizer.encode_plus(item['summary'], max_length=self.max_dec_length,
-                                                 padding='max_length',
-                                                 truncation=True)
+        encode_dict = self.tokenizer.encode_plus(
+            self.prompt + item['text'],
+            max_length=self.max_enc_length,
+            padding='max_length',
+            truncation=True,
+            return_tensors='pt')
+        decode_dict = self.tokenizer.encode_plus(
+            item['summary'],
+            max_length=self.max_dec_length,
+            padding='max_length',
+            truncation=True)
 
         target = decode_dict['input_ids']
         # print('encode_dict shape:', encode_dict['input_ids'].shape)
@@ -120,19 +125,28 @@ class LCSTSDataModel(pl.LightningDataModule):
         if not args.do_eval_only:
             self.train_data = LCSTSDataset(os.path.join(
                 args.data_dir, args.train_data), args)
-            self.valid_data = LCSTSDataset(os.path.join(
-                args.data_dir, args.valid_data), args)
+        self.valid_data = LCSTSDataset(os.path.join(
+            args.data_dir, args.valid_data), args)
         self.test_data = LCSTSDataset(os.path.join(
             args.data_dir, args.test_data), args)
 
     def train_dataloader(self):
-        return DataLoader(self.train_data, shuffle=True, batch_size=self.train_batchsize,
-                          pin_memory=False, num_workers=self.args.num_workers)
+        return DataLoader(self.train_data,
+                          shuffle=True,
+                          batch_size=self.train_batchsize,
+                          pin_memory=False,
+                          num_workers=self.args.num_workers)
 
     def val_dataloader(self):
-        return DataLoader(self.valid_data, shuffle=False, batch_size=self.valid_batchsize,
-                          pin_memory=False, num_workers=self.args.num_workers)
+        return DataLoader(self.valid_data,
+                          shuffle=False,
+                          batch_size=self.valid_batchsize,
+                          pin_memory=False,
+                          num_workers=self.args.num_workers)
 
     def predict_dataloader(self):
-        return DataLoader(self.test_data, shuffle=False, batch_size=self.valid_batchsize,
-                          pin_memory=False, num_workers=self.args.num_workers)
+        return DataLoader(self.test_data,
+                          shuffle=False,
+                          batch_size=self.valid_batchsize,
+                          pin_memory=False,
+                          num_workers=self.args.num_workers)
