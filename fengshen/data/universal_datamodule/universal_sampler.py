@@ -59,18 +59,13 @@ class PretrainingSampler:
             batch.append(idx)
             if len(batch) == self.micro_batch_times_data_parallel_size:
                 start_idx, end_idx = self.get_start_end_idx()
-                self.consumed_samples += self.micro_batch_times_data_parallel_size
                 yield batch[start_idx:end_idx]
                 batch = []
 
         # Check the last partial batch and see drop_last is set
         if len(batch) > 0 and not self.drop_last:
             start_idx, end_idx = self.get_start_end_idx()
-            self.consumed_samples += len(batch)
             yield batch[start_idx:end_idx]
-
-    def set_consumed_samples(self, consumed_samples):
-        self.consumed_samples = consumed_samples
 
 
 class PretrainingRandomSampler:
