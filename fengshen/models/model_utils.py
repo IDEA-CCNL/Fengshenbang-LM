@@ -1,6 +1,6 @@
 from pytorch_lightning import LightningModule
 
-from pytorch_lightning.plugins import DeepSpeedPlugin
+from pytorch_lightning.strategies import DeepSpeedStrategy
 from deepspeed.ops.adam import DeepSpeedCPUAdam, FusedAdam
 from transformers.optimization import AdamW, get_scheduler
 
@@ -28,7 +28,7 @@ def configure_optimizers(pl_model: LightningModule):
             nd in n for nd in no_decay)], 'weight_decay': 0.0}
     ]
     # Configure optimizer.
-    if isinstance(pl_model.trainer.training_type_plugin, DeepSpeedPlugin):
+    if isinstance(pl_model.trainer.strategy, DeepSpeedStrategy):
         if 'offload_optimizer' in pl_model.trainer.training_type_plugin.config['zero_optimization']:
             optimizer = DeepSpeedCPUAdam(
                 optimizer_grouped_params, adamw_mode=True,

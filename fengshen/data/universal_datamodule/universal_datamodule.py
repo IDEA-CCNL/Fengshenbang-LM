@@ -4,6 +4,18 @@ from typing import Optional
 from torch.utils.data import DataLoader, DistributedSampler
 
 
+def get_consume_samples(data_model: LightningDataModule) -> int:
+    if hasattr(data_model.trainer.lightning_module, 'consumed_samples'):
+        consumed_samples = data_model.trainer.lightning_module.consumed_samples
+        print('get consumed samples from model: {}'.format(consumed_samples))
+    else:
+        world_size = data_model.trainer.world_size
+        consumed_samples = max(0, data_model.trainer.global_step - 1) * \
+            data_model.hparams.train_batchsize * world_size * data_model.hparams.accumulate_grad_batches
+        print('calculate consumed samples: {}'.format(consumed_samples))
+    return consumed_samples
+
+
 class UniversalDataModule(LightningDataModule):
     @ staticmethod
     def add_data_specific_args(parent_args):
@@ -43,10 +55,8 @@ class UniversalDataModule(LightningDataModule):
     def get_custom_sampler(self):
         from .universal_sampler import PretrainingRandomSampler
         from .universal_sampler import PretrainingSampler
-        world_size = self.trainer._accelerator_connector.cluster_environment.world_size()
-        consumed_samples = self.trainer.global_step * \
-            self.hparams.train_batchsize * world_size * self.hparams.accumulate_grad_batches
-        print('calculate consumed samples: {}'.format(consumed_samples))
+        world_size = self.trainer.world_size
+        consumed_samples = get_consume_samples(self)
         # use the user default sampler
         if self.hparams.sampler_type == 'random':
             return PretrainingRandomSampler(
