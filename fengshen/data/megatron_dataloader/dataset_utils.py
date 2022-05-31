@@ -35,9 +35,10 @@ DSET_TYPE_BERT = 'standard_bert'
 DSET_TYPE_ICT = 'ict'
 DSET_TYPE_T5 = 't5'
 DSET_TYPE_BERT_CN_WWM = 'bert_cn_wwm'
+DSET_TYPE_BART = 'bart'
 
 DSET_TYPES = [DSET_TYPE_BERT, DSET_TYPE_ICT,
-              DSET_TYPE_T5, DSET_TYPE_BERT_CN_WWM]
+              DSET_TYPE_T5, DSET_TYPE_BERT_CN_WWM, DSET_TYPE_BART]
 
 
 def get_datasets_weights_and_num_samples(data_prefix,
@@ -455,7 +456,8 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                     tokenizer,
                                     skip_warmup, binary_head=False,
                                     max_seq_length_dec=None,
-                                    dataset_type='standard_bert'):
+                                    dataset_type='standard_bert',
+                                    zh_tokenizer=None):
 
     if len(data_prefix) == 1:
         return _build_train_valid_test_datasets(data_prefix[0],
@@ -467,7 +469,8 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                                 binary_head,
                                                 max_seq_length_dec,
                                                 tokenizer,
-                                                dataset_type=dataset_type)
+                                                dataset_type=dataset_type,
+                                                zh_tokenizer=zh_tokenizer)
     # Blending dataset.
     # Parse the values.
     output = get_datasets_weights_and_num_samples(data_prefix,
@@ -484,7 +487,7 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
             datasets_train_valid_test_num_samples[i],
             max_seq_length, masked_lm_prob, short_seq_prob,
             seed, skip_warmup, binary_head, max_seq_length_dec,
-            tokenizer, dataset_type=dataset_type)
+            tokenizer, dataset_type=dataset_type, zh_tokenizer=zh_tokenizer)
         if train_ds:
             train_datasets.append(train_ds)
         if valid_ds:
@@ -514,7 +517,7 @@ def _build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                      skip_warmup, binary_head,
                                      max_seq_length_dec,
                                      tokenizer,
-                                     dataset_type='standard_bert'):
+                                     dataset_type='standard_bert', zh_tokenizer=None):
 
     if dataset_type not in DSET_TYPES:
         raise ValueError("Invalid dataset_type: ", dataset_type)
@@ -549,6 +552,7 @@ def _build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
 
     def build_dataset(index, name):
         from fengshen.data.megatron_dataloader.bert_dataset import BertDataset
+        from fengshen.data.megatron_dataloader.bart_dataset import BartDataset
         dataset = None
         if splits[index + 1] > splits[index]:
             # Get the pointer to the original doc-idx so we can set it later.
@@ -580,6 +584,16 @@ def _build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                     masking_style='bert' if dataset_type == DSET_TYPE_BERT else 'bert-cn-wwm',
                     **kwargs
                 )
+            elif dataset_type == DSET_TYPE_BART:
+                dataset = BartDataset(
+                    indexed_dataset=indexed_dataset,
+                    masked_lm_prob=masked_lm_prob,
+                    short_seq_prob=short_seq_prob,
+                    tokenizer=tokenizer,
+                    zh_tokenizer=zh_tokenizer,
+                    **kwargs
+                )
+
             else:
                 raise NotImplementedError(
                     "Dataset type not fully implemented.")
