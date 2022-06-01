@@ -9,8 +9,8 @@
 set -x -e
 
 echo "START TIME: $(date)"
-MODEL_NAME=randeng_t5_77M_summary_test
-MICRO_BATCH_SIZE=16
+MODEL_NAME=randeng_t5_77M_summary_test2
+MICRO_BATCH_SIZE=64
 ROOT_DIR=/cognitive_comp/ganruyi/experiments/${MODEL_NAME}
 if [ ! -d ${ROOT_DIR} ];then
   mkdir ${ROOT_DIR}
@@ -71,10 +71,11 @@ EOT
 
 export PL_DEEPSPEED_CONFIG_PATH=$config_json
 export TORCH_EXTENSIONS_DIR=/cognitive_comp/ganruyi/tmp/torch_extendsions
-export MASTER_PORT=$[RANDOM%10000+50000]
+export MASTER_PORT=$[RANDOM%10000+30000]
+# export PL_FAULT_TOLERANT_TRAINING=1
 
 TRAINER_ARGS="
-    --max_epochs 1 \
+    --max_epochs 2 \
     --gpus 2 \
     --num_nodes 1 \
     --strategy deepspeed_stage_${ZERO_STAGE} \
@@ -99,7 +100,7 @@ DATA_ARGS="
 "
 # --prompt $prompt \
 MODEL_ARGS="
-    --pretrained_model_path /cognitive_comp/ganruyi/experiments/t5_cn_small_pretrain_v2/Randeng-T5-77M \
+    --pretrained_model_path /cognitive_comp/ganruyi/experiments/randeng_t5_77M/ckpt/hf_pretrained_epoch0_step183100 \
     --output_save_path $ROOT_DIR/randeng_t5_77M_predict_lcsts.json \
 "
 
@@ -114,6 +115,9 @@ export CMD=" \
     "
 echo $CMD
 source activate base
-python $CMD
+# python $CMD
+
+srun --jobid=171866 --nodes=1 --gres=gpu:2 --ntasks-per-node=2 --cpus-per-task=30 -e randeng_t5_77M_summary-%j.err -o randeng_t5_77M_summary-%j.log singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c '/home/ganruyi/anaconda3/bin/python $CMD'
+
 # srun python $CMD
 # srun singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c '/home/ganruyi/anaconda3/bin/python $CMD'

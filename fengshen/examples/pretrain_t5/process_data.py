@@ -1,9 +1,37 @@
 # coding=utf8
-from fengshen.data.t5_dataloader.t5_datasets import UnsuperviseT5Dataset
 import argparse
 import sys
+import os
+from concurrent.futures import ProcessPoolExecutor
 
-sys.path.append('../../../')
+
+def _generate_cache_arrow(index, ds, path):
+    print('saving dataset shard {}'.format(index))
+    ds.save_to_disk(os.path.join(path, 'part_{}'.format(index)))
+    return 'saving dataset shard {} done'.format(index)
+
+
+def generate_arrow_cache(ds, args) -> None:
+    '''
+    读取wudao_180g等原数据或者tokenized之后的数据，并进行train test split
+    同时利用seed 42做shuffle 缓存下来
+    '''
+    ds = ds.train_test_split(train_size=args.train_split_size, seed=42)
+    print(ds)
+    p = ProcessPoolExecutor(max_workers=args.preprocessing_num_workers)
+    res = []
+    train_shard_part = args.saved_data_shards
+    for i in range(0, train_shard_part):
+        res.append(p.submit(_generate_cache_arrow, i,
+                            ds['train'].shard(train_shard_part, i), args.saved_train_data_path))
+
+    p.shutdown(wait=True)
+    for future in res:
+        print(future.result(), flush=True)
+
+    ds['test'].save_to_disk(args.saved_test_data_path)
+    print('done')
+
 
 if __name__ == '__main__':
     total_parser = argparse.ArgumentParser("Save data Task")
@@ -11,30 +39,27 @@ if __name__ == '__main__':
         '--new_vocab_path', default='/cognitive_comp/ganruyi/hf_models/t5_cn_small/sentencepiece_cn.model', type=str)
     total_parser.add_argument('--preprocessing_num_workers', default=30, type=int)
     total_parser.add_argument(
-        '--tokenized_data_path', default='/cognitive_comp/common_data/test_wudao_180g_mt5_tokenized/', type=str)
-    total_parser.add_argument('--tokenized_data_shards', default=800, type=int)
-    # tokenized_path = '/cognitive_comp/common_data/test_wudao_180g_mt5_tokenized/'
-    # tokenized_path = '/cognitive_comp/common_data/wudao_180g_mt5_tokenized/'
-
+        '--train_data_path', default='/cognitive_comp/common_data/test_wudao_180g_mt5_tokenized/', type=str)
+    total_parser.add_argument('--saved_data_shards', default=800, type=int)
+    total_parser.add_argument('--saved_train_data_path', default=None, type=str)
+    total_parser.add_argument('--saved_test_data_path', default=None, type=str)
     total_parser.add_argument('--max_seq_length', default=512, type=int)
+    total_parser.add_argument('--train_split_size', default=0.999, type=float)
+    total_parser.add_argument('--pretrained_model_path', default=None, type=str)
+    total_parser.add_argument('--tokenizer_type', default='t5_tokenizer', choices=['t5_tokenizer', 'bert_tokenizer'])
+    total_parser.add_argument('--text_column_name', default='text')
+    total_parser.add_argument('--remove_columns', nargs='+', default=[])
+
     # * Args for data preprocessing
     args = total_parser.parse_args()
-    args.preprocessing_num_workers = 100
-    args.tokenized_data_shards = 800
-    args.tokenized_data_path = '/cognitive_comp/common_data/wudao_180g_t5_tokenized_512/'
-    # ds = UnsuperviseT5Dataset('wudao_280g_test', args)
-    ds = UnsuperviseT5Dataset('wudao_180g', args, text_column_name='text', remove_columns=['text'])
-    tokenizer = ds.tokenizer
-    # 正式数据测试
-    # ds = UnsuperviseT5Dataset(
-    #     'wudao_180g', args, text_column_name='text', remove_columns=['text'])
+    sys.path.append('../../../')
+    from fengshen.data.t5_dataloader.t5_datasets import UnsuperviseT5Dataset
+    ds = UnsuperviseT5Dataset(args.train_data_path, args)
+    print(ds)
+    generate_arrow_cache(ds.data, args=args)
+    # ds = UnsuperviseT5Dataset(args.train_data_path, args, load_data_type=0)
+    for i in range(0, 2):
+        print(ds.data[i])
+        print(ds.tokenizer.decode(ds.data[i]['input_ids']))
 
-    # 测试数据测试
-    # ds = UnsuperviseT5Dataset('wudao_180g_mt5_tokenized', args, remove_columns=[], load_data_type=1)
-    # print(ds.data, ds.data.features)
-    # args.train_data_path = 'wudao_180g_mt5_tokenized'
-    # args.preprocessing_num_workers = 1
-    # args.train_batchsize = 1
-    # dm = UnsuperviseT5DataModel(args)
-    # for d in dm.train_dataloader():
-    #     print('here\n', flush=True)
+    print(ds.data)

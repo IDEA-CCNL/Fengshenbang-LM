@@ -1,23 +1,12 @@
 # coding=utf8
-from data.fs_datasets import load_dataset
-from concurrent.futures import ProcessPoolExecutor
 from torch.utils.data import Dataset, DataLoader
-from transformers import MT5Config, MT5Tokenizer, BatchEncoding
+from transformers import BertTokenizer, MT5Config, MT5Tokenizer, BatchEncoding
 import torch
 import pytorch_lightning as pl
-import os
-import argparse
 import numpy as np
 from itertools import chain
 import sys
 sys.path.append('../../')
-
-
-def _generate_cache_arrow(ds, index, path):
-    print('saving dataset shard {}'.format(index))
-    result_path = os.path.join(path, 'file-{}'.format(index))
-    ds.save_to_disk(result_path)
-    return 'saving dataset shard {} done'.format(result_path)
 
 
 def compute_input_and_target_lengths(inputs_length, noise_density, mean_noise_span_length):
@@ -75,35 +64,37 @@ class UnsuperviseT5Dataset(Dataset):
     load_data_type = 2: load tokenized data from memery data, call function load_tokenized_memory_data
     '''
 
-    def __init__(self, data_path, args, text_column_name='context',
-                 remove_columns=['content', 'title'],
-                 load_data_type=0,
-                 data=None):
+    def __init__(self, data_path, args, load_data_type=0, data=None):
         super().__init__()
-        if args.new_vocab_path is not None:
-            self.tokenizer = MT5Tokenizer.from_pretrained(args.new_vocab_path)
+
+        if args.tokenizer_type == 't5_tokenizer':
+            if args.new_vocab_path is not None:
+                self.tokenizer = MT5Tokenizer.from_pretrained(args.new_vocab_path)
+            else:
+                self.tokenizer = MT5Tokenizer.from_pretrained(args.pretrained_model_path)
         else:
-            self.tokenizer = MT5Tokenizer.from_pretrained(args.pretrained_model_path)
+            self.tokenizer = BertTokenizer.from_pretrained(args.pretrained_model_path)
         self.noise_density = 0.15
         self.mean_noise_span_length = 3
-        self.text_column_name = text_column_name
+        self.text_column_name = args.text_column_name
         self.preprocessing_num_workers = args.preprocessing_num_workers
         self.max_seq_length = args.max_seq_length
-        self.remove_columns = remove_columns
+        self.remove_columns = args.remove_columns
         # whether load tokenieze data
         self.load_data_type = load_data_type
 
-        # T5-like span masked language modeling will fuse consecutively masked tokens to a single sentinel token.
-        # To ensure that the input length is `max_seq_length`, we need to increase the maximum length
-        # according to `mlm_probability` and `mean_noise_span_length`. We can also define the label length accordingly.
-        self.expanded_inputs_length, self.targets_length = compute_input_and_target_lengths(
-            inputs_length=self.max_seq_length,
-            noise_density=self.noise_density,
-            mean_noise_span_length=self.mean_noise_span_length,
-        )
-        print('self.expanded_inputs_length, self.targets_length:{},{}'.format(
-            self.expanded_inputs_length, self.targets_length))
         if self.load_data_type == 0:
+            # T5-like span masked language modeling will fuse consecutively masked tokens to a single sentinel token.
+            # To ensure that the input length is `max_seq_length`, we need to increase the maximum length
+            # according to `mlm_probability` and `mean_noise_span_length`.
+            # We can also define the label length accordingly.
+            self.expanded_inputs_length, self.targets_length = compute_input_and_target_lengths(
+                inputs_length=self.max_seq_length,
+                noise_density=self.noise_density,
+                mean_noise_span_length=self.mean_noise_span_length,
+            )
+            print('self.expanded_inputs_length, self.targets_length:{},{}'.format(
+                self.expanded_inputs_length, self.targets_length))
             self.data = self.load_data(data_path)
         elif self.load_data_type == 1:
             self.data = self.load_tokenized_data(data_path)
@@ -119,17 +110,20 @@ class UnsuperviseT5Dataset(Dataset):
 
     def load_data(self, data_path):
         # TODO: large data process
-        # samples = datasets.load_from_disk(data_path)['train']
+        from data.fs_datasets import load_dataset
         samples = load_dataset(
+            # samples = datasets.load_from_disk(data_path)['train']
             data_path, num_proc=self.preprocessing_num_workers)['train']
         # print(samples)
         tokenized_datasets = samples.map(
             self.tokenize_function,
             batched=True,
             num_proc=self.preprocessing_num_workers,
-            remove_columns=self.remove_columns,
             # load_from_cache_file=not data_args.overwrite_cache,
-        )
+        ).map(
+            batched=True,
+            num_proc=self.preprocessing_num_workers,
+            remove_columns=self.remove_columns)
         # Note that with `batched=True`, this map processes 1,000 texts together, so group_texts throws away a
         # remainder for each of those groups of 1,000 texts. You can adjust that batch_size here but a higher value
         # might be slower to preprocess.
@@ -142,25 +136,13 @@ class UnsuperviseT5Dataset(Dataset):
             num_proc=self.preprocessing_num_workers,
             # load_from_cache_file=not data_args.overwrite_cache,
         )
-        p = ProcessPoolExecutor(max_workers=self.preprocessing_num_workers)
-        # tokenized_path = '/cognitive_comp/common_data/test_wudao_180g_mt5_tokenized/'
-        tokenized_path = '/cognitive_comp/common_data/wudao_180g_mt5_tokenized/'
-        res = []
-        num_shards = 800
-        for i in range(num_shards):
-            datasets_split = tokenized_datasets.shard(
-                num_shards=num_shards, index=i)
-            res.append(p.submit(_generate_cache_arrow,
-                                datasets_split, i, tokenized_path))
-        p.shutdown(wait=True)
-        for future in res:
-            print(future.result(), flush=True)
         return tokenized_datasets
     '''
         The function load tokenized data saved from load_data function.
     '''
 
     def load_tokenized_data(self, data_path):
+        from data.fs_datasets import load_dataset
         samples = load_dataset(data_path)['train']
         return samples
 
@@ -170,7 +152,10 @@ class UnsuperviseT5Dataset(Dataset):
     # Otherwise, we tokenize every text, then concatenate them together before splitting them in smaller parts.
     # Since we make sure that all sequences are of the same length, no attention_mask is needed.
     def tokenize_function(self, examples):
-        return self.tokenizer(examples[self.text_column_name], return_attention_mask=False)
+        # 这里add_special_tokens=False，避免句子中间出现eos
+        return self.tokenizer(examples[self.text_column_name],
+                              add_special_tokens=False,
+                              return_attention_mask=False)
 
     # Main data processing function that will concatenate all texts from our dataset
     # and generate chunks of expanded_inputs_length.
@@ -204,6 +189,9 @@ class UnsuperviseT5DataModel(pl.LightningDataModule):
         parser.add_argument('--train_batchsize', default=2, type=int)
         parser.add_argument('--valid_batchsize', default=2, type=int)
         parser.add_argument('--train_split_size', default=None, type=float)
+        parser.add_argument('--tokenizer_type', default='t5_tokenizer', choices=['t5_tokenizer', 'bert_tokenizer'])
+        parser.add_argument('--text_column_name', default='text')
+        parser.add_argument('--remove_columns', nargs='+', default=[])
         return parent_args
 
     def __init__(self, args):
@@ -214,8 +202,8 @@ class UnsuperviseT5DataModel(pl.LightningDataModule):
         self.preprocessing_num_workers = args.preprocessing_num_workers
 
         if args.train_split_size is not None:
-            data_splits = load_dataset(args.train_data_path)[
-                'train'].train_test_split(train_size=args.train_split_size)
+            from data.fs_datasets import load_dataset
+            data_splits = load_dataset(args.train_data_path, num_proc=args.preprocessing_num_workers)
             train_split = data_splits['train']
             test_split = data_splits['test']
             print('train:', train_split, '\ntest_data:', test_split)
@@ -236,10 +224,10 @@ class UnsuperviseT5DataModel(pl.LightningDataModule):
         self.vocab_size = self.config.vocab_size
         self.max_seq_length = args.max_seq_length
         # 因为加载旧的spm里面已经包括了exrta_ids，但是T5Tokenizer会在spm的基础上再增加100个extra_ids,所以需要指定extra_ids=0
-        if args.new_vocab_path is not None:
-            tokenizer = MT5Tokenizer.from_pretrained(args.new_vocab_path, extra_ids=0)
+        if args.tokenizer_type == 't5_tokenizer' and args.new_vocab_path is not None:
+            self.tokenizer = MT5Tokenizer.from_pretrained(args.new_vocab_path, extra_ids=0)
             # 如果是刚开始加载mt5,需要更新vocab_size为提取中英词之后的new_vocab_size
-            self.vocab_size = len(tokenizer)
+            self.vocab_size = len(self.tokenizer)
 
         # T5-like span masked language modeling will fuse consecutively masked tokens to a single sentinel token.
         # To ensure that the input length is `max_seq_length`, we need to increase the maximum length
@@ -316,8 +304,10 @@ class UnsuperviseT5DataModel(pl.LightningDataModule):
         batch["decoder_input_ids"] = self.shift_tokens_right(
             batch["labels"], self.pad_token_id, self.decoder_start_token_id
         )
+
         for k, v in batch.items():
             batch[k] = torch.tensor(v)
+            # print(k, batch[k], self.tokenizer.batch_decode(batch[k]), '\n', flush=True)
         return batch
 
     def create_sentinel_ids(self, mask_indices):
@@ -432,26 +422,3 @@ class UnsuperviseT5DataModel(pl.LightningDataModule):
         is_noise = np.equal(span_num % 2, 1)
 
         return is_noise[:orig_length]
-
-
-if __name__ == '__main__':
-    total_parser = argparse.ArgumentParser("Save data Task")
-    total_parser.add_argument(
-        '--new_vocab_path', default='/cognitive_comp/ganruyi/hf_models/t5_cn_small/sentencepiece_cn.model', type=str)
-    total_parser.add_argument(
-        '--pretrained_model_path', default='/cognitive_comp/ganruyi/hf_models/google/mt5-small', type=str)
-    total_parser.add_argument('--output_save_path',
-                              default='./predict.json', type=str)
-    total_parser.add_argument('--max_seq_length', default=1024, type=int)
-    # * Args for data preprocessing
-    total_parser = UnsuperviseT5DataModel.add_data_specific_args(total_parser)
-    # * Args for base model
-    args = total_parser.parse_args()
-    # ds = UnsuperviseT5Dataset('/cognitive_comp/common_data/wudao_10k_for_test/hf_cache/', args)
-    # 正式数据测试
-    ds = UnsuperviseT5Dataset(
-        'wudao_180g', args, text_column_name='text', remove_columns=['text'])
-
-    # 测试数据测试
-    # ds = UnsuperviseT5Dataset('wudao_180g_mt5_tokenized', args, remove_columns=[])
-    print(ds.data, ds.data.features)
