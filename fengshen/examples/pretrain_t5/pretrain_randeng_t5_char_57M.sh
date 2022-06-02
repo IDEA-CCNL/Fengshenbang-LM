@@ -23,7 +23,7 @@ ZERO_STAGE=1
 
 config_json="$ROOT_DIR/ds_config.randeng_t5_char_57M.$SLURM_JOBID.json"
 export MASTER_PORT=$[RANDOM%10000+30000]
-# export CUDA_VISIBLE_DEVICES='2,5'
+# export CUDA_VISIBLE_DEVICES='4,5'
 
 cat <<EOT > $config_json
 {
@@ -49,7 +49,7 @@ cat <<EOT > $config_json
     "params": {
       "warmup_max_lr": 1e-04,
       "warmup_min_lr": 1e-05,
-      "total_num_steps": 100000,
+      "total_num_steps": 240000,
       "warmup_num_steps" : 10000
     },
     "type": "WarmupDecayLR"  
@@ -88,7 +88,9 @@ TRAINER_ARGS="
     --mode min \
     --save_last \
     --val_check_interval 0.1 \
-    --preprocessing_num_workers 4 \
+    --dataset_num_workers 4 \
+    --dataloader_num_workers 4 \
+    --replace_sampler_ddp False \
 "
 # --accumulate_grad_batches 8 \
 DATA_DIR=wudao_180g_bert_tokenized_512

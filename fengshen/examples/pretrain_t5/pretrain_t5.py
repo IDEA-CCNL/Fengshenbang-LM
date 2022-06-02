@@ -63,14 +63,20 @@ class MT5PretrainModel(pl.LightningModule):
             train_loader = self.trainer._data_connector._train_dataloader_source.dataloader()
 
             # Calculate total steps
-            tb_size = self.hparams.train_batchsize * max(1, self.trainer.gpus)
-            ab_size = self.trainer.accumulate_grad_batches * \
-                float(self.trainer.max_epochs)
-            self.total_steps = (
-                len(train_loader.dataset) // tb_size) // ab_size
+            if self.trainer.max_epochs > 0:
+                world_size = self.trainer.world_size
+                tb_size = self.hparams.train_batchsize * max(1, world_size)
+                ab_size = self.trainer.accumulate_grad_batches * float(self.trainer.max_epochs)
+                self.total_steps = (len(train_loader.dataset) *
+                                    self.trainer.max_epochs // tb_size) // ab_size
+            else:
+                self.total_steps = self.trainer.max_steps // self.trainer.accumulate_grad_batches
+
+            print('Total steps: {}' .format(self.total_steps))
 
     def configure_optimizers(self):
-        raise NotImplementedError
+        from fengshen.models.model_utils import configure_optimizers
+        return configure_optimizers(self)
 
     def training_step(self, batch, batch_idx):
         output = self.model(
@@ -97,19 +103,19 @@ class MT5PretrainModel(pl.LightningModule):
         return acc
 
     def on_save_checkpoint(self, checkpoint) -> None:
-        if self.global_rank == 0:
+        # Save the current loop info in the mid of epoch
+        # if you lightning <= 1.6.0  uncomment the line below
+        # checkpoint['loops'] = self.trainer.checkpoint_connector._get_loops_state_dict()
+        if self.trainer.global_rank == 0 and self.trainer.global_step % self.hparams.every_n_train_steps == 0:
             self.model.save_pretrained(os.path.join(
                 self.trainer.checkpoint_callback.dirpath,
-                'hf_pretrained_epoch{}_step{}'.format(checkpoint['epoch'], checkpoint['global_step'])))
+                'hf_pretrained_epoch{}_step{}'.format(self.trainer.current_epoch, self.trainer.global_step)))
 
-    def predict_step(self, batch, batch_idx):
-        output = self.model(
-            input_ids=batch['input_ids'], labels=batch['labels'])
-        print('predict_loss', output.loss)
-        generated_ids = self.model.generate(
-            input_ids=batch['input_ids'],
-        )
-        return {'predict_ids': generated_ids, 'labels': batch['labels'], 'input_ids': batch['input_ids']}
+    def on_load_checkpoint(self, checkpoint) -> None:
+        global_step_offset = checkpoint["global_step"]
+        if 'global_samples' in checkpoint:
+            self.consumed_samples = checkpoint['global_samples']
+        self.trainer.fit_loop.epoch_loop._batches_that_stepped = global_step_offset
 
 
 def get_time_str():

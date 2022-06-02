@@ -49,7 +49,7 @@ cat <<EOT > $config_json
     "params": {
       "warmup_max_lr": 1e-04,
       "warmup_min_lr": 1e-05,
-      "total_num_steps": 100000,
+      "total_num_steps": 400000,
       "warmup_num_steps" : 10000
     },
     "type": "WarmupDecayLR"  
@@ -83,12 +83,15 @@ TRAINER_ARGS="
     --default_root_dir $ROOT_DIR \
     --dirpath $ROOT_DIR/ckpt \
     --save_top_k 3 \
-    --every_n_train_steps 1000000 \
+    --every_n_train_steps 100000 \
     --monitor train_loss \
     --mode min \
     --save_last \
     --val_check_interval 0.1 \
-    --preprocessing_num_workers 30 \
+    --dataset_num_workers 4 \
+    --dataloader_num_workers 4 \
+    --replace_sampler_ddp False \
+    --accumulate_grad_batches 2 \
 "
 # --accumulate_grad_batches 8 \
 DATA_DIR=wudao_180g_bert_tokenized_512
