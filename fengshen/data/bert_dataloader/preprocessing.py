@@ -23,8 +23,8 @@ def cut_sent(path):
                 para = json.loads(para)
                 para_ = para['text']
                 # print('sentence piece......')
-                para_ = re.sub('([？]+|[。]+|[！]+|[!]+|[…]+|[\.]{3,})([^”’])', r"\1#####\2", para_)
-                para_ = re.sub('([。！？\?][”’])([^，。！？\?])', r'\1#####\2', para_)
+                para_ = re.sub(r'([？]+|[。]+|[！]+|[!]+|[…]+|[\.]{3,})([^”’])', r"\1#####\2", para_)
+                para_ = re.sub(r'([。！？\?][”’])([^，。！？\?])', r'\1#####\2', para_)
                 # 一个512里面多个样本
                 line_ = ''
                 for line in para_.split('#####'):
