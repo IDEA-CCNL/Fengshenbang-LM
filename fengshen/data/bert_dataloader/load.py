@@ -102,7 +102,6 @@ class BertDataGenerate(object):
 
 def load_dataset(num_proc=4, **kargs):
     cache_dict_paths = Path(_CACHE_SPLIT_DATA_PATH).glob('*')
-    # cache_dict_paths = Path('/data1/datas/FSDataCache/wudao_180g_split').glob('*')
     ds = []
     res = []
     p = ProcessPoolExecutor(max_workers=num_proc)

@@ -25,6 +25,7 @@ def cut_sent(path):
                 # print('sentence piece......')
                 para_ = re.sub('([？]+|[。]+|[！]+|[!]+|[…]+|[\.]{3,})([^”’])', r"\1#####\2", para_)
                 para_ = re.sub('([。！？\?][”’])([^，。！？\?])', r'\1#####\2', para_)
+                # 一个512里面多个样本
                 line_ = ''
                 for line in para_.split('#####'):
                     line = line.strip()
@@ -49,7 +50,6 @@ class Config(object):
         self.num_worker = num_worker
         self.split_numb = split_numb
         self.cut_sentence = cut_sentence
-        # self.writer = open(str(Path(self.data_path.parent,self.data_path.name+'_split','sentence_level.json')),'wt',encoding='utf-8')
 
 
 def processing1():
@@ -65,42 +65,9 @@ def processing1():
     for doc in tqdm(docs):
         for sentence in doc:
             writer.writelines(json.dumps({"text":sentence},ensure_ascii=False)+'\n')
-            # self.writer.writelines(json.dumps({"text":sentence},ensure_ascii=False)+'\n')
     pool.close()
     pool.join()
     writer.close()
-
-def processing2(self):
-    p_ = [str(i) for i in self.data_path.glob('*')]
-    fin = self.chain_iter(*p_)
-    for para in tqdm(fin):
-        for sentence in self.cut_sent(para):
-            self.writer.writelines(json.dumps({"text":sentence},ensure_ascii=False)+'\n')
-    self.writer.close()
-
-def processing3(self):
-    p_ = [str(i) for i in self.data_path.glob('*')]
-    for p in p_:
-        fin = open(p,'rt',encoding='utf-8')
-        for para in tqdm(fin):
-            for sentence in self.cut_sent(para):
-                self.writer.writelines(json.dumps({"text":sentence},ensure_ascii=False)+'\n')
-    self.writer.close()
-
-# def write(x):
-#     for line in x:
-#         writer.writelines(json.dumps({'text':line},ensure_ascii=False)+'\n')
-        
-
-def processing4(self):
-    print('processing 4 start')
-    p_ = [str(i) for i in self.data_path.glob('*')]
-    fin = self.chain_iter(*p_)
-    pool = multiprocessing.Pool(self.num_worker)
-    pool.starmap()
-    pool.apply_async(self.cut_sent,fin,callback=self.callback)
-    pool.close()
-    pool.join()
 
 
 if __name__ == '__main__':
@@ -110,10 +77,10 @@ if __name__ == '__main__':
     args = Config(num_worker=16)
 
     if not Path(args.data_path.parent,args.data_path.name+'_split').exists():
-        Path(args.data_path.parent,args.data_path.name+'_split').mkdir()
-    # writer = open(str(Path(args.data_path.parent,args.data_path.name+'_split','sentence_level.json')),'wt',encoding='utf-8')
+        Path(args.data_path.parent,args.data_path.name+'_split').mkdir(parents=True)
     
     p_ = [str(i) for i in args.data_path.glob('*')]
+    # 简单shuffle
     shuffle(p_)
 
     pool = multiprocessing.Pool(args.num_worker)
@@ -121,6 +88,5 @@ if __name__ == '__main__':
         pool.apply_async(func=cut_sent,args=(item,))
     pool.close()
     pool.join()
-    # writer.close()
     cost_time = process_time() - st
     print('DONE!! cost time : %.5f'%cost_time)

@@ -28,8 +28,6 @@ import numpy as np
 
 sys.path.insert(0, '/data0/wuziwei/codes/Fengshenbang-LM/fengshen')
 from data.bert_dataloader.load import BertDataModule
-from data.universal_datamodule import UniversalDataModule
-from utils import UniversalCheckpoint
 
 os.environ["CUDA_VISIBLE_DEVICES"] = '0,1'
 
@@ -240,11 +238,8 @@ if __name__ == '__main__':
     args = args_parser.parse_args()
 
     tokenizer = BertTokenizer.from_pretrained(args.model_path)
-    # collator = TextFillingCollator(tokenizer, args)
-    # data_module = UniversalDataModule(tokenizer=tokenizer, args=args, collate_fn=collator)
     collate_fn = DataCollate(tokenizer,512)
     data_module = BertDataModule(tokenizer=tokenizer, args=args, collate_fn=collate_fn)
-    # data_module.setup()
 
     print('data load complete')
 
