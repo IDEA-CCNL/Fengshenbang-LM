@@ -19,25 +19,27 @@ from transformers.file_utils import _LazyModule, is_torch_available
 
 
 _import_structure = {
-    "configuration_megatron_t5": ["MegatronT5Config"],
-    "tokenization_megatron_t5": ["MegatronT5Tokenizer"],
+    "configuration_megatron_t5": ["T5Config"],
+    "tokenization_megatron_t5": ["T5Tokenizer"],
 }
 
 if is_torch_available():
     _import_structure["modeling_megatron_t5"] = [
-        "MegatronT5Model",
-        "MegatronT5EncoderModel",
+        "T5Model",
+        "T5EncoderModel",
+        "T5ForConditionalGeneration"
     ]
 
 
 if TYPE_CHECKING:
-    from .configuration_megatron_t5 import MegatronT5Config
-    from .tokenization_megatron_t5 import MegatronT5Tokenizer
+    from .configuration_megatron_t5 import T5Config
+    from .tokenization_megatron_t5 import T5Tokenizer
 
     if is_torch_available():
         from .modeling_megatron_t5 import (
-            MegatronT5Model,
-            MegatronT5EncoderModel,
+            T5Model,
+            T5EncoderModel,
+            T5ForConditionalGeneration
         )
 
 else:
