@@ -1,3 +1,4 @@
+from data.bert_dataloader.load import BertDataModule
 from transformers import (
     BertTokenizer,
     BertConfig,
@@ -27,13 +28,13 @@ import jieba
 import numpy as np
 
 sys.path.insert(0, '/data0/wuziwei/codes/Fengshenbang-LM/fengshen')
-from data.bert_dataloader.load import BertDataModule
 
 os.environ["CUDA_VISIBLE_DEVICES"] = '0,1'
 
+
 class DataCollate(object):
 
-    def __init__(self,tokenizer,max_length,mask_rate=0.15,max_ngram=3,if_padding=True) -> None:
+    def __init__(self, tokenizer, max_length, mask_rate=0.15, max_ngram=3, if_padding=True) -> None:
         self.tokenizer = tokenizer
         self.max_length = max_length
         self.word_cuter = jieba.cut
@@ -46,7 +47,7 @@ class DataCollate(object):
         self.pvals = pvals
         self.padding = if_padding
 
-    def token_process(self,token_id):
+    def token_process(self, token_id):
         rand = np.random.random()
         if rand <= 0.8:
             return self.tokenizer.mask_token_id
@@ -62,18 +63,18 @@ class DataCollate(object):
         batch_labels = []
         # print('^-^ batch size :',len(samples))
         for sample in samples:
-            word_list=list(self.word_cuter(sample['text']))
-            mask_ids,labels = [], []
+            word_list = list(self.word_cuter(sample['text']))
+            mask_ids, labels = [], []
 
-            record=[]
+            record = []
             for i in range(len(word_list)):
                 rands = np.random.random()
                 if i in record:
                     continue
-                word=word_list[i]
-                if rands>self.mask_rate and len(word)<4:
-                    word=word_list[i]
-                    word_encode=tokenizer.encode(word,add_special_tokens=False)
+                word = word_list[i]
+                if rands > self.mask_rate and len(word) < 4:
+                    word = word_list[i]
+                    word_encode = tokenizer.encode(word, add_special_tokens=False)
                     for token in word_encode:
                         mask_ids.append(token)
                         labels.append(self.ignore_labels)
@@ -82,20 +83,20 @@ class DataCollate(object):
                     n = np.random.choice(self.ngrams, p=self.pvals)
                     for index in range(n):
                         ind = index + i
-                        if ind in record or ind >=len(word_list):
+                        if ind in record or ind >= len(word_list):
                             continue
                         record.append(ind)
-                        word=word_list[ind]
-                        word_encode=tokenizer.encode(word,add_special_tokens=False)
+                        word = word_list[ind]
+                        word_encode = tokenizer.encode(word, add_special_tokens=False)
                         for token in word_encode:
                             mask_ids.append(self.token_process(token))
                             labels.append(token)
             if self.padding:
-                if len(mask_ids)>self.max_length:
+                if len(mask_ids) > self.max_length:
                     input_ids.append(mask_ids[:self.max_length])
                     batch_labels.append(labels[:self.max_length])
                 else:
-                    lenght = len(mask_ids) 
+                    lenght = len(mask_ids)
                     mask_ids.extend([0]*(self.max_length-lenght))
                     labels.extend([-100]*(self.max_length-lenght))
                     input_ids.append(mask_ids)
@@ -109,13 +110,14 @@ class DataCollate(object):
         #     print('labels',labels)
         #     print('decode labels:',self.tokenizer.decode(labels))
         #     print('*'*20)
-        # print('!!!!!!',torch.tensor(input_ids).shape) 
+        # print('!!!!!!',torch.tensor(input_ids).shape)
         return {
-            'input_ids':torch.tensor(input_ids),
-            'labels':torch.tensor(batch_labels),
-            'attention_mask':torch.tensor(attention_mask),
-            'token_type_ids':torch.tensor(token_type_ids)
+            'input_ids': torch.tensor(input_ids),
+            'labels': torch.tensor(batch_labels),
+            'attention_mask': torch.tensor(attention_mask),
+            'token_type_ids': torch.tensor(token_type_ids)
         }
+
 
 class MegatronBert(LightningModule):
     @staticmethod
@@ -238,7 +240,7 @@ if __name__ == '__main__':
     args = args_parser.parse_args()
 
     tokenizer = BertTokenizer.from_pretrained(args.model_path)
-    collate_fn = DataCollate(tokenizer,512)
+    collate_fn = DataCollate(tokenizer, 512)
     data_module = BertDataModule(tokenizer=tokenizer, args=args, collate_fn=collate_fn)
 
     print('data load complete')
@@ -261,7 +263,7 @@ if __name__ == '__main__':
     if args.deepspeed is not None:
         os.environ['PL_DEEPSPEED_CONFIG_PATH'] = args.deepspeed
 
-    trainer = Trainer.from_argparse_args(args,logger=logger,
+    trainer = Trainer.from_argparse_args(args, logger=logger,
                                          callbacks=[
                                              lr_monitor,
                                              checkpoint_callback])
