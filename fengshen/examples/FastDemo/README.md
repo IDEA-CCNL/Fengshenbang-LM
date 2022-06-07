@@ -70,11 +70,16 @@ form.form_submit_button("提交")
 def generate_qa(input_text,n_sample,model_id='7',length=64,translator='baidu',level=0.7):
     # 这里我们是把模型用fastapi搭建了一个api服务
     URL = 'http://192.168.190.63:6605/qa'
-    data = {"text":input_text,"n_sample":n_sample,"model_id":model_id,"length":length,'translator':translator,'level':level}
+    data = {
+            "text":input_text,"n_sample":n_sample,
+            "model_id":model_id,"length":length,
+            'translator':translator,'level':level
+            }
     r = requests.get(URL,params=data)
     return r.text
 # 模型预测结果
-results = generate_qa(input_text,n_sample,model_id=str(model_id),translator=translator,length=text_length,level=text_level)
+results = generate_qa(input_text,n_sample,model_id=str(model_id),
+                    translator=translator,length=text_length,level=text_level)
 ```
 这里说明一下，由于demo展示机器没有GPU，所以模型部署采用的是Fastapi部署在后台的。如果demo展示的机器可以直接部署模型，这里可以直接把模型预测的方法写在这里，不需要另外部署模型，再用api的方式调用。这样做有一个值得注意的地方，因为streamlit的代码每一次运行，都是从头到尾执行一遍，就导致模型可能会重复加载，所以这里需要用到st.cache组建，当内容没有更新的时候，会把这一步的结果缓存，而不会重新执行。保证了效率不会因此而下降。
 
