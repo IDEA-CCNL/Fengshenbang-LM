@@ -2,9 +2,9 @@
 
 * <div style="font-size:16px"><span style="float:right">2022.05.11</span><a href="https://fengshenbang-doc.readthedocs.io/zh/latest/docs/太乙系列/Taiyi-vit-87M-D.html">更新TaiYi系列VIT多模态模型及下游任务示例</a></div>
 * <div style="font-size:16px"><span style="float:right">2022.05.11</span><a href="https://fengshenbang-doc.readthedocs.io/zh/latest/docs/比干系列/Bigan-Transformer-XL-denoise-1.1B.html">更新BiGan系列Transformer-XL去噪模型及下游任务示例</a></div>
-* <div style="font-size:16px"><span style="float:right">2022.05.11</span;"><a href="https://fengshenbang-doc.readthedocs.io/zh/latest/docs/二郎神系列/Erlangshen-Roberta-110M-NLI.html">更新ErLangShen系列下游任务示例</a></div>
-* <div style="font-size:16px"><span style="float:right">2022.05.11</span<a href="https://fengshenbang-doc.readthedocs.io/zh/latest/docs/燃灯系列/Randeng-MegatronT5-770M.html">更新RanDeng系列T5模型预训练及下游任务示例</a></div>
-* <div style="font-size:16px"><span style="float:right">2022.04.26</span>;"><a href="https://fengshenbang-doc.readthedocs.io/zh/latest/docs/燃灯系列/BART-139M.html">更新RanDeng系列BART模型预训练及下游任务示例</a></div>
+* <div style="font-size:16px"><span style="float:right">2022.05.11</span><a href="https://fengshenbang-doc.readthedocs.io/zh/latest/docs/二郎神系列/Erlangshen-Roberta-110M-NLI.html">更新ErLangShen系列下游任务示例</a></div>
+* <div style="font-size:16px"><span style="float:right">2022.05.11</span><a href="https://fengshenbang-doc.readthedocs.io/zh/latest/docs/燃灯系列/Randeng-MegatronT5-770M.html">更新RanDeng系列T5模型预训练及下游任务示例</a></div>
+* <div style="font-size:16px"><span style="float:right">2022.04.26</span><a href="https://fengshenbang-doc.readthedocs.io/zh/latest/docs/燃灯系列/BART-139M.html">更新RanDeng系列BART模型预训练及下游任务示例</a></div>
 
 
 # 导航
