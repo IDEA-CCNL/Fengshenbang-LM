@@ -1,7 +1,7 @@
 ## 最新发布
 
-# [更新TaiYi系列VIT多模态模型及下游任务示例](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/太乙系列/Taiyi-vit-87M-D.html) <p align="right">2022.05.11</p>
-# [更新BiGan系列Transformer-XL去噪模型及下游任务示例](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/比干系列/Bigan-Transformer-XL-denoise-1.1B.html) <p align="right">2022.05.11</p>
+* [更新TaiYi系列VIT多模态模型及下游任务示例](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/太乙系列/Taiyi-vit-87M-D.html) <p align="right">2022.05.11</p>
+* [更新BiGan系列Transformer-XL去噪模型及下游任务示例](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/比干系列/Bigan-Transformer-XL-denoise-1.1B.html) <p align="right">2022.05.11</p>
 * [更新ErLangShen系列下游任务示例](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/二郎神系列/Erlangshen-Roberta-110M-NLI.html) <p align="right">2022.05.11</p>
 * [更新RanDeng系列T5模型预训练及下游任务示例](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/燃灯系列/Randeng-MegatronT5-770M.html) <p align="right">2022.05.11</p>
 * [更新RanDeng系列BART模型预训练及下游任务示例](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/燃灯系列/BART-139M.html) <p align="right">2022.04.26</p>
@@ -22,9 +22,9 @@ FengShen训练框架是封神榜大模型开源计划的重要一环，在大模
 所有的模型可以在[Huggingface主页](https://huggingface.co/IDEA-CCNL)找到
 
 通过我们的框架，你可以快速享受到：
-1. 比原生torch更强的性能，训练速度提升**300%**
-2. 支持更大的模型，支持**百亿级别**内模型训练及微调
-3. 支持**TB级以上**的数据集，在家用主机上即可享受预训练模型带来的效果提升
+1. 比原生torch更强的性能，训练速度提升<font color=#0000FF >**300%**</font>
+2. 支持更大的模型，支持<font color=#0000FF >**百亿级别**</font>内模型训练及微调
+3. 支持<font color=#0000FF >**TB级以上**</font>的数据集，在家用主机上即可享受预训练模型带来的效果提升
 3. 丰富的预训练、下游任务示例，一键开始训练
 4. 适应各种设备环境，支持在CPU、GPU、TPU等不同设备上运行
 5. 集成主流的分布式训练逻辑，无需修改代码即可支持DDP、Zero Optimizer等分布式优化技术
