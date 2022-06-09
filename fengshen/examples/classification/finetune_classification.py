@@ -12,12 +12,13 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from fengshen.models.megatron_t5 import T5Config
-from fengshen.models.megatron_t5 import T5EncoderModel
-from fengshen.models.roformer import RoFormerConfig
-from fengshen.models.roformer import RoFormerModel
-from fengshen.models.longformer import LongformerConfig
+from fengshen.models.zen1 import ZenModel
 from fengshen.models.longformer import LongformerModel
+from fengshen.models.longformer import LongformerConfig
+from fengshen.models.roformer import RoFormerModel
+from fengshen.models.roformer import RoFormerConfig
+from fengshen.models.megatron_t5 import T5EncoderModel
+from fengshen.models.megatron_t5 import T5Config
 import numpy as np
 import os
 from tqdm import tqdm
@@ -37,22 +38,23 @@ from transformers import (
 )
 import sys
 sys.path.append('../../../')
-
-os.environ["CUDA_VISIBLE_DEVICES"] = '6'
+# os.environ["CUDA_VISIBLE_DEVICES"] = '6'
 
 
 model_dict = {'huggingface-bert': BertModel,
               'fengshen-roformer': RoFormerModel,
               'huggingface-megatron_bert': MegatronBertModel,
               'fengshen-megatron_t5': T5EncoderModel,
-              'fengshen-longformer': LongformerModel}
+              'fengshen-longformer': LongformerModel,
+              'fengshen-zen1': ZenModel}
 
 
 config_dict = {'huggingface-bert': BertConfig,
                'fengshen-roformer': RoFormerConfig,
                'huggingface-megatron_bert': MegatronBertConfig,
                'fengshen-megatron_t5': T5Config,
-               'fengshen-longformer': LongformerConfig}
+               'fengshen-longformer': LongformerConfig,
+               'fengshen-zen1': BertConfig}
 
 
 class TaskDataset(Dataset):
@@ -179,6 +181,7 @@ class taskModel(torch.nn.Module):
         self.args = args
         self.config = config_dict[args.model_type].from_pretrained(
             args.pretrained_model_path)
+        print('args mode type:', args.model_type)
         self.bert_encoder = model_dict[args.model_type].from_pretrained(
             args.pretrained_model_path)
         self.cls_layer = torch.nn.Linear(
@@ -352,8 +355,8 @@ def main():
     model = LitModel(args, len(data_model.train_dataloader()))
 
     trainer.fit(model, data_model)
-    result = trainer.predict(model, data_model)
-    save_test(result, args, data_model)
+    # result = trainer.predict(model, data_model)
+    # save_test(result, args, data_model)
 
 
 if __name__ == "__main__":
