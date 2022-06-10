@@ -1,6 +1,5 @@
 # randeng pegasus 摘要模型 Finetune
 
-***
 本模型主要实现了pegasus结构的燃灯系列摘要模型，通过使用LCSTS、CSL中文数据集文本-摘要对进行finetune，pegasus模型是专门针对摘要抽取任务训练的预训练模型。在下游任务的数据上，仅通过少量的数据进行微调就能达到良好的摘要抽取效果。
 
 ### finetune细节
