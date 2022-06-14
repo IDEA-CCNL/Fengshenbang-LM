@@ -113,6 +113,8 @@ sh finetune_classification.sh
 
 [封神榜系列之是时候给你的训练提提速了](https://zhuanlan.zhihu.com/p/485369778)
 
+[封神榜系列之中文pegasus模型预训练](https://zhuanlan.zhihu.com/p/528716336)
+
 # 引用
 ```
 @misc{Fengshenbang-LM,
