@@ -1,5 +1,7 @@
 # coding=utf8
+import json
 from torch.utils.data import Dataset, DataLoader
+from tqdm import tqdm
 from transformers import BertTokenizer, MT5Config, MT5Tokenizer, BatchEncoding
 import torch
 import pytorch_lightning as pl
@@ -431,3 +433,130 @@ class UnsuperviseT5DataModel(pl.LightningDataModule):
         is_noise = np.equal(span_num % 2, 1)
 
         return is_noise[:orig_length]
+
+
+class TaskT5Dataset(Dataset):
+    def __init__(self, data_path, args):
+        super().__init__()
+        self.max_length = args.max_seq_length
+        if args.tokenizer_type == 't5_tokenizer':
+            self.tokenizer = MT5Tokenizer.from_pretrained(args.pretrained_model_path)
+        else:
+            self.tokenizer = BertTokenizer.from_pretrained(args.pretrained_model_path)
+        self.data = self.load_data(data_path)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, index):
+        return self.encode(self.data[index])
+
+    def load_data(self, data_path):
+        samples = []
+        with open(data_path, 'r', encoding='utf8') as f:
+            lines = f.readlines()
+            for line in tqdm(lines):
+                samples.append(json.loads(line))
+        return samples
+
+    def encode(self, item):
+        if item["textb"] != "":
+            text = item['question'] + '，'.join(item['choice'])+'。' + f"""{item["texta"]}""" + f"""{item["textb"]}"""
+        else:
+            text = f"""{item["question"]}""" + "，".join(item["choice"]) + "。" + f"""{item["texta"]}"""
+        label = item['answer']
+        encode_dict = self.tokenizer.encode_plus(text, max_length=self.max_length, padding='max_length',
+                                                 truncation=True, return_tensors='pt')
+        decode_dict = self.tokenizer.encode_plus(label, max_length=16, padding='max_length',
+                                                 truncation=True)
+
+        answer_token = []
+        max_label_len = 0
+        choice_encode = []  # 用来确定模型生成的最大长度
+        for a in item['choice']:
+            answer_encode = self.tokenizer.encode(a)
+            choice_encode.append(answer_encode)
+            if len(answer_encode) > max_label_len:
+                max_label_len = len(answer_encode)
+            for an in answer_encode:
+                if an not in answer_token:
+                    answer_token.append(an)
+
+        # bad_words_ids = [[i] for i in range(self.tokenizer.vocab_size) if i not in answer_token] #不生成这些token
+
+        # while len(bad_words_ids)<self.tokenizer.vocab_size:
+        #     bad_words_ids.append(bad_words_ids[0])
+
+        # bad_words_ids = [[423],[67],[878]]
+
+        encode_sent = encode_dict['input_ids'].squeeze()
+        attention_mask = encode_dict['attention_mask'].squeeze()
+        target = decode_dict['input_ids']
+        labels = torch.tensor(target)
+        labels[target == self.tokenizer.pad_token_id] = -100
+
+        return {
+            "input_ids": torch.tensor(encode_sent).long(),
+            "attention_mask": torch.tensor(attention_mask).float(),
+            "labels": torch.tensor(target).long(),
+            "force_words_ids": answer_token,
+        }
+
+
+class TaskT5DataModel(pl.LightningDataModule):
+    @staticmethod
+    def add_data_specific_args(parent_args):
+        parser = parent_args.add_argument_group('TaskT5DataModel')
+        parser.add_argument('--dataset_num_workers', default=8, type=int)
+        parser.add_argument('--dataloader_num_workers', default=4, type=int)
+        parser.add_argument(
+            '--train_data_path', default='wudao_180g_mt5_tokenized', type=str)
+        parser.add_argument(
+            '--valid_data_path', default='wudao_180g_mt5_tokenized', type=str)
+        parser.add_argument('--train_batchsize', default=2, type=int)
+        parser.add_argument('--valid_batchsize', default=2, type=int)
+        parser.add_argument('--train_split_size', default=None, type=float)
+        parser.add_argument('--tokenizer_type', default='t5_tokenizer', choices=['t5_tokenizer', 'bert_tokenizer'])
+        parser.add_argument('--text_column_name', default='text')
+        parser.add_argument('--remove_columns', nargs='+', default=[])
+        return parent_args
+
+    def __init__(self, args):
+        super().__init__()
+        self.save_hyperparameters(args)
+        self.train_dataset = TaskT5Dataset(args.train_data_path, args)
+        self.valid_dataset = TaskT5Dataset(args.valid_data_path, args)
+
+    def train_dataloader(self):
+        from fengshen.data.universal_datamodule.universal_sampler import PretrainingSampler
+        from fengshen.data.universal_datamodule.universal_datamodule import get_consume_samples
+        # 采用自定义的sampler，确保继续训练能正确取到数据
+        consumed_samples = get_consume_samples(self)
+        # batch_sampler = PretrainingRandomSampler(
+        batch_sampler = PretrainingSampler(
+            total_samples=len(self.train_dataset),
+            consumed_samples=consumed_samples,
+            micro_batch_size=self.hparams.train_batchsize,
+            data_parallel_rank=self.trainer.global_rank,
+            data_parallel_size=self.trainer.world_size,
+        )
+        # epoch=self.trainer.current_epoch
+        # )
+        return DataLoader(
+            self.train_dataset,
+            batch_sampler=batch_sampler,
+            pin_memory=True,
+            num_workers=self.hparams.dataloader_num_workers
+        )
+
+    def val_dataloader(self):
+        sampler = torch.utils.data.distributed.DistributedSampler(
+            self.valid_dataset, shuffle=False)
+        return DataLoader(
+            self.valid_dataset,
+            sampler=sampler,
+            shuffle=False,
+            batch_size=self.hparams.valid_batchsize,
+            pin_memory=True,
+            num_workers=self.hparams.dataloader_num_workers
+        )
