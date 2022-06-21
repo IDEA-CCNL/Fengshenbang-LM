@@ -38,8 +38,7 @@ FengShen训练框架是封神榜大模型开源计划的重要一环，在大模
 * transformers >= 3.2.0
 * pytorch-lightning >= 1.5.10
 
-在封神目录下安装
-cd fengshen
+在Fengshenbang-LM根目录下
 pip install --editable ./
 
 ## 项目结构
