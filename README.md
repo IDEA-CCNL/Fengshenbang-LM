@@ -38,6 +38,8 @@
 
 [封神榜模型下载链接](https://huggingface.co/IDEA-CCNL)
 
+[封神榜模型训练和微调代码脚本](https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples)
+
 [封神榜模型训练手册](https://fengshenbang-doc.readthedocs.io/zh/latest/index.html)
 
 # Fengshenbang-LM
