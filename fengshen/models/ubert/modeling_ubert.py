@@ -85,7 +85,8 @@ class UbertDataset(Dataset):
         subtask_type = item['subtask_type']
         for choice in item['choices']:
             try:
-                texta = item['task_type'] + '[SEP]'+subtask_type + '[SEP]' + choice['entity_type']
+                texta = item['task_type'] + '[SEP]' + \
+                    subtask_type + '[SEP]' + choice['entity_type']
                 textb = item['text']
                 encode_dict = self.tokenizer.encode_plus(texta, textb,
                                                          max_length=self.max_length,
@@ -119,12 +120,14 @@ class UbertDataset(Dataset):
                             start_idx_text = item['text'][:entity_idx[0]]
                             start_idx_text_encode = self.tokenizer.encode(
                                 start_idx_text, add_special_tokens=False)
-                            start_idx = question_len + len(start_idx_text_encode)
+                            start_idx = question_len + \
+                                len(start_idx_text_encode)
 
                             end_idx_text = item['text'][:entity_idx[1]+1]
                             end_idx_text_encode = self.tokenizer.encode(
                                 end_idx_text, add_special_tokens=False)
-                            end_idx = question_len + len(end_idx_text_encode) - 1
+                            end_idx = question_len + \
+                                len(end_idx_text_encode) - 1
                             if start_idx < self.max_length and end_idx < self.max_length:
                                 span_label[start_idx, end_idx] = 1
 
@@ -338,7 +341,7 @@ class UbertLitModel(pl.LightningModule):
         self.log('train_span_acc', span_acc)
         self.log('train_span_recall', recall)
         self.log('train_span_precise', precise)
-        
+
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -404,7 +407,8 @@ class TaskModelCheckpoint:
 
         parser.add_argument('--monitor', default='train_loss', type=str)
         parser.add_argument('--mode', default='min', type=str)
-        parser.add_argument('--checkpoint_path', default='./checkpoint/', type=str)
+        parser.add_argument('--checkpoint_path',
+                            default='./checkpoint/', type=str)
         parser.add_argument(
             '--filename', default='model-{epoch:02d}-{train_loss:.4f}', type=str)
 
@@ -509,7 +513,6 @@ class extractModel:
             entity = text[start_split[0]:end_split[-1]+1]
         return entity
 
-
     def extract(self, batch_data, model, tokenizer, args):
         input_ids = []
         attention_mask = []
@@ -522,7 +525,8 @@ class extractModel:
             token_type_ids0 = []
             span_labels_masks0 = []
             for choice in item['choices']:
-                texta = item['task_type'] + '[SEP]'+item['subtask_type'] + '[SEP]' + choice['entity_type']
+                texta = item['task_type'] + '[SEP]' + \
+                    item['subtask_type'] + '[SEP]' + choice['entity_type']
                 textb = item['text']
                 encode_dict = tokenizer.encode_plus(texta, textb,
                                                     max_length=args.max_length,
@@ -550,7 +554,7 @@ class extractModel:
             attention_mask.append(attention_mask0)
             token_type_ids.append(token_type_ids0)
             span_labels_masks.append(span_labels_masks0)
-        
+
         input_ids = torch.tensor(input_ids).to(model.device)
         attention_mask = torch.tensor(attention_mask).to(model.device)
         token_type_ids = torch.tensor(token_type_ids).to(model.device)
@@ -570,7 +574,8 @@ class extractModel:
                 cls_idx = 0
                 max_c = np.argmax(span_logits[i, :, cls_idx, cls_idx])
                 batch_data[i]['choices'][max_c]['label'] = 1
-                batch_data[i]['choices'][max_c]['score'] = span_logits[i, max_c, cls_idx, cls_idx]
+                batch_data[i]['choices'][max_c]['score'] = span_logits[i,
+                                                                       max_c, cls_idx, cls_idx]
             else:
                 if item['subtask_type'] == '抽取式阅读理解':
                     for c in range(len(item['choices'])):
@@ -596,7 +601,7 @@ class extractModel:
                         batch_data[i]['choices'][c]['entity_list'] = entity_list
                 else:
                     for c in range(len(item['choices'])):
-                        texta = item['task_type'] + '[SEP]'+ item['subtask_type'] + \
+                        texta = item['task_type'] + '[SEP]' + item['subtask_type'] + \
                             '[SEP]' + item['choices'][c]['entity_type']
 
                         textb = item['text']
@@ -645,17 +650,16 @@ class UbertPiplines:
         total_parser = TaskModelCheckpoint.add_argparse_args(total_parser)
         total_parser = UbertLitModel.add_model_specific_args(total_parser)
         total_parser = pl.Trainer.add_argparse_args(parent_args)
-        
+
         return parent_args
 
     def __init__(self, args):
-        
+
         if args.load_checkpoints_path != '':
             self.model = UbertLitModel.load_from_checkpoint(
                 args.load_checkpoints_path, args=args)
         else:
             self.model = UbertLitModel(args)
-        
 
         self.args = args
         self.checkpoint_callback = TaskModelCheckpoint(args).callbacks
@@ -679,7 +683,7 @@ class UbertPiplines:
         result = []
         start = 0
         if cuda:
-            self.model=self.model.cuda()
+            self.model = self.model.cuda()
         self.model.eval()
         while start < len(test_data):
             batch_data = test_data[start:start+self.args.batchsize]
@@ -689,15 +693,3 @@ class UbertPiplines:
                 batch_data, self.model, self.tokenizer, self.args)
             result.extend(batch_result)
         return result
-
-
-
-
-
-
-
-
-
-
-
-
