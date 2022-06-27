@@ -23,7 +23,7 @@ ZERO_STAGE=2
 
 config_json="$ROOT_DIR/ds_config.randeng_t5_char_10B.$SLURM_JOBID.json"
 export MASTER_PORT=$[RANDOM%10000+30000]
-# export CUDA_VISIBLE_DEVICES='6'
+export CUDA_VISIBLE_DEVICES='1,2,3,4'
 
 cat <<EOT > $config_json
 {
@@ -32,7 +32,7 @@ cat <<EOT > $config_json
   "gradient_clipping": 1.0,
   "zero_optimization": {
     "stage": $ZERO_STAGE,
-    "cpu_offload": false,
+    "cpu_offload": true,
     "contiguous_gradients": false,
     "overlap_comm": true,
     "reduce_scatter": true,
@@ -78,7 +78,7 @@ strategy=deepspeed_stage_${ZERO_STAGE}
 
 TRAINER_ARGS="
     --max_epochs 1 \
-    --gpus 1 \
+    --gpus 4 \
     --num_nodes 1 \
     --strategy ${strategy} \
     --default_root_dir $ROOT_DIR \
@@ -89,7 +89,9 @@ TRAINER_ARGS="
     --mode min \
     --save_last \
     --val_check_interval 0.1 \
-    --preprocessing_num_workers 1 \
+    --dataset_num_workers 4 \
+    --dataloader_num_workers 4 \
+    --replace_sampler_ddp False \
 "
 # --accumulate_grad_batches 8 \
 DATA_DIR=wudao_180g_bert_tokenized_512

@@ -118,9 +118,9 @@ export CMD=" \
     "
 
 echo $CMD
-# /home/ganruyi/anaconda3/bin/python $CMD
-SINGULARITY_PATH=/cognitive_comp/ganruyi/pytorch21_06_py3_docker_image_v2.sif
-srun singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c '/home/ganruyi/anaconda3/bin/python $CMD'
+/home/ganruyi/anaconda3/bin/python $CMD
+# SINGULARITY_PATH=/cognitive_comp/ganruyi/pytorch21_06_py3_docker_image_v2.sif
+# srun singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c '/home/ganruyi/anaconda3/bin/python $CMD'
 
 # source activate base
 # python $CMD
