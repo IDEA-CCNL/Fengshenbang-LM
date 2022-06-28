@@ -10,7 +10,7 @@ def main():
     args = total_parser.parse_args()
 
     # 设置一些训练要使用到的参数
-    args.pretrained_model_path='IDEA-CCNL/Erlangshen-Ubert-110M' #预训练模型的路径，我们提供的预训练模型存放在HuggingFace上
+    args.pretrained_model_path = 'IDEA-CCNL/Erlangshen-Ubert-110M' #预训练模型的路径，我们提供的预训练模型存放在HuggingFace上
     args.default_root_dir = './'  #默认主路径，用来放日志、tensorboard等
     args.max_epochs = 5
     args.gpus = 1
