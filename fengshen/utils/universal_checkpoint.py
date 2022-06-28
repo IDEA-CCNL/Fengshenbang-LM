@@ -1,5 +1,4 @@
 from pytorch_lightning.callbacks import ModelCheckpoint
-from sqlalchemy import true
 
 
 class UniversalCheckpoint():
@@ -30,4 +29,4 @@ class UniversalCheckpoint():
                                          filename=args.filename,
                                          save_last=args.save_last,
                                          every_n_epochs=args.every_n_epochs,
-                                         save_on_train_epoch_end=true)
+                                         save_on_train_epoch_end=True)
