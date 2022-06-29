@@ -11,7 +11,7 @@ def get_consume_samples(data_model: LightningDataModule) -> int:
     else:
         world_size = data_model.trainer.world_size
         consumed_samples = max(0, data_model.trainer.global_step - 1) * \
-            data_model.hparams.train_batchsize * world_size * data_model.hparams.accumulate_grad_batches
+            data_model.hparams.train_batchsize * world_size * data_model.trainer.accumulate_grad_batches
         print('calculate consumed samples: {}'.format(consumed_samples))
     return consumed_samples
 

@@ -1,25 +1,36 @@
 [**中文**](./README.md) | [**English**](./README_en.md)
 
 # Navigation
-* [Intro](#Intro)
-* [Fengshenbang-LM](#Fengshenbang-LM)
-  + [Erlangshen](#Erlangshen)
-  + [Zhouwenwang](#Zhouwenwang)
-  + [Wenzhong](#Wenzhong)
-  + [Randeng](#Randeng)
-  + [Yuyuan](#Yuyuan)
-* [Citation](#Citation)
-* [Contact](#Contact)
-* [License](#License)
+- [Navigation](#navigation)
+- [Intro](#intro)
+- [Fengshenbang-LM](#fengshenbang-lm)
+  - [Erlangshen](#erlangshen)
+    - [Download the Models](#download-the-models)
+    - [Load the Models](#load-the-models)
+    - [Example of Usage](#example-of-usage)
+    - [Performance on Downstream Tasks](#performance-on-downstream-tasks)
+- [Fengshen Framework](#fengshen-framework)
+- [A Series of Articles](#a-series-of-articles)
+- [Citation](#citation)
+- [Contact](#contact)
+- [License](#license)
 
 # Intro
 |Model|Scale|Architecture|Domain|Target Tasks|Notes|
 |-|-|-|-|-|-|
-|Erlangshen|1.3B params（Erlangshen-MegatronBert-1.3B）|Bidirectional Laugnage Models with Encoder structure|Common|NLU|Largest Chinese open source Bert model; SOTA on few-shot learning benchmark FewCLUE|
-|Zhouwenwang|1.3B params（Zhouwenwang-Unified-1.3B）|Unified Language Models|Common|NLU+NLG|Modified based on Roformer structure; the largest model trained on both LM and MLM|
-|Wenzhong|3.5B params（Wenzhong-GPT2-3.5B）|Unidirectional Language Models with Decoder structure|Common|NLG||
-|Randeng|770M params（Randeng-MegatronT5-770M）|Encoder-Decoder structured models with Transformer/T5 structures|Common|NLU+NLG||
-|Yuyuan|3.5B params（Yuyuan-GPT2-3.5B）|Unidirectional Language Models with GPT-2 structure|Medical|NLG|Largest open source GPT2 medical model|
+|[Erlangshen](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BA%8C%E9%83%8E%E7%A5%9E%E7%B3%BB%E5%88%97/index.html)|0.1B-1.3B params|Bidirectional Laugnage Models with Encoder structure|Common|NLU|Largest Chinese open source Bert model; SOTA on few-shot learning benchmark FewCLUE|
+|[Wenzhong](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E9%97%BB%E4%BB%B2%E7%B3%BB%E5%88%97/index.html)|0.1B-3.5B params|Unidirectional Language Models with Decoder structure|Common|NLG||
+|[Randeng](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E7%87%83%E7%81%AF%E7%B3%BB%E5%88%97/index.html)|770M-0.7B params|Encoder-Decoder structured models with Transformer/T5 structures|Common|NLU+NLG||
+|[Yuyuan](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BD%99%E5%85%83%E7%B3%BB%E5%88%97/index.html)|0.1B-3.5B params|Unidirectional Language Models with GPT-2 structure|Medical|NLG|Largest open source GPT2 medical model|
+|[Bigan](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E6%AF%94%E5%B9%B2%E7%B3%BB%E5%88%97/index.html)|1.1B params| Transformer-XL structures|Common|Semantic Correction | |
+|[Zhouwenwang](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%91%A8%E6%96%87%E7%8E%8B%E7%B3%BB%E5%88%97/index.html)|0.1B-1.3B params|Unified Language Models|Common|NLU+NLG|Modified based on Roformer structure; the largest model trained on both LM and MLM|
+|[Taiyi](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%A4%AA%E4%B9%99%E7%B3%BB%E5%88%97/index.html)|87M-0.1B params| Co-attention | Multimodal | Multimodal Semantic understanding | |
+
+
+[Download url of Fengshenbang](https://huggingface.co/IDEA-CCNL)
+
+[Handbook of Fengshenbang](https://fengshenbang-doc.readthedocs.io/zh/latest/index.html)
+
 
 # Fengshenbang-LM
 Pretraining of large-scale models have gradually become the basis of cognitive computing in recent years; Tasks and algorithms of natural language processing and computer vision heavily rely on pretrained large models.
@@ -65,12 +76,10 @@ config = MegatronBertConfig.from_pretrained("IDEA-CCNL/Erlangshen-MegatronBert-1
 model = MegatronBertModel.from_pretrained("IDEA-CCNL/Erlangshen-MegatronBert-1.3B")
 
 ```
-### Example Usage
+### Example of Usage
 For the convenience of developers, we offer an example [script](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh) for downstream finetuning. The script uses the tnews dataset from [CLUE](https://github.com/CLUEbenchmark/CLUE). 
 
-#### Steps for usage
-
-1、fisrt,modify the MODEL_TYPE and PRETRAINING_MODEL_PATH parameters of [finetune script](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh), and other parameters can be modified according to your specific equipment.
+1、Fisrt, modify the MODEL_TYPE and PRETRAINING_MODEL_PATH parameters of [finetune script](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh), and other parameters can be modified according to your specific device.
 
 ``` sh
 MODEL_TYPE=huggingface-megatron_bert
@@ -84,194 +93,26 @@ sh finetune_classification.sh
 
 
 
-### Downstream Task Performance
+### Performance on Downstream Tasks 
 |     Model   | afqmc    |  tnews  | iflytek    |  ocnli  |  cmnli  | wsc  | csl  |
 | :--------:    | :-----:  | :----:  | :-----:   | :----: | :----: | :----: | :----: |
 | roberta-wwm-ext-large | 0.7514      |   0.5872    | 0.6152      |   0.777    | 0.814    | 0.8914    | 0.86    |
 | Erlangshen-MegatronBert-1.3B | 0.7608      |   0.5996    | 0.6234      |   0.7917    | 0.81    | 0.9243    | 0.872    |
 
-## Zhouwenwan
-This series, with models of newly-designed architectures, is developed collaboratively by IDEA Cognitive Computing Center and Zhuiyi Technology. The models consider LM(Language Model) and MLM(Masked Language Model) jointly from the pretraining stage, and utilize Rotary Position Embedding, therefore the resulting models are capable of both language generation and language understanding. We currently present Zhouwenwang-Unified-1.3B model with 1.3 billion parameters; it is the largest Chinese language model that handles LM and MLM tasks at the same time. We will continue to optimize the Zhouwenwang series with respect to model scale, knowledge fusion, auxiliary supervision tasks, etc. 
+
+# Fengshen Framework
+
+To facilitate the use of the Fengshenbang large model, further joining in continued training as well as applying in downstream tasks, we synchronously open source the Fengshen framework. Referring to other excellent open source frameworks (including [HuggingFace](https://github.com/huggingface/transformers), [Megatron-LM](https://github.com/NVIDIA/Megatron-LM), [Pytorch-Lightning](https://github.com/PyTorchLightning/pytorch-lightning), [DeepSpeed](https://github.com/microsoft/DeepSpeed)) and combining the characteristics of NLP field, we redesign FengShen with Pytorch as the base framework and Pytorch-Lightning as the Pipeline. FengShen can be applied to pre-training of large models (tens of billions of parameters) based on massive data (terabytes of data) and fine-tuning on various downstream tasks. Users can easily perform distributed training and memory-saving techniques with configuration, thus focusing more on model implementation and innovation. Also, FengShen can directly use the model structure in [HuggingFace](https://github.com/huggingface/transformers) for continued training, which facilitates domain transfer for users. FengShen provides rich and realistic source code and examples. We will continue to optimize the FengShen framework as the models of Fengshenbang are trained and applied. Stay tuned. 
 
 
-### Download The Models
-
-[Huggingface Zhouwenwang-Unified-1.3B](https://huggingface.co/IDEA-CCNL/Zhouwenwang-Unified-1.3B)<br>
-[Huggingface Zhouwenwang-Unified-110M](https://huggingface.co/IDEA-CCNL/Zhouwenwang-Unified-110M)
-### Load the Models
-Currently our Zhouwenwang series of models are modified based on the Roformer structure from Zhuiyi Technology, and we have not added Zhouwenwang series to Huggingface yet. Therefore for now you need to load the fengshen files from this repo to your own working directory, then you can follow the script below to download corresponding models from Huggingface and import them.
-
-``` python
-from fengshen import RoFormerModel            #Import Roformer Model from the Roformer Files in this Repo
-from fengshen import RoFormerConfig
-from transformers import AutoTokenizer
-
-tokenizer = AutoTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-Unified-110M')
-config = RoFormerConfig.from_pretrained('IDEA-CCNL/Zhouwenwang-Unified-110M')
-model = RoFormerModel.from_pretrained('IDEA-CCNL/Zhouwenwang-Unified-110M')
-```
+[Get Started with Fengshen in 3 Minutes](fengshen/README.md)
 
 
-### Example Usage
+# A Series of Articles
 
-1、fisrt,modify the MODEL_TYPE and PRETRAINING_MODEL_PATH parameters of [finetune script](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh), and other parameters can be modified according to your specific equipment.
+[Fengshen Series: Getting Started on Training Large Model with Data Parallelism](https://zhuanlan.zhihu.com/p/512194216)
 
-``` sh
-MODEL_TYPE=fengshen-roformer
-PRETRAINED_MODEL_PATH=IDEA-CCNL/Zhouwenwang-Unified-110M
-```
-2、run
-
-``` sh
-sh finetune_classification.sh
-```
-
-
-### Downstream Task Performance
-
-#### Natural Language Understanding
-When using Zhouwenwang-Unified-1.3B for NLU tasks, the token_type should be all set to 0. The performance of Zhouwenwang-Unified-1.3B on downstream tasks is as follows:
-
-|    Model   | afqmc    |  tnews  | iflytek    |  ocnli  |  cmnli  | wsc  | csl  |
-| :--------:    | :-----:  | :----:  | :-----:   | :----: | :----: | :----: | :----: |
-| roberta-wwm-ext-large | 0.7514      |   0.5872    | 0.6152      |   0.777    | 0.814    | 0.8914    | 0.86    |
-| Zhouwenwang-Unified-1.3B | 0.7463     |   0.6036    | 0.6288     |   0.7654   | 0.7741    | 0.8849    | 0. 8777   |
-
-#### Natural Language Generation
-When using Zhouwenwang-Unified-1.3B for NGL tasks, the token_type should be all set to 1. The performance of Zhouwenwang-Unified-1.3B on downstream tasks is as follows:
-
-```python
-from fengshen import RoFormerModel
-from transformers import AutoTokenizer
-import torch
-import numpy as np
-
-sentence = '清华大学位于'
-max_length = 32
-
-tokenizer = AutoTokenizer.from_pretrained('IDEA-CCNL/Zhouwenwang-Unified-110M')
-model = RoFormerModel.from_pretrained('IDEA-CCNL/Zhouwenwang-Unified-110M')
-
-for i in range(max_length):
-    encode = torch.tensor(
-        [[tokenizer.cls_token_id]+tokenizer.encode(sentence, add_special_tokens=False)]).long()
-    logits = model(encode)[0]
-    logits = torch.nn.functional.linear(
-        logits, model.embeddings.word_embeddings.weight)
-    logits = torch.nn.functional.softmax(
-        logits, dim=-1).cpu().detach().numpy()[0]
-    sentence = sentence + \
-        tokenizer.decode(int(np.random.choice(logits.shape[1], p=logits[-1])))
-    if sentence[-1] == '。':
-        break
-print(sentence)
-
- ```
-
-
-
-## Wenzhong
-The Wenzhong Series is a group of powerful generative models that consist of unidirectional lanugage models of decoder structure. 
-The Wenzhong-GPT2-3.5B model is trained with 100G datasets on 256 A100 GPUs for 28 hours, and contains 3.5 billion parameters. 
-
-### Download the Models
-[Huggingface Wenzhong-GPT2-3.5B](https://huggingface.co/IDEA-CCNL/Wenzhong-GPT2-3.5B)
-
-### Load the Models
-```python 
-from transformers import GPT2Tokenizer, GPT2Model
-tokenizer = GPT2Tokenizer.from_pretrained('IDEA-CCNL/Wenzhong-GPT2-3.5B')
-model = GPT2Model.from_pretrained('IDEA-CCNL/Wenzhong-GPT2-3.5B')
-text = "Replace me by any text you'd like."
-encoded_input = tokenizer(text, return_tensors='pt')
-output = model(**encoded_input)
-```
-### Language Generation
-```python
-from transformers import pipeline, set_seed
-set_seed(55)
-generator = pipeline('text-generation', model='IDEA-CCNL/Wenzhong-GPT2-3.5B')
-generator("北京是中国的", max_length=30, num_return_sequences=1)
-
-```
-
-
-## Randeng
-The Randong Series is a group of encoding-decoding language models of transformer structure. 
-The Randing-770M model is trained with 280G datasets on 16 A100 GPUs for 14 days, and contains 770M parameters. 
-
-### Download the Models
-[Huggingface Randeng-MegatronT5-770M](https://huggingface.co/IDEA-CCNL/Randeng-MegatronT5-770M/)
-
-### Load the Models
-Our Randeng-MegatronT5-770M is trained based on the T5 structure of Megatron. Since the T5 model structure of Megatron is slightly different from the T5 model structure of Huggingface, directly importing Randeng using HuggingFace T5 is not supported. You need to load the fengshen files from this repo to your own working directory, then you can follow the script below to download corresponding models from Huggingface and import them.
-
-``` python
-from fengshen import T5ForConditionalGeneration
-from fengshen import T5Config
-from fengshen import T5Tokenizer
-
-tokenizer = T5Tokenizer.from_pretrained('IDEA-CCNL/Randeng-MegatronT5-770M')
-config = T5Config.from_pretrained('IDEA-CCNL/Randeng-MegatronT5-770M')
-model = T5ForConditionalGeneration.from_pretrained('IDEA-CCNL/Randeng-MegatronT5-770M')
-```
-
-### Example Usage
-
-1、fisrt,modify the MODEL_TYPE and PRETRAINING_MODEL_PATH parameters of [finetune script](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/scripts/finetune_classification.sh), and other parameters can be modified according to your specific equipment.
-
-``` sh
-MODEL_TYPE=fengshen-megatron_t5
-PRETRAINED_MODEL_PATH=IDEA-CCNL/Randeng-MegatronT5-770M
-```
-2、run
-
-``` sh
-sh finetune_classification.sh
-```
-
-
-#### Example for Generation Task
-
-```python
-from fengshen import T5ForConditionalGeneration
-from fengshen import T5Tokenizer
-
-tokenizer = T5Tokenizer.from_pretrained('IDEA-CCNL/Randeng-MegatronT5-770M')
-model = T5ForConditionalGeneration.from_pretrained('IDEA-CCNL/Randeng-MegatronT5-770M')
-
-output = model.generate(tokenizer.encode(tokenizer.encode('北京是中国的<extra_id_0>')))
-print(tokenizer.decode(output))
-
-```
-
-
-
-## Yuyuan
-The Yuyuan series is a group of models focusing on the medical domain. The Yuyuan-GPT2-3.5B model is trained with 50G medical domain dataset and knowledge based on common domain pretrained models on 32 A100 for 7 days; it is by far the largest open source GPT-2 medical domain language model. It achieves near 90% accuracy in SOP judgement in medical domain. 
-We utilize Yuyuan-GPT2-3.5B model for factual judgement and medical Q&A. We are looking forward to more possibilities from you. 
-
-
-### Download the Models
-[Huggingface Yuyuan-GPT2-3.5B](https://huggingface.co/IDEA-CCNL/Yuyuan-GPT2-3.5B)
-
-### Load the Models
-```python 
-from transformers import GPT2Tokenizer, GPT2Model
-tokenizer = GPT2Tokenizer.from_pretrained('IDEA-CCNL/Yuyuan-GPT2-3.5B')
-model = GPT2Model.from_pretrained('IDEA-CCNL/Yuyuan-GPT2-3.5B')
-text = "Replace me by any text you'd like."
-encoded_input = tokenizer(text, return_tensors='pt')
-output = model(**encoded_input)
-```
-### Language Generation
-```python
-from transformers import pipeline, set_seed
-set_seed(55)
-generator = pipeline('text-generation', model='IDEA-CCNL/Yuyuan-GPT2-3.5B')
-generator("Diabetics should not eat", max_length=30, num_return_sequences=1)
-
-```
+[Fengshen Series: It is Time to Accelerate your Training Process !](https://zhuanlan.zhihu.com/p/485369778)
 
 # Citation
 ```
@@ -285,6 +126,7 @@ generator("Diabetics should not eat", max_length=30, num_return_sequences=1)
 # Contact
 ![avartar](pics/contactus.png)
 
-# License
+# License 
 
 [Apache License 2.0](LICENSE)
+

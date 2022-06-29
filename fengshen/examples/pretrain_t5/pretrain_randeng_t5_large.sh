@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=randeng_t5_77M
-#SBATCH --nodes=1
+#SBATCH --job-name=randeng_t5_large
+#SBATCH --nodes=2
 #SBATCH --ntasks-per-node=8
 #SBATCH --gres=gpu:8               # number of gpus
 #SBATCH --cpus-per-task=30 # cpu-cores per task (>1 if multi-threaded tasks)
@@ -10,12 +10,18 @@
 set -x -e
 
 echo "START TIME: $(date)"
-MICRO_BATCH_SIZE=64
-ROOT_DIR=/cognitive_comp/ganruyi/experiments/randeng_t5_77M/
+MICRO_BATCH_SIZE=8
+ROOT_DIR=/cognitive_comp/ganruyi/experiments/randeng_t5_large_v2/
+if [ ! -d ${ROOT_DIR} ];then
+  mkdir ${ROOT_DIR}
+  echo ${ROOT_DIR} created!!!!!!!!!!!!!!
+else
+  echo ${ROOT_DIR} exist!!!!!!!!!!!!!!!
+fi
 
 ZERO_STAGE=1
 
-config_json="$ROOT_DIR/ds_config.t5_cn_small_pretrain.$SLURM_JOBID.json"
+config_json="$ROOT_DIR/ds_config.randeng_t5_large_pretrain.$SLURM_JOBID.json"
 export MASTER_PORT=$[RANDOM%10000+30000]
 
 cat <<EOT > $config_json
@@ -71,12 +77,12 @@ strategy=deepspeed_stage_1
 TRAINER_ARGS="
     --max_epochs 1 \
     --gpus 8 \
-    --num_nodes 1 \
+    --num_nodes 2 \
     --strategy ${strategy} \
     --default_root_dir $ROOT_DIR \
     --dirpath $ROOT_DIR/ckpt \
     --save_top_k 3 \
-    --every_n_train_steps 50000 \
+    --every_n_train_steps 1000000 \
     --monitor train_loss \
     --mode min \
     --save_last \
@@ -95,10 +101,12 @@ DATA_ARGS="
 "
 
 MODEL_ARGS="
-    --pretrained_model_path /cognitive_comp/ganruyi/hf_models/google/mt5-small \
+    --pretrained_model_path /cognitive_comp/ganruyi/hf_models/google/mt5-large \
     --new_vocab_path /cognitive_comp/ganruyi/hf_models/t5_cn_small/sentencepiece_cn.model \
     --keep_tokens_path /cognitive_comp/ganruyi/hf_models/t5_cn_small/sentencepiece_cn_keep_tokens.json \
 "
+# --ckpt_path /cognitive_comp/ganruyi/experiments/randeng_t5_large/ckpt/last.ckpt \
+
 SCRIPTS_PATH=/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/examples/pretrain_t5/pretrain_t5.py
 
 export CMD=" \
@@ -114,7 +122,7 @@ echo $CMD
 # srun --nodes=1 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=30 --jobid=171866 -e %x-%j.err -o %x-%j.log python $CMD
 
 SINGULARITY_PATH=/cognitive_comp/ganruyi/pytorch21_06_py3_docker_image_v2.sif
-srun --jobid=171866 --job-name=randeng_t5_77M --nodes=1 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=30 -e %x-%j.err -o %x-%j.log singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c '/home/ganruyi/anaconda3/bin/python $CMD'
+srun --jobid=172781 --job-name=randeng_t5_large --nodes=2 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=30 -e randeng_t5_large-%j.err -o randeng_t5_large-%j.log singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c '/home/ganruyi/anaconda3/bin/python $CMD'
 
 
 # to debug - add echo (it exits and prints what it would have launched)
