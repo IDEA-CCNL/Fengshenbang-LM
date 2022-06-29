@@ -13,12 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 from fengshen.models.zen1 import ZenModel
-from fengshen.models.longformer import LongformerModel
-from fengshen.models.longformer import LongformerConfig
-from fengshen.models.roformer import RoFormerModel
-from fengshen.models.roformer import RoFormerConfig
-from fengshen.models.megatron_t5 import T5EncoderModel
+from dataclasses import dataclass
 from fengshen.models.megatron_t5 import T5Config
+from fengshen.models.megatron_t5 import T5EncoderModel
+from fengshen.models.roformer import RoFormerConfig
+from fengshen.models.roformer import RoFormerModel
+from fengshen.models.longformer import LongformerConfig
+from fengshen.models.longformer import LongformerModel
 import numpy as np
 import os
 from tqdm import tqdm
@@ -28,13 +29,15 @@ import pytorch_lightning as pl
 import argparse
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torch.utils.data import Dataset, DataLoader
-from transformers.optimization import get_linear_schedule_with_warmup
-from transformers import BertTokenizer
+from torch.utils.data._utils.collate import default_collate
 from transformers import (
     BertModel,
     BertConfig,
     MegatronBertModel,
-    MegatronBertConfig
+    MegatronBertConfig,
+    AutoModel,
+    AutoConfig,
+    AutoTokenizer,
 )
 import sys
 sys.path.append('../../../')
@@ -46,7 +49,9 @@ model_dict = {'huggingface-bert': BertModel,
               'huggingface-megatron_bert': MegatronBertModel,
               'fengshen-megatron_t5': T5EncoderModel,
               'fengshen-longformer': LongformerModel,
-              'fengshen-zen1': ZenModel}
+              'fengshen-zen1': ZenModel,
+              'huggingface-auto': AutoModel,
+              }
 
 
 config_dict = {'huggingface-bert': BertConfig,
@@ -54,15 +59,14 @@ config_dict = {'huggingface-bert': BertConfig,
                'huggingface-megatron_bert': MegatronBertConfig,
                'fengshen-megatron_t5': T5Config,
                'fengshen-longformer': LongformerConfig,
-               'fengshen-zen1': BertConfig}
+               'fengshen-zen1': BertConfig,
+               'huggingface-auto': AutoConfig}
 
 
 class TaskDataset(Dataset):
     def __init__(self, data_path, args, label2id):
         super().__init__()
         self.args = args
-        self.tokenizer = BertTokenizer.from_pretrained(
-            args.pretrained_model_path)
         self.label2id = label2id
         self.max_length = args.max_length
         self.data = self.load_data(data_path, args)
@@ -71,7 +75,7 @@ class TaskDataset(Dataset):
         return len(self.data)
 
     def __getitem__(self, index):
-        return self.encode(self.data[index])
+        return self.data[index]
 
     def load_data(self, data_path, args):
         with open(data_path, 'r', encoding='utf8') as f:
@@ -87,32 +91,44 @@ class TaskDataset(Dataset):
                 ) else ''
                 labels = self.label2id[data[args.label_name]
                                        ] if args.label_name in data.keys() else 0
-                samples.append({'texta': texta, 'textb': textb,
-                                'labels': labels, 'id': text_id})
+                samples.append({args.texta_name: texta, args.textb_name: textb,
+                                args.label_name: labels, 'id': text_id})
         return samples
 
-    def encode(self, item):
-        if item['texta'] != '' and item['textb'] != '':
-            if self.args.model_type != 'fengshen-roformer':
-                encode_dict = self.tokenizer.encode_plus([item['texta'], item['textb']],
-                                                         max_length=self.max_length,
-                                                         padding='max_length',
-                                                         truncation='longest_first')
+
+@dataclass
+class TaskCollator:
+    args = None
+    tokenizer = None
+
+    def __call__(self, samples):
+        sample_list = []
+        for item in samples:
+            if item[self.args.texta_name] != '' and item[self.args.textb_name] != '':
+                if self.args.model_type != 'fengshen-roformer':
+                    encode_dict = self.tokenizer.encode_plus(
+                        [item[self.args.texta_name], item[self.args.textb_name]],
+                        max_length=self.args.max_length,
+                        padding='max_length',
+                        truncation='longest_first')
+                else:
+                    encode_dict = self.tokenizer.encode_plus(
+                        [item[self.args.texta_name]+'[SEP]'+item[self.args.textb_name]],
+                        max_length=self.args.max_length,
+                        padding='max_length',
+                        truncation='longest_first')
             else:
-                encode_dict = self.tokenizer.encode_plus([item['texta']+'[SEP]'+item['textb']],
-                                                         max_length=self.max_length,
-                                                         padding='max_length',
-                                                         truncation='longest_first')
-        else:
-            encode_dict = self.tokenizer.encode_plus(item['texta'],
-                                                     max_length=self.max_length,
-                                                     padding='max_length',
-                                                     truncation='longest_first')
-        samples = {}
-        for k, v in encode_dict.items():
-            samples[k] = torch.tensor(v)
-        samples['labels'] = torch.tensor(item['labels']).long()
-        return samples
+                encode_dict = self.tokenizer.encode_plus(
+                    item[self.args.texta_name],
+                    max_length=self.args.max_length,
+                    padding='max_length',
+                    truncation='longest_first')
+            sample = {}
+            for k, v in encode_dict.items():
+                sample[k] = torch.tensor(v)
+            sample['labels'] = torch.tensor(item[self.args.label_name]).long()
+            sample_list.append(sample)
+        return default_collate(sample_list)
 
 
 class TaskDataModel(pl.LightningDataModule):
@@ -133,34 +149,52 @@ class TaskDataModel(pl.LightningDataModule):
         parser.add_argument('--label_name', default='label', type=str)
         parser.add_argument('--id_name', default='id', type=str)
 
+        parser.add_argument('--dataset_name', default=None, type=str)
+
         return parent_args
 
     def __init__(self, args):
         super().__init__()
         self.train_batchsize = args.train_batchsize
         self.valid_batchsize = args.valid_batchsize
-        self.label2id, self.id2label = self.load_schema(os.path.join(
-            args.data_dir, args.train_data), args)
-        self.train_data = TaskDataset(os.path.join(
-            args.data_dir, args.train_data), args, self.label2id)
-        self.valid_data = TaskDataset(os.path.join(
-            args.data_dir, args.valid_data), args, self.label2id)
-        self.test_data = TaskDataset(os.path.join(
-            args.data_dir, args.test_data), args, self.label2id)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            args.pretrained_model_path)
+        self.collator = TaskCollator()
+        self.collator.args = args
+        self.collator.tokenizer = self.tokenizer
+        if args.dataset_name is None:
+            self.label2id, self.id2label = self.load_schema(os.path.join(
+                args.data_dir, args.train_data), args)
+            self.train_data = TaskDataset(os.path.join(
+                args.data_dir, args.train_data), args, self.label2id)
+            self.valid_data = TaskDataset(os.path.join(
+                args.data_dir, args.valid_data), args, self.label2id)
+            self.test_data = TaskDataset(os.path.join(
+                args.data_dir, args.test_data), args, self.label2id)
+        else:
+            import datasets
+            ds = datasets.load_dataset(args.dataset_name)
+            self.train_data = ds['train']
+            self.valid_data = ds['validation']
+            self.test_data = ds['test']
+        self.save_hyperparameters(args)
 
     def train_dataloader(self):
-        return DataLoader(self.train_data, shuffle=True, batch_size=self.train_batchsize, pin_memory=False)
+        return DataLoader(self.train_data, shuffle=True, batch_size=self.train_batchsize, pin_memory=False,
+                          collate_fn=self.collator)
 
     def val_dataloader(self):
-        return DataLoader(self.valid_data, shuffle=False, batch_size=self.valid_batchsize, pin_memory=False)
+        return DataLoader(self.valid_data, shuffle=False, batch_size=self.valid_batchsize, pin_memory=False,
+                          collate_fn=self.collator)
 
     def predict_dataloader(self):
-        return DataLoader(self.test_data, shuffle=False, batch_size=self.valid_batchsize, pin_memory=False)
+        return DataLoader(self.test_data, shuffle=False, batch_size=self.valid_batchsize, pin_memory=False,
+                          collate_fn=self.collator)
 
     def load_schema(self, data_path, args):
         with open(data_path, 'r', encoding='utf8') as f:
             lines = f.readlines()
-            label_list = [] = []
+            label_list = []
             for line in tqdm(lines):
                 data = json.loads(line)
                 labels = data[args.label_name] if args.label_name in data.keys(
@@ -210,10 +244,6 @@ class LitModel(pl.LightningModule):
     @staticmethod
     def add_model_specific_args(parent_args):
         parser = parent_args.add_argument_group('BaseModel')
-
-        parser.add_argument('--learning_rate', default=1e-5, type=float)
-        parser.add_argument('--weight_decay', default=0.1, type=float)
-        parser.add_argument('--warmup', default=0.01, type=float)
         parser.add_argument('--num_labels', default=2, type=int)
 
         return parent_args
@@ -223,13 +253,23 @@ class LitModel(pl.LightningModule):
         self.args = args
         self.num_data = num_data
         self.model = taskModel(args)
+        self.save_hyperparameters(args)
 
     def setup(self, stage) -> None:
         if stage == 'fit':
-            num_gpus = self.trainer.gpus if self.trainer.gpus is not None else 0
-            self.total_step = int(self.trainer.max_epochs * self.num_data /
-                                  (max(1, num_gpus) * self.trainer.accumulate_grad_batches))
-            print('Total training step:', self.total_step)
+            train_loader = self.trainer._data_connector._train_dataloader_source.dataloader()
+
+            # Calculate total steps
+            if self.trainer.max_epochs > 0:
+                world_size = self.trainer.world_size
+                tb_size = self.hparams.train_batchsize * max(1, world_size)
+                ab_size = self.trainer.accumulate_grad_batches
+                self.total_steps = (len(train_loader.dataset) *
+                                    self.trainer.max_epochs // tb_size) // ab_size
+            else:
+                self.total_steps = self.trainer.max_steps // self.trainer.accumulate_grad_batches
+
+            print('Total steps: {}' .format(self.total_steps))
 
     def training_step(self, batch, batch_idx):
         loss, logits = self.model(**batch)
@@ -257,31 +297,8 @@ class LitModel(pl.LightningModule):
         return output.logits
 
     def configure_optimizers(self):
-
-        no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
-        paras = list(
-            filter(lambda p: p[1].requires_grad, self.named_parameters()))
-        paras = [{
-            'params':
-            [p for n, p in paras if not any(nd in n for nd in no_decay)],
-            'weight_decay': self.args.weight_decay
-        }, {
-            'params': [p for n, p in paras if any(nd in n for nd in no_decay)],
-            'weight_decay': 0.0
-        }]
-        optimizer = torch.optim.AdamW(paras, lr=self.args.learning_rate)
-        scheduler = get_linear_schedule_with_warmup(
-            optimizer, int(self.total_step * self.args.warmup),
-            self.total_step)
-
-        return [{
-            'optimizer': optimizer,
-            'lr_scheduler': {
-                'scheduler': scheduler,
-                'interval': 'step',
-                'frequency': 1
-            }
-        }]
+        from fengshen.models.model_utils import configure_optimizers
+        return configure_optimizers(self)
 
 
 class TaskModelCheckpoint:
@@ -342,6 +359,8 @@ def main():
     total_parser = TaskModelCheckpoint.add_argparse_args(total_parser)
 
     # * Args for base model
+    from fengshen.models.model_utils import add_module_args
+    total_parser = add_module_args(total_parser)
     total_parser = LitModel.add_model_specific_args(total_parser)
 
     args = total_parser.parse_args()
