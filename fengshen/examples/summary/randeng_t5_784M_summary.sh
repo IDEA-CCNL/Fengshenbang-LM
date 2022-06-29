@@ -9,8 +9,8 @@
 set -x -e
 
 echo "START TIME: $(date)"
-MODEL_NAME=randeng_t5_77M_summary_test2
-MICRO_BATCH_SIZE=64
+MODEL_NAME=randeng_t5_784M_summary
+MICRO_BATCH_SIZE=8
 ROOT_DIR=/cognitive_comp/ganruyi/experiments/${MODEL_NAME}
 if [ ! -d ${ROOT_DIR} ];then
   mkdir ${ROOT_DIR}
@@ -76,13 +76,13 @@ export MASTER_PORT=$[RANDOM%10000+30000]
 
 TRAINER_ARGS="
     --max_epochs 2 \
-    --gpus 2 \
+    --gpus 8 \
     --num_nodes 1 \
     --strategy deepspeed_stage_${ZERO_STAGE} \
     --default_root_dir $ROOT_DIR \
     --dirpath $ROOT_DIR/ckpt \
     --save_top_k 3 \
-    --monitor train_loss \
+    --monitor val_loss \
     --mode min \
     --save_last \
     --every_n_train_steps 0 \
@@ -100,8 +100,8 @@ DATA_ARGS="
 "
 # --prompt $prompt \
 MODEL_ARGS="
-    --pretrained_model_path /cognitive_comp/ganruyi/experiments/randeng_t5_77M/ckpt/hf_pretrained_epoch0_step183100 \
-    --output_save_path $ROOT_DIR/randeng_t5_77M_predict_lcsts.json \
+    --pretrained_model_path /cognitive_comp/ganruyi/experiments/randeng_t5_large_v2/ckpt/hf_pretrained_epoch0_step732500 \
+    --output_save_path $ROOT_DIR/randeng_t5_784M_predict_lcsts.json \
 "
 
 SCRIPTS_PATH=/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/examples/summary/seq2seq_summary.py
@@ -117,7 +117,7 @@ echo $CMD
 source activate base
 # python $CMD
 
-srun --jobid=171866 --nodes=1 --gres=gpu:2 --ntasks-per-node=2 --cpus-per-task=30 -e randeng_t5_77M_summary-%j.err -o randeng_t5_77M_summary-%j.log singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c '/home/ganruyi/anaconda3/bin/python $CMD'
+srun --jobid=171866 --nodes=1 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=30 -e ${ROOT_DIR}/${MODEL_NAME}-%j.err -o ${ROOT_DIR}/${MODEL_NAME}-%j.log singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c '/home/ganruyi/anaconda3/bin/python $CMD'
 
 # srun python $CMD
 # srun singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c '/home/ganruyi/anaconda3/bin/python $CMD'
