@@ -12,78 +12,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
 import json
 import os
-import numpy as np
-from tqdm import tqdm
 from sklearn import metrics
 import torch
 import torch.nn as nn
-from torch.nn import functional as F
 from torch.utils.data import Dataset, DataLoader, ConcatDataset
 import pytorch_lightning as pl
 from collections import defaultdict
-from transformers import AutoConfig, AutoModel, MegatronBertConfig, MegatronBertModel, get_cosine_schedule_with_warmup
-
-
-class FocalLoss(torch.nn.Module):
-    """Multi-class Focal loss implementation"""
-    def __init__(self, gamma=2, weight=None, ignore_index=-100):
-        super(FocalLoss, self).__init__()
-        self.gamma = gamma
-        self.weight = weight
-        self.ignore_index = ignore_index
-
-    def forward(self, input, target):
-        """
-        input: [N, C]
-        target: [N, ]
-        """
-        logpt = F.log_softmax(input, dim=1)
-        pt = torch.exp(logpt)
-        logpt = (1-pt)**self.gamma * logpt
-        loss = F.nll_loss(logpt, target, self.weight, ignore_index=self.ignore_index)
-        return loss
-
-class DiceLoss(torch.nn.Module):
-    """DiceLoss implemented from 'Dice Loss for Data-imbalanced NLP Tasks'
-    Useful in dealing with unbalanced data
-    """
-    def __init__(self):
-        super(DiceLoss, self).__init__()
-
-    def forward(self, input, target):
-        """
-        input: [N, C]
-        target: [N, ]
-        """
-        prob = torch.softmax(input, dim=1)
-        prob = torch.gather(prob, dim=1, index=target.unsqueeze(1))
-        dsc_i = 1 - ((1 - prob) * prob) / ((1 - prob) * prob + 1)
-        dice_loss = dsc_i.mean()
-        return dice_loss
-
-
-class LabelSmoothingCrossEntropy(torch.nn.Module):
-    def __init__(self, eps=0.1, reduction='mean', ignore_index=-100):
-        super(LabelSmoothingCrossEntropy, self).__init__()
-        self.eps = eps
-        self.reduction = reduction
-        self.ignore_index = ignore_index
-
-    def forward(self, output, target):
-        c = output.size()[-1]
-        log_preds = F.log_softmax(output, dim=-1)
-        if self.reduction=='sum':
-            loss = -log_preds.sum()
-        else:
-            loss = -log_preds.sum(dim=-1)
-            if self.reduction=='mean':
-                loss = loss.mean()
-
-        return loss*self.eps/c + (1-self.eps) * F.nll_loss(log_preds, target, reduction=self.reduction, ignore_index=self.ignore_index)
+from transformers import AutoConfig, AutoModel, get_cosine_schedule_with_warmup
+from loss import FocalLoss, LabelSmoothingCorrectionCrossEntropy
 
 
 class CustomDataset(Dataset):
@@ -141,6 +79,7 @@ class CustomDataset(Dataset):
                 'id': torch.tensor(id, dtype=torch.long)
             }
 
+
 class CustomDataModule(pl.LightningDataModule):
     def __init__(self, args, tokenizer):
         super().__init__()
@@ -151,7 +90,7 @@ class CustomDataModule(pl.LightningDataModule):
         self.val_dataset = None
 
     def setup(self, stage):
-        data_path = "/cognitive_comp/wangjunjie/projects/clue_sim/QBQTC/dataset"
+        data_path = "./dataset"
         assert os.path.exists(os.path.join(data_path, 'train.json'))
         assert os.path.exists(os.path.join(data_path, 'dev.json'))
         assert os.path.exists(os.path.join(data_path, 'test_public.json'))
@@ -161,37 +100,38 @@ class CustomDataModule(pl.LightningDataModule):
             self.test_dataset = CustomDataset('test_public.json', self.tokenizer, self.max_len)
         elif stage == 'test':
             self.test_dataset = CustomDataset('test_public.json', self.tokenizer, self.max_len)
-    
+
     def train_dataloader(self):
         full_dataset = ConcatDataset([self.train_dataset, self.val_dataset])
         train_dataloader = DataLoader(
-            full_dataset, 
-            batch_size=self.args.batch_size, 
+            full_dataset,
+            batch_size=self.args.batch_size,
             num_workers=4,
-            shuffle=True,  
-            pin_memory=True, 
+            shuffle=True,
+            pin_memory=True,
             drop_last=True)
         return train_dataloader
-    
+
     def val_dataloader(self):
         val_dataloader = DataLoader(
             self.test_dataset,
             batch_size=self.args.val_batch_size,
             num_workers=4,
             shuffle=False,
-            pin_memory=True, 
+            pin_memory=True,
             drop_last=False)
         return val_dataloader
-    
+
     def test_dataloader(self):
         test_dataloader = DataLoader(
             self.test_dataset,
             batch_size=self.args.val_batch_size,
             num_workers=4,
             shuffle=False,
-            pin_memory=True, 
+            pin_memory=True,
             drop_last=False)
         return test_dataloader
+
 
 class CustomModel(pl.LightningModule):
     def __init__(self, args):
@@ -241,10 +181,11 @@ class CustomModel(pl.LightningModule):
         optimizer = [
             torch.optim.Adam(optimizer_grouped_parameters, lr=self.args.learning_rate),
             torch.optim.AdamW(optimizer_grouped_parameters, lr=self.args.learning_rate)][optimizer_index]
-        
+
         scheduler_index = ['StepLR', 'CosineWarmup', 'CosineAnnealingLR'].index(self.scheduler)
         scheduler = [
-            torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.args.warmup_step, gamma=self.args.warmup_proportion),
+            torch.optim.lr_scheduler.StepLR(optimizer, step_size=self.args.warmup_step,
+                                            gamma=self.args.warmup_proportion),
             get_cosine_schedule_with_warmup(
                 optimizer,
                 num_warmup_steps=int(self.args.warmup_proportion * self.total_steps),
@@ -266,11 +207,11 @@ class CustomModel(pl.LightningModule):
         self.total_steps = (len(train_dataloader.dataset) // tb_size) // ab_size
 
     def loss(self, outputs, targets):
-        lossf_index = ['CE', 'Focal', 'Dice', 'LSCE'].index(self.loss_func)
-        loss_fct = [nn.CrossEntropyLoss(), FocalLoss(), DiceLoss(), LabelSmoothingCrossEntropy(), LabelSmoothingCorrectionCrossEntropy()][lossf_index]
+        lossf_index = ['CE', 'Focal', 'LSCE_correction'].index(self.loss_func)
+        loss_fct = [nn.CrossEntropyLoss(), FocalLoss(), LabelSmoothingCorrectionCrossEntropy()][lossf_index]
         loss = loss_fct(outputs, targets)
         return loss
-    
+
     def category_performance_measure(self, labels_right, labels_pred, num_label=3):
         text_labels = [i for i in range(num_label)]
 
@@ -288,14 +229,14 @@ class CustomModel(pl.LightningModule):
             TP_FN[labels_pred[i]] += 1
             if labels_right[i] == labels_pred[i]:
                 TP[labels_right[i]] += 1
-                
+
         # 计算准确率P，召回率R，F1值
         results = []
         for key in TP_FP:
             P = float(TP[key]) / float(TP_FP[key] + 1e-9)
             R = float(TP[key]) / float(TP_FN[key] + 1e-9)
             F1 = P * R * 2 / (P + R) if (P + R) != 0 else 0
-            #results.append("%s:\t P:%f\t R:%f\t F1:%f" % (key, P, R, F1))
+            # results.append("%s:\t P:%f\t R:%f\t F1:%f" % (key, P, R, F1))
             results.append(F1)
         return results
 
@@ -304,8 +245,8 @@ class CustomModel(pl.LightningModule):
         targets = targets.int().cpu().numpy().tolist()
         if self.category:
             category_results = self.category_performance_measure(
-                labels_right=targets, 
-                labels_pred=pred, 
+                labels_right=targets,
+                labels_pred=pred,
                 num_label=self.args.num_labels
             )
             return {"f1": category_results}
@@ -326,14 +267,14 @@ class CustomModel(pl.LightningModule):
         labels_hat = torch.argmax(logits, dim=1)
         correct_count = torch.sum(labels == labels_hat)
         return logits, correct_count
-    
+
     def predict(self, ids, mask, token_type_ids):
         transformer_out = self.transformer(input_ids=ids, attention_mask=mask, token_type_ids=token_type_ids)
         pooler_output = transformer_out.pooler_output
         logits = self.linear(self.dropout(pooler_output))
         logits = torch.argmax(logits, dim=1)
         return logits
-    
+
     def training_step(self, batch, batch_idx):
         ids, mask, token_type_ids, labels = batch['ids'], batch['mask'], batch['token_type_ids'], batch['targets']
         logits, correct_count = self.forward(ids, mask, token_type_ids, labels)
@@ -362,7 +303,7 @@ class CustomModel(pl.LightningModule):
             self.log("val_f1_key2", f1[2], logger=True, prog_bar=True)
         else:
             self.log("val_f1", f1, logger=True, prog_bar=True)
-    
+
     def test_step(self, batch, batch_idx):
         ids, mask, token_type_ids, labels = batch['ids'], batch['mask'], batch['token_type_ids'], batch['targets']
         logits, correct_count = self.forward(ids, mask, token_type_ids, labels)
@@ -376,9 +317,9 @@ class CustomModel(pl.LightningModule):
             self.log("test_f1_key2", f1[2], logger=True, prog_bar=True)
         else:
             self.log("test_f1", f1, logger=True, prog_bar=True)
-        return {"test_loss": loss, "logits":logits, "labels": labels}
-    
+        return {"test_loss": loss, "logits": logits, "labels": labels}
+
     def predict_step(self, batch, batch_idx, dataloader_idx):
         ids, mask, token_type_ids, id = batch['ids'], batch['mask'], batch['token_type_ids'], batch['id']
         logits = self.predict(ids, mask, token_type_ids)
-        return {'id':id.cpu().numpy().tolist(), 'logits': logits.cpu().numpy().tolist()}
+        return {'id': id.cpu().numpy().tolist(), 'logits': logits.cpu().numpy().tolist()}

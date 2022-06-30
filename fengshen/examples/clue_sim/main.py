@@ -12,9 +12,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-
-import time
 import jsonlines
 import torch
 import pytorch_lightning as pl
@@ -26,12 +23,14 @@ import gpustat
 
 if __name__ == '__main__':
     my_parser = argparse.ArgumentParser()
-    my_parser.add_argument("--model_path", default="./weights/chinese-macbert-large", type=str, required=False)
-    my_parser.add_argument("--model_name", default="hfl/chinese-macbert-large", type=str, required=False)
-    my_parser.add_argument("--max_seq_length", default=64, type=int, required=False) 
-    my_parser.add_argument("--batch_size", default=256, type=int, required=False)
-    my_parser.add_argument("--val_batch_size", default=512, type=int, required=False)
-    my_parser.add_argument("--num_epochs", default=5, type=int, required=False)
+    my_parser.add_argument(
+        "--model_path", default="./weights/Erlangshen-MegatronBert-1.3B-Similarity", type=str, required=False)
+    my_parser.add_argument(
+        "--model_name", default="IDEA-CCNL/Erlangshen-MegatronBert-1.3B-Similarity", type=str, required=False)
+    my_parser.add_argument("--max_seq_length", default=64, type=int, required=False)
+    my_parser.add_argument("--batch_size", default=32, type=int, required=False)
+    my_parser.add_argument("--val_batch_size", default=64, type=int, required=False)
+    my_parser.add_argument("--num_epochs", default=7, type=int, required=False)
     my_parser.add_argument("--learning_rate", default=4e-5, type=float, required=False)
     my_parser.add_argument("--warmup_proportion", default=0.2, type=int, required=False)
     my_parser.add_argument("--warmup_step", default=2, type=int, required=False)
@@ -42,9 +41,11 @@ if __name__ == '__main__':
     my_parser.add_argument("--mode", type=str, choices=['Train', 'Test'], required=True)
     my_parser.add_argument("--predict_model_path", default='./pl_model/', type=str, required=False)
     my_parser.add_argument("--test_output_path", default='./submissions', type=str, required=False)
-    my_parser.add_argument("--optimizer", default='AdamW', type=str, required=False) # ['Adam', 'AdamW']
-    my_parser.add_argument("--scheduler", default='CosineWarmup', type=str, required=False) # ['StepLR', 'CosineWarmup', 'CosineAnnealingLR']
-    my_parser.add_argument("--loss_function", default='LSCE', type=str, required=False) # ['CE', 'Focal', 'Dice', 'LSCE']
+    my_parser.add_argument("--optimizer", default='AdamW', type=str, required=False)  # ['Adam', 'AdamW']
+    # ['StepLR', 'CosineWarmup', 'CosineAnnealingLR']
+    my_parser.add_argument("--scheduler", default='CosineWarmup', type=str, required=False)
+    my_parser.add_argument("--loss_function", default='LSCE_correction', type=str,
+                           required=False)  # ['CE', 'Focal', 'LSCE_correction']
 
     args = my_parser.parse_args()
 
@@ -63,7 +64,7 @@ if __name__ == '__main__':
         args=args,
         tokenizer=tokenizer,
     )
-    
+
     metric_index = 2
     checkpoint = pl.callbacks.ModelCheckpoint(
         save_top_k=1,
@@ -75,7 +76,7 @@ if __name__ == '__main__':
     lr_monitor = pl.callbacks.LearningRateMonitor(logging_interval="step")
     callbacks = [checkpoint, lr_monitor]
 
-    logger = pl.loggers.TensorBoardLogger(save_dir=os.getcwd(), 
+    logger = pl.loggers.TensorBoardLogger(save_dir=os.getcwd(),
                                           name='lightning_logs/' + args.model_name.split('/')[-1]),
 
     trainer = pl.Trainer(
@@ -88,17 +89,17 @@ if __name__ == '__main__':
         callbacks=callbacks,
         gradient_clip_val=1.0,
         max_epochs=args.num_epochs,
-        #accelerator='ddp',
-        #plugins='ddp_sharded',
+        # accelerator='ddp',
+        # plugins='ddp_sharded',
     )
-    
+
     if args.mode == 'Train':
         print('Only Train')
         model = CustomModel(
             args=args,
         )
         trainer.fit(model, dm)
-    
+
     # Predict test, save results to json
     if args.mode == 'Test':
         print('Only Test')
@@ -107,7 +108,7 @@ if __name__ == '__main__':
             batch_size=args.val_batch_size,
             num_workers=4,
             shuffle=False,
-            pin_memory=True, 
+            pin_memory=True,
             drop_last=False
         )
 
@@ -116,13 +117,14 @@ if __name__ == '__main__':
         predict_results = trainer.predict(model, test_loader, return_predictions=True)
 
         path = os.path.join(
-            args.test_output_path, 
+            args.test_output_path,
             args.model_name.split('/')[-1].replace('-', '_'))
         file_path = os.path.join(path, 'qbqtc_predict.json')
 
         if not os.path.exists(path):
             os.makedirs(path)
-        if os.path.exists(file_path): print('Json文件已存在, 将用本次结果替换')
+        if os.path.exists(file_path):
+            print('Json文件已存在, 将用本次结果替换')
 
         with jsonlines.open(file_path, 'w') as jsonf:
             for predict_res in predict_results:
