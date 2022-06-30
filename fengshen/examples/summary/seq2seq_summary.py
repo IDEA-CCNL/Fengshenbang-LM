@@ -1,5 +1,5 @@
-from fengshen.utils.universal_checkpoint import UniversalCheckpoint
 from fengshen.utils.utils import chinese_char_tokenize
+from fengshen.utils.universal_checkpoint import UniversalCheckpoint
 from torchmetrics.text.rouge import ROUGEScore
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from pytorch_lightning import Trainer, loggers
@@ -10,7 +10,7 @@ import os
 import sys
 from pytorch_lightning.callbacks import LearningRateMonitor
 sys.path.append('../../../')
-os.environ["CUDA_VISIBLE_DEVICES"] = '3,4'
+# os.environ["CUDA_VISIBLE_DEVICES"] = '3,4'
 
 
 class FinetuneSummary(pl.LightningModule):
@@ -44,6 +44,7 @@ class FinetuneSummary(pl.LightningModule):
                 float(self.trainer.max_epochs)
             self.total_steps = (
                 len(train_loader.dataset) // tb_size) // ab_size
+            print('total_steps is :', self.total_steps)
 
     def training_step(self, batch, batch_idx):
         output = self.model(input_ids=batch['input_ids'],
@@ -139,6 +140,8 @@ def main():
         '--do_eval_only', action='store_true', default=False)
     total_parser.add_argument(
         '--pretrained_model_path', default='google/mt5-small', type=str)
+    total_parser.add_argument(
+        '--ckpt_path', default=None, type=str)
     total_parser.add_argument('--output_save_path',
                               default='./predict.json', type=str)
     # * Args for data preprocessing
@@ -163,7 +166,7 @@ def main():
                                              callbacks=[lr_monitor,
                                                         checkpoint_callback]
                                              )
-        trainer.fit(model, data_model)
+        trainer.fit(model, data_model, ckpt_path=args.ckpt_path)
     else:
         trainer = Trainer.from_argparse_args(args)
         model = FinetuneSummary(args)

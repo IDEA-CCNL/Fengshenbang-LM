@@ -14,7 +14,7 @@ from typing import Optional
 import jieba_fast as jieba
 # import jieba as jieba
 jieba.dt.tmp_dir = os.path.expanduser('~/.cache')
-jieba.enable_parallel(8)
+jieba.disable_parallel()
 
 
 class MegatronDataModule(LightningDataModule):
@@ -75,8 +75,10 @@ class MegatronDataModule(LightningDataModule):
         )
 
     def val_dataloader(self):
+        # if only do a batch of validate, need shuffle the dataset
+        shuffle = self.hparams.limit_val_batches is not None
         sampler = torch.utils.data.distributed.DistributedSampler(
-            self.val_dataset, shuffle=False)
+            self.val_dataset, shuffle=shuffle)
         return DataLoader(
             self.val_dataset,
             sampler=sampler,
@@ -119,7 +121,7 @@ class BartLightning(LightningModule):
             if self.trainer.max_epochs > 0:
                 world_size = self.trainer.world_size
                 tb_size = self.hparams.train_batchsize * max(1, world_size)
-                ab_size = self.trainer.accumulate_grad_batches * float(self.trainer.max_epochs)
+                ab_size = self.trainer.accumulate_grad_batches
                 self.total_steps = (len(train_loader.dataset) *
                                     self.trainer.max_epochs // tb_size) // ab_size
             else:
@@ -154,7 +156,7 @@ class BartLightning(LightningModule):
         # Save the current loop info in the mid of epoch
         # if you lightning <= 1.6.0  uncomment the line below
         # checkpoint['loops'] = self.trainer.checkpoint_connector._get_loops_state_dict()
-        if self.trainer.global_rank == 0 and self.trainer.global_step % self.hparams.every_n_train_steps == 0:
+        if self.trainer.global_rank == 0:
             self.model.save_pretrained(os.path.join(
                 self.trainer.checkpoint_callback.dirpath,
                 'hf_pretrained_epoch{}_step{}'.format(self.trainer.current_epoch, self.trainer.global_step)))
