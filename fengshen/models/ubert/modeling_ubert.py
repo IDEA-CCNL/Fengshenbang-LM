@@ -631,7 +631,7 @@ class UbertPiplines:
     def piplines_args(parent_args):
         total_parser = parent_args.add_argument_group("piplines args")
         total_parser.add_argument(
-            '--pretrained_model_path', default='IDEA-CCNL/Erlangshen-Ubert-110M', type=str)
+            '--pretrained_model_path', default='IDEA-CCNL/Erlangshen-Ubert-110M-Chinese', type=str)
         total_parser.add_argument('--output_save_path',
                                   default='./predict.json', type=str)
 
