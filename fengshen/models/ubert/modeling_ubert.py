@@ -235,23 +235,6 @@ class biaffine(nn.Module):
         return bilinar_mapping
 
 
-class multilabel_cross_entropy(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, y_pred, y_true):
-        y_true = y_true.float()
-        y_pred = torch.mul((1.0 - torch.mul(y_true, 2.0)), y_pred)
-        y_pred_neg = y_pred - torch.mul(y_true, 1e12)
-        y_pred_pos = y_pred - torch.mul(1.0 - y_true, 1e12)
-        zeros = torch.zeros_like(y_pred[..., :1])
-        y_pred_neg = torch.cat([y_pred_neg, zeros], axis=-1)
-        y_pred_pos = torch.cat([y_pred_pos, zeros], axis=-1)
-        neg_loss = torch.logsumexp(y_pred_neg, axis=-1)
-        pos_loss = torch.logsumexp(y_pred_pos, axis=-1)
-        loss = torch.mean(neg_loss + pos_loss)
-        return loss
-
 
 class UbertModel(BertPreTrainedModel):
 
@@ -300,7 +283,6 @@ class UbertModel(BertPreTrainedModel):
         if span_labels == None:
             return 0, span_logits
         else:
-            # soft_loss = self.loss_softmax(span_logits.permute(0,2,3,1), span_labels.permute(0,2,3,1))
             sig_loss = self.loss_sigmoid(span_logits, span_labels)
             all_loss = 100000*(sig_loss)
             return all_loss, span_logits
