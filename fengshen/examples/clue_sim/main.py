@@ -30,7 +30,7 @@ if __name__ == '__main__':
     my_parser.add_argument("--max_seq_length", default=64, type=int, required=False)
     my_parser.add_argument("--batch_size", default=32, type=int, required=False)
     my_parser.add_argument("--val_batch_size", default=64, type=int, required=False)
-    my_parser.add_argument("--num_epochs", default=7, type=int, required=False)
+    my_parser.add_argument("--num_epochs", default=10, type=int, required=False)
     my_parser.add_argument("--learning_rate", default=4e-5, type=float, required=False)
     my_parser.add_argument("--warmup_proportion", default=0.2, type=int, required=False)
     my_parser.add_argument("--warmup_step", default=2, type=int, required=False)
