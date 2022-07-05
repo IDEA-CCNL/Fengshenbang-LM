@@ -52,6 +52,7 @@ options=" \
         --pretrained_model_path $PRETRAINED_MODEL_PATH \
         --tokenizer_type ${tokenizer_type} \
         --gpus 1 \
+        --do_train \
         --train_batchsize ${batch_size} \
         --accumulate_grad_batches ${accumulate_grad_batches}\
         $DATA_ARGS \

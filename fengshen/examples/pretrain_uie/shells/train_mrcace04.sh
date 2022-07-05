@@ -53,6 +53,7 @@ options=" \
         --pretrained_model_path $PRETRAINED_MODEL_PATH \
         --tokenizer_type ${tokenizer_type} \
         --gpus 1\
+        --do_train \
         --precision 32\
         --train_batchsize ${batch_size} \
         $DATA_ARGS \
