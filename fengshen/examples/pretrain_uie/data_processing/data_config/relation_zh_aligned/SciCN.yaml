@@ -1,0 +1,20 @@
+name: SciCN
+path: data_zh/RE_Aligned/SciCN
+data_class: ChineseRE
+split:
+  train: train.json
+  val: dev.json
+  test: test.json
+language: zh
+
+mapper:
+  方法: 方法
+  其他科学术语: 其他科学术语
+  通用: 通用
+  评估指标: 评估指标
+  任务: 任务
+  材料: 材料
+  用于: 用于
+  连接: 连接
+  简称: 简称
+  比较: 比较

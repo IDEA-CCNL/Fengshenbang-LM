@@ -1,0 +1,20 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  临床表现: 临床表现
+  医学检验项目: 医学检验项目
+  医疗程序: 医疗程序
+  医疗设备: 医疗设备
+  微生物类: 微生物类
+  疾病: 疾病
+  科室: 科室
+  药物: 药物
+  身体: 身体
+name: CMeEE
+other:
+  tagging: bio
+path: data_zh/NER_Aligned/CMeEE
+split:
+  train: train.char.bio
+  val: dev.char.bio
+  test: test.char.bio

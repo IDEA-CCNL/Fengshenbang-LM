@@ -1,0 +1,15 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  ORG: 机构公司
+  NUM: 数量
+  NAME: 公司名称
+  BEG: 开始时间
+  END: 结束时间
+name: DCFEE_NER
+other:
+  tagging: bio
+path: data_zh/evaluate/DCFEE
+split:
+  train: train.char.bio
+  

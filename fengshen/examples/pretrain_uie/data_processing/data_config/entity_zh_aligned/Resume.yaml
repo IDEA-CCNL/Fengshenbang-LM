@@ -1,0 +1,20 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  LOC: 地理位置
+  CONT: 国家
+  PER: 人物
+  RACE: 民族
+  NAME: 名字
+  EDU: 教育程度
+  PRO: 学科专业
+  TITLE: 职称
+  ORG: 组织机构
+name: Resume
+other:
+  tagging: bmes
+path: data_zh/NER_Aligned/Resume
+split:
+  train: train.char.bmes
+  val: dev.char.bmes
+  test: test.char.bmes

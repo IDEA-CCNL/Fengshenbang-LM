@@ -1,0 +1,13 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  品牌: 品牌
+  商品: 商品
+  商品描述: 商品描述
+  规格: 规格
+name: DianShang
+other:
+  tagging: bio
+path: data_zh/NER/DianShang-NER
+split:
+  train: train.bio

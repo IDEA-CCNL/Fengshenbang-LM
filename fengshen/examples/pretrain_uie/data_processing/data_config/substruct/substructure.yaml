@@ -1,0 +1,47 @@
+data_class: Substructure
+language: zh
+name: Substruct
+path: data_zh/substruct/substruct_ner
+mapper:
+  实体: <extrid_id_66>
+split:
+  train_extra_id_0: Substructure-unlabeled_subner_0.jsonl
+  train_extra_id_1: Substructure-unlabeled_subner_1.jsonl 
+  train_extra_id_2: Substructure-unlabeled_subner_2.jsonl
+  train_extra_id_3: Substructure-unlabeled_subner_3.jsonl
+  train_extra_id_4: Substructure-unlabeled_subner_4.jsonl
+  train_extra_id_5: Substructure-unlabeled_subner_5.jsonl
+  train_extra_id_6: Substructure-unlabeled_subner_6.jsonl
+  train_extra_id_7: Substructure-unlabeled_subner_7.jsonl
+  train_extra_id_8: Substructure-unlabeled_subner_8.jsonl
+  train_extra_id_9: Substructure-unlabeled_subner_9.jsonl
+  train_extra_id_10: Substructure-unlabeled_subner_10.jsonl
+  train_extra_id_11: Substructure-unlabeled_subner_11.jsonl
+  train_extra_id_12: Substructure-unlabeled_subner_12.jsonl
+  train_extra_id_13: Substructure-unlabeled_subner_13.jsonl
+  train_extra_id_14: Substructure-unlabeled_subner_14.jsonl
+  train_extra_id_15: Substructure-unlabeled_subner_15.jsonl
+  train_extra_id_16: Substructure-unlabeled_subner_16.jsonl
+  train_extra_id_17: Substructure-unlabeled_subner_17.jsonl
+  train_extra_id_18: Substructure-unlabeled_subner_18.jsonl
+  train_extra_id_19: Substructure-unlabeled_subner_19.jsonl
+  train_extra_id_20: Substructure-unlabeled_subner_20.jsonl
+  train_extra_id_21: Substructure-unlabeled_subner_21.jsonl
+  train_extra_id_22: Substructure-unlabeled_subner_22.jsonl
+  train_extra_id_23: Substructure-unlabeled_subner_23.jsonl
+  train_extra_id_24: Substructure-unlabeled_subner_24.jsonl
+  train_extra_id_25: Substructure-unlabeled_subner_25.jsonl
+  train_extra_id_26: Substructure-unlabeled_subner_26.jsonl
+  train_extra_id_27: Substructure-unlabeled_subner_27.jsonl
+  train_extra_id_28: Substructure-unlabeled_subner_28.jsonl
+  train_extra_id_29: Substructure-unlabeled_subner_29.jsonl
+  train_extra_id_30: Substructure-unlabeled_subner_30.jsonl
+  train_extra_id_31: Substructure-unlabeled_subner_31.jsonl
+  train_extra_id_32: Substructure-unlabeled_subner_32.jsonl
+  train_extra_id_33: Substructure-unlabeled_subner_33.jsonl
+  train_extra_id_34: Substructure-unlabeled_subner_34.jsonl
+  train_extra_id_35: Substructure-unlabeled_subner_35.jsonl
+  train_extra_id_36: Substructure-unlabeled_subner_36.jsonl
+  train_extra_id_37: Substructure-unlabeled_subner_37.jsonl
+  train_extra_id_38: Substructure-unlabeled_subner_38.jsonl
+  train_extrid_id_labaled: Substructure-labled.jsonl

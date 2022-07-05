@@ -1,0 +1,10 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  餐饮商家: 餐饮商家
+name: NER-COTE-DP
+other:
+  tagging: bio
+path: data_zh/NER/COTE-DP-NER
+split:
+  train: train.char.bio

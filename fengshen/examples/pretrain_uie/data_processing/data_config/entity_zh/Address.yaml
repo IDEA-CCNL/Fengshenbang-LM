@@ -1,0 +1,31 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  乡级行政区划: 乡级行政区划
+  兴趣点: 兴趣点
+  其他信息: 其他信息
+  单元号: 单元号
+  县级行政区划: 县级行政区划
+  国家: 国家
+  地点: 地点
+  地级行政区划: 地级行政区划
+  子兴趣点: 子兴趣点
+  广义的上的开发区: 广义的上的开发区
+  房间号: 房间号
+  普通辅助定位词: 普通辅助定位词
+  楼层号: 楼层号
+  楼栋号: 楼栋号
+  省级行政区划: 省级行政区划
+  社区: 社区
+  路/巷: 路/巷
+  路/巷编号: 路/巷编号
+  路号: 路号
+  道路: 道路
+  非地址元素: 非地址元素
+name: Address
+other:
+  tagging: bio
+path: data_zh/NER/Address-NER
+split:
+  train: train.bio
+  val: val.bio

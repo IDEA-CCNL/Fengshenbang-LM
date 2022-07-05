@@ -1,0 +1,19 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  PER.NOM: 人物概念
+  LOC.NAM: 地点名称
+  PER.NAM: 人物名称
+  GPE.NAM: 地理名称
+  ORG.NAM: 机构组织
+  ORG.NOM: 机构概念
+  LOC.NOM: 地点概念
+  GPE.NOM: 地理概念
+name: Weibo
+other:
+  tagging: bio
+path: data_zh/NER_Aligned/Weibo
+split:
+  train: weiboNER_2nd_conll.train_deseg
+  val: weiboNER_2nd_conll.dev_deseg
+  test: weiboNER_2nd_conll.test_deseg

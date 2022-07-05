@@ -1,0 +1,13 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  人物: 人物
+  影视作品: 影视作品
+  音乐作品: 音乐作品
+name: WenYuNER
+other:
+  tagging: bio
+path: data_zh/NER/WenYuNER-NER
+split:
+  train: train.bio
+

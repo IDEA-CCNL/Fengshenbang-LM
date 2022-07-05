@@ -1,0 +1,22 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  Physical: 事物
+  Term: 量词
+  Thing: 事物
+  Location: 地点名称 
+  Person: 人物
+  Organization: 机构组织
+  Metric: 评测指标
+  Time: 时间
+  ABstract: 抽象概念
+  Abstract: 抽象概念
+name: SanWen
+other:
+  tagging: bio
+path: data_zh/NER_Aligned/SanWen
+split:
+  train: train.txt
+  val: validation.txt
+  test: test.txt
+

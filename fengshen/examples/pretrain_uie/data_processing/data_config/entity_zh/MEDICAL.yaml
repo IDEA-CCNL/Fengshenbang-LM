@@ -1,0 +1,22 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  中药功效: 中药功效
+  人群: 人群
+  疾病: 疾病
+  疾病分组: 疾病分组
+  症状: 症状
+  药品: 药品
+  药品分组: 药品分组
+  药物剂型: 药物剂型
+  药物性味: 药物性味
+  药物成分: 药物成分
+  证候: 证候
+  食物: 食物
+  食物分组: 食物分组
+name: MEDICAL
+other:
+  tagging: bio
+path: data_zh/NER/MEDICAL-NER
+split:
+  train: train.bio

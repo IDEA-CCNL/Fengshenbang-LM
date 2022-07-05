@@ -1,0 +1,15 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  PER: 人物
+  GPE: 地理位置
+  LOC: 地点
+  ORG: 组织机构
+name: OntoNote4NER
+other:
+  tagging: bmes
+path: data_zh/NER_Aligned/OntoNotes4
+split:
+  train: train.char.bmes
+  val: dev.char.bmes
+  test: test.char.bmes

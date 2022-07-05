@@ -1,0 +1,15 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  实验室检验: 实验室检验
+  影像检查: 影像检查
+  手术: 手术
+  疾病和诊断: 疾病和诊断
+  药物: 药物
+  解剖部位: 解剖部位
+name: CCKS19医疗
+other:
+  tagging: bio
+path: data_zh/NER/CCKS19医疗-NER
+split:
+  train: train.bio

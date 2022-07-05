@@ -1,0 +1,6 @@
+name: XunfeiIE
+path: data_zh/evaluate/xunfei2021/
+data_class: ChineseRE
+split:
+  test: zeroshot.json
+language: zh

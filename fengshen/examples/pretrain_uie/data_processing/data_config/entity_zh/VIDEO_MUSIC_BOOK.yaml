@@ -1,0 +1,13 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  书籍: 书籍
+  视频: 视频
+  音乐: 音乐
+name: VIDEO_MUSIC_BOOK
+other:
+  tagging: bio
+path: data_zh/NER/VIDEO_MUSIC_BOOK-NER
+split:
+  train: train.bio
+

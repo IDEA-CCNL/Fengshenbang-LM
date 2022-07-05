@@ -1,0 +1,9 @@
+data_class: ChineseNER
+language: zh
+name: xunfeiNER
+other:
+  tagging: bio
+path: data_zh/evaluate/xunfei2021
+split:
+  test: zeroshot.char.bio
+  

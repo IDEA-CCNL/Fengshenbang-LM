@@ -1,0 +1,19 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  org_name: 组织名称
+  person_name: 人物名称
+  company_name: 公司名称
+  location: 地点/地理位置
+  product_name: 产品名称
+  time: 时间
+  ime: 时间
+name: BosonNER
+other:
+  tagging: bmes
+path: data_zh/evaluate/bonsonNER
+split:
+  train: boson.train.bmes
+  dev: boson.dev.bmes
+  test: boson.test.bmes
+  

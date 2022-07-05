@@ -1,0 +1,13 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  NR: 人物
+  NS: 地理位置
+  NT: 组织机构
+name: MSRA
+other:
+  tagging: bmes
+path: data_zh/NER_Aligned/MSRA
+split:
+  train: train_dev.char.bmes
+  test: test.char.bmes

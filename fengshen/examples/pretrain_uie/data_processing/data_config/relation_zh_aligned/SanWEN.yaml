@@ -1,0 +1,20 @@
+name: SanWen
+path: data_zh/RE_Aligned/SanWen
+data_class: ChineseRE
+split:
+  train: train.json
+  val: dev.json
+  test: test.json
+language: zh
+mapper:
+ 实体(原始数据没有实体标签): 实体
+ unknown: 未知
+ Create: 创作
+ Use: 使用
+ Near: 附近
+ Social: 社会关系
+ Located: 位于
+ Ownership: 拥有/从属
+ General-Special: 通用/特殊
+ Family: 亲属关系
+ Part-Whole: 组成部分

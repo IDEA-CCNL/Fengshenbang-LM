@@ -1,0 +1,17 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  任务: 任务
+  其他科学术语: 其他科学术语
+  方法: 方法
+  材料: 材料
+  评估指标: 评估指标
+  通用: 通用
+name: SciCN
+other:
+  tagging: bmes
+path: data_zh/NER_Aligned/SciCN
+split:
+  train: train_char.bmes
+  val: dev_char.bmes
+  test: test_char.bmes

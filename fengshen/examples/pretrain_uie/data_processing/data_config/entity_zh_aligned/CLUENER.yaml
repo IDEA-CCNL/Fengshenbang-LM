@@ -1,0 +1,21 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  书名: 书名
+  公司: 公司
+  地址: 地址
+  姓名: 姓名
+  政府: 政府
+  景点: 景点
+  游戏: 游戏
+  电影: 电影
+  组织机构: 组织机构
+  职位: 职位
+name: CLUENER
+other:
+  tagging: bio
+path: data_zh/NER_Aligned/CLUENER
+split:
+  train: train.char.txt
+  val: dev.char.txt
+  test: test.char.txt

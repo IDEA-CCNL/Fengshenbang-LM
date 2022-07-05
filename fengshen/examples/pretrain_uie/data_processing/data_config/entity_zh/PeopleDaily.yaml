@@ -1,0 +1,14 @@
+data_class: ChineseNER
+language: zh
+mapper:
+  人物: 人物
+  地理位置: 地理位置
+  日期: 日期
+  组织机构: 组织机构
+name: PeopleDaily
+other:
+  tagging: bio
+path: data_zh/NER/PeopleDaily-NER
+split:
+  train: train.bio
+

@@ -1,0 +1,27 @@
+data_class: ChineseEE
+language: zh
+mapper:
+  交易号: 交易号
+  其他: 其他
+  受害人: 受害人
+  受害人身份: 受害人身份
+  商户风险: 商户风险
+  嫌疑人: 嫌疑人
+  微信社交负面: 微信社交负面
+  手机号: 手机号
+  支付渠道: 支付渠道
+  无效内容: 无效内容
+  案发城市: 案发城市
+  案发时间: 案发时间
+  欺诈风险: 欺诈风险
+  涉案平台: 涉案平台
+  盗用风险: 盗用风险
+  订单号: 订单号
+  资损金额: 资损金额
+  身份证号: 身份证号
+  银行卡号: 银行卡号
+name: CCKS21DocFIN
+path: data_zh/EE_Aligned/CCKS21DocFIN
+split:
+  train: train.json
+  test: test.json
