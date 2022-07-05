@@ -11,7 +11,7 @@ set -x -e
 
 echo "START TIME: $(date)"
 MICRO_BATCH_SIZE=64
-ROOT_DIR=/cognitive_comp/ganruyi/experiments/randeng_t5_77M/
+ROOT_DIR=/cognitive_comp/yangjing/Fengshenbang-LM/T5_Pretrain_MT5
 
 ZERO_STAGE=1
 

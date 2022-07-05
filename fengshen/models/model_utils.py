@@ -14,7 +14,6 @@ def add_module_args(parent_args):
     parser.add_argument('--adam_beta1', default=0.9, type=float)
     parser.add_argument('--adam_beta2', default=0.999, type=float)
     parser.add_argument('--adam_epsilon', default=1e-8, type=float)
-    parser.add_argument('--model_path', default=None, type=str)
     parser.add_argument('--scheduler_type', default='polynomial', type=str)
     return parent_args
 

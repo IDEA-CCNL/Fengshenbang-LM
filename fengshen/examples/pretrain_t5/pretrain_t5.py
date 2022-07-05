@@ -10,7 +10,7 @@ from transformers import MT5Config, MT5Tokenizer
 from pytorch_lightning import Trainer, loggers
 from transformers import MT5ForConditionalGeneration
 from pytorch_lightning.callbacks import LearningRateMonitor
-# os.environ["CUDA_VISIBLE_DEVICES"] = '3'
+
 
 
 class MT5PretrainModel(pl.LightningModule):
@@ -47,7 +47,6 @@ class MT5PretrainModel(pl.LightningModule):
                     new_state_dict['lm_head.weight'], dim=0, index=select_index)
                 self.model = MT5ForConditionalGeneration.from_pretrained(
                     args.pretrained_model_path, config=new_config, state_dict=new_state_dict)
-                # self.model = MT5ForConditionalGeneration(config=new_config)
             else:
                 # 用于继续训练
                 self.model = MT5ForConditionalGeneration.from_pretrained(
@@ -60,8 +59,7 @@ class MT5PretrainModel(pl.LightningModule):
 
     def setup(self, stage) -> None:
         if stage == 'fit':
-            train_loader = self.trainer._data_connector._train_dataloader_source.dataloader()
-
+            train_loader = self.trainer._data_connector._train_dataloader_source.dataloader() #!
             # Calculate total steps
             if self.trainer.max_epochs > 0:
                 world_size = self.trainer.world_size
@@ -133,6 +131,7 @@ def main():
     total_parser.add_argument('--max_seq_length', default=1024, type=int)
     total_parser.add_argument('--ckpt_path', default=None, type=str)
     sys.path.append('../../../')
+
     from fengshen.data.t5_dataloader.t5_datasets import UnsuperviseT5DataModel
     from fengshen.utils.universal_checkpoint import UniversalCheckpoint
     # * Args for data preprocessing
@@ -147,12 +146,12 @@ def main():
     print('UnsuperviseT5DataModel load start {}'.format(get_time_str()))
     data_model = UnsuperviseT5DataModel(args)
     print('UnsuperviseT5DataModel load end {}'.format(get_time_str()))
+
     if not args.do_eval_only:
         model = MT5PretrainModel(args)
         checkpoint_callback = UniversalCheckpoint(args).callbacks
         lr_monitor = LearningRateMonitor(logging_interval='step')
-        logger = loggers.TensorBoardLogger(save_dir=os.path.join(
-            args.default_root_dir, 'logs/'))
+        logger = loggers.TensorBoardLogger(save_dir=os.path.join( args.default_root_dir, 'logs/'))
         trainer = Trainer.from_argparse_args(args,
                                              logger=logger,
                                              callbacks=[checkpoint_callback, lr_monitor]

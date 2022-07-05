@@ -1,4 +1,5 @@
 # coding=utf8
+from ast import arg
 import json
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
@@ -76,6 +77,7 @@ class UnsuperviseT5Dataset(Dataset):
                 self.tokenizer = MT5Tokenizer.from_pretrained(args.pretrained_model_path)
         else:
             self.tokenizer = BertTokenizer.from_pretrained(args.pretrained_model_path)
+
         self.noise_density = 0.15
         self.mean_noise_span_length = 3
         self.text_column_name = args.text_column_name
@@ -142,7 +144,6 @@ class UnsuperviseT5Dataset(Dataset):
     '''
         The function load tokenized data saved from load_data function.
     '''
-
     def load_tokenized_data(self, data_path):
         from data.fs_datasets import load_dataset
         samples = load_dataset(data_path)['train']
@@ -184,7 +185,7 @@ class UnsuperviseT5DataModel(pl.LightningDataModule):
     @staticmethod
     def add_data_specific_args(parent_args):
         parser = parent_args.add_argument_group('UnsuperviseT5DataModel')
-        parser.add_argument('--dataset_num_workers', default=8, type=int)
+        parser.add_argument('--dataset_num_workers', default=16, type=int)
         parser.add_argument('--dataloader_num_workers', default=4, type=int)
         parser.add_argument(
             '--train_data_path', default='wudao_180g_mt5_tokenized', type=str)
@@ -201,10 +202,10 @@ class UnsuperviseT5DataModel(pl.LightningDataModule):
         self.save_hyperparameters(args)
         if args.train_split_size is not None:
             from data.fs_datasets import load_dataset
-            data_splits = load_dataset(args.train_data_path, num_proc=args.dataset_num_workers)
+            data_splits = load_dataset(args.train_data_path, num_proc=args.dataset_num_workers) 
             train_split = data_splits['train']
             test_split = data_splits['test']
-            print('train:', train_split, '\ntest_data:', test_split)
+            print('train:', train_split, '\ntest_data:', test_split)  ## ?train_split[0] =568?
             self.train_dataset = UnsuperviseT5Dataset('', args, load_data_type=2, data=train_split)
             self.test_dataset = UnsuperviseT5Dataset('', args, load_data_type=2, data=test_split)
         else:
@@ -223,6 +224,8 @@ class UnsuperviseT5DataModel(pl.LightningDataModule):
             self.tokenizer = MT5Tokenizer.from_pretrained(args.new_vocab_path, extra_ids=0)
             # 如果是刚开始加载mt5,需要更新vocab_size为提取中英词之后的new_vocab_size
             self.vocab_size = len(self.tokenizer)
+        else:
+            self.tokenizer =BertTokenizer.from_pretrained(args.pretrained_model_path)
 
         # T5-like span masked language modeling will fuse consecutively masked tokens to a single sentinel token.
         # To ensure that the input length is `max_seq_length`, we need to increase the maximum length

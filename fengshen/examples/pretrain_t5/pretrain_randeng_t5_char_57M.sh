@@ -7,11 +7,13 @@
 #SBATCH -o /cognitive_comp/ganruyi/experiments/randeng_t5_char_57M/%x-%j.log
 #SBATCH -e /cognitive_comp/ganruyi/experiments/randeng_t5_char_57M/%x-%j.err
 
-set -x -e
+set -x -e  # 对于所有的变量进行一个输出
 
 echo "START TIME: $(date)"
 MICRO_BATCH_SIZE=64
-ROOT_DIR=/cognitive_comp/ganruyi/experiments/randeng_t5_char_57M/
+# ROOT_DIR=/cognitive_comp/ganruyi/experiments/randeng_t5_char_57M/
+ROOT_DIR=/cognitive_comp/yangjing/Fengshenbang-LM/T5_Pretrain
+
 if [ ! -d ${ROOT_DIR} ];then
   mkdir ${ROOT_DIR}
   echo ${ROOT_DIR} created!!!!!!!!!!!!!!
@@ -71,13 +73,14 @@ cat <<EOT > $config_json
 EOT
 
 export PL_DEEPSPEED_CONFIG_PATH=$config_json
-export TORCH_EXTENSIONS_DIR=/cognitive_comp/ganruyi/tmp/torch_extendsions
+export TORCH_EXTENSIONS_DIR=/cognitive_comp/yangjing/Fengshenbang-LM/demo/torch_extendsions
 # strategy=ddp
 strategy=deepspeed_stage_1
+# strategy=ddp
 
 TRAINER_ARGS="
     --max_epochs 1 \
-    --gpus 8 \
+    --gpus 1 \
     --num_nodes 1 \
     --strategy ${strategy} \
     --default_root_dir $ROOT_DIR \
@@ -93,7 +96,7 @@ TRAINER_ARGS="
     --replace_sampler_ddp False \
 "
 # --accumulate_grad_batches 8 \
-DATA_DIR=wudao_180g_bert_tokenized_512
+DATA_DIR=wudao_180g_bert_tokenized_512 # TODO
 
 DATA_ARGS="
     --train_batchsize $MICRO_BATCH_SIZE \
@@ -103,12 +106,17 @@ DATA_ARGS="
     --max_seq_length 512 \
 "
 
+# MODEL_ARGS="
+#     --pretrained_model_path /cognitive_comp/ganruyi/experiments/randeng_t5_char_57M/randeng_t5_char_57M \
+#     --tokenizer_type bert_tokenizer \
+# "
 MODEL_ARGS="
-    --pretrained_model_path /cognitive_comp/ganruyi/experiments/randeng_t5_char_57M/randeng_t5_char_57M \
+    --pretrained_model_path /cognitive_comp/yangjing/Fengshenbang-LM/hf_models/randeng_t5_char_57M \
     --tokenizer_type bert_tokenizer \
-"
+    "
 
-SCRIPTS_PATH=/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/examples/pretrain_t5/pretrain_t5.py
+
+SCRIPTS_PATH=/cognitive_comp/yangjing/Fengshenbang-LM/fengshen/examples/pretrain_t5/pretrain_t5.py
 
 export CMD=" \
     $SCRIPTS_PATH \
@@ -118,11 +126,5 @@ export CMD=" \
     "
 
 echo $CMD
-/home/ganruyi/anaconda3/bin/python $CMD
-# SINGULARITY_PATH=/cognitive_comp/ganruyi/pytorch21_06_py3_docker_image_v2.sif
-# srun singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c '/home/ganruyi/anaconda3/bin/python $CMD'
 
-# source activate base
-# python $CMD
-# srun --nodes=1 --gres=gpu:8 --ntasks-per-node=8 --cpus-per-task=30 --jobid=171866 -e %x-%j.err -o %x-%j.log python $CMD
-
+CUDA_VISIBLE_DEVICES='3' /home/yangjing/anaconda3/envs/idea/bin/python $CMD

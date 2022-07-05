@@ -109,7 +109,7 @@ MODEL_ARGS="
     --tokenizer_type bert_tokenizer \
 "
 
-SCRIPTS_PATH=/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/examples/pretrain_t5/pretrain_t5.py
+SCRIPTS_PATH=/cognitive_comp/yangjing/Fengshenbang-LM/fengshen/examples/pretrain_t5/pretrain_t5.py
 
 export CMD=" \
     $SCRIPTS_PATH \
