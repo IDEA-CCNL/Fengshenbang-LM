@@ -117,6 +117,8 @@ sh finetune_classification.sh
 
 [封神榜系列之中文pegasus模型预训练](https://zhuanlan.zhihu.com/p/528716336)
 
+[封神榜系列：finetune一下二郎神就不小心拿下了第一](https://zhuanlan.zhihu.com/p/539870077)
+
 # 引用
 ```
 @misc{Fengshenbang-LM,
