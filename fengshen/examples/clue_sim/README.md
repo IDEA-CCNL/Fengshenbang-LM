@@ -15,6 +15,8 @@
 - 直接使用fengshenbang的二郎神模型，就打到了前三。
 - 为了解决标签平衡问题，设计了一个交叉熵平滑滤波loss，就达到了第一。
 
+详细的思路讲解在知乎: <a href="https://zhuanlan.zhihu.com/p/539870077?">链接</a>
+
 ## 数据集介绍
 
 QQ浏览器搜索相关性数据集（QBQTC,QQ Browser Query Title Corpus），是QQ浏览器搜索引擎目前针对大搜场景构建的一个融合了相关性、权威性、内容质量、
