@@ -1,4 +1,5 @@
 import argparse
+from collections import Counter
 from transformers import GPT2Tokenizer, GPT2LMHeadModel
 import os, random, re
 import streamlit as st
@@ -108,15 +109,17 @@ class TestModule:
         input_dict["answers"] = answers
         return input_dict        
 
-    def metric(self, fn="bleu", **kwargs): # unigram bleu
+    def metric(self,references ,candidates ,fn,n): # unigram bleu
         if fn == "bleu":
-            scores = self.bleu_fn(**kwargs)
+            scores = self.bleu_fn(references,candidates,n)
         elif fn == "f1":
-            scores = self.f1_fn(*kwargs) 
+            scores = self.f1_fn(references,candidates,n) 
+        elif fn == 'distinct':
+            scores = self.dist_fn(candidates)
         return scores
 
     def bleu_fn(references, candidates, n = 2):
-        unigram, twogram = [],[]
+        unigram, bigram = [],[]
         for ref, can in zip(references, candidates):
             #can = normalize_answer(can)
             reference = [" ".join(jieba.cut(ref)).split()]  # may have multiple ref, need [[ref1]]
@@ -124,11 +127,11 @@ class TestModule:
 
             chencherry = SmoothingFunction()
 
-            score1, score2= sentence_bleu(reference,candidate,weights=[(1.0,),(0.5,0.5)],smoothing_function=chencherry.method1)
+            score1, score2= sentence_bleu(reference,candidate,weights=[(1.0,),(0.5,0.5)],smoothing_function=chencherry.method7) #methods 7 ref prophetnet
             unigram.append(score1)
-            twogram.append(score2)
+            bigram.append(score2)
 
-        return sum(unigram) / len(unigram), sum(twogram) / len(twogram)
+        return sum(unigram) / len(unigram), sum(bigram) / len(bigram)
 
     def f1_fn(references, candidates, n = 2):
         def pre_recall_f1(reference,candidate):
@@ -158,6 +161,28 @@ class TestModule:
             f1.append(_f1)
         return sum(pre)/len(pre), sum(re)/len(re), sum(f1)/len(f1)
 
+    # Ref: https://github.com/microsoft/ProphetNet/blob/master/GLGE_baselines/script/script/evaluate/personachat/eval.py
+    def dist_fn(candidates):
+        batch_size = len(candidates)
+        intra_dist1, intra_dist2 = [],[]
+        unigrams_all, bigrams_all = Counter(), Counter()
+
+        for can in candidates:
+            unigrams = Counter(can)
+            bigrams = Counter(zip(can,can[1:]))
+            intra_dist1.append((len(unigrams)+1e-12) / (len(can)+1e-5))
+            intra_dist2.append((len(bigrams)+1e-12) / (max(0, len(can)-1)+1e-5))
+
+            unigrams_all.update(unigrams)
+            bigrams_all.update(bigrams)
+
+        inter_dist1 = (len(unigrams_all)+1e-12) / (sum(unigrams_all.values())+1e-5)
+        inter_dist2 = (len(bigrams_all)+1e-12) / (sum(bigrams_all.values())+1e-5)
+        intra_dist1 = sum(intra_dist1) / len(intra_dist1)
+        intra_dist2 = sum(intra_dist2) / len(intra_dist2)
+        return intra_dist1, intra_dist2, inter_dist1, inter_dist2
+                
+
     # The four following functions are adapted from Meta ParlAI:
     # https://github.com/facebookresearch/ParlAI/blob/main/parlai/core/metrics.py
     @staticmethod
@@ -179,6 +204,8 @@ class TestModule:
 
         return white_space_fix(remove_articles(remove_punc(lower(s))))
 
+    def evaluate(self):
+        raise NotImplementedError
 class DialogueTest(TestModule):
     def __init__(self, **args):
         super().__init__(**args)
@@ -213,9 +240,10 @@ class DialogueTest(TestModule):
     def generate(self, input_dict, prompt="response:"):
         return super().generate(input_dict, prompt)
 
-    def eval(self,nums,metric):
+    def evaluate(self, nums, metrics):
         nums = min(nums,len(self.examples))
         candidates, references = [],[]
+
         with st.spinner("正在评估中"):
             for idx in tqdm(range(nums)):
             #for idx in tqdm(range(100)):
@@ -232,16 +260,15 @@ class DialogueTest(TestModule):
             st.write("reference")
             st.write(references)
 
-            if "bleu" in metric:
+            if "bleu" in metrics:
                 bleu_score = self.metric(references, candidates, fn="bleu" ,n=2)
                 st.write(f"Bleu1/2 score on dev : {bleu_score[0]:.4f}/{bleu_score[1]:.4f}")
                 st.write(f"Prec score on dev : {f1_score[0]:.4f}")
             
-            if "f1" in metric:
+            if "f1" in metrics:
                 f1_score = self.metric(references, candidates, fn="f1", n=1)
                 st.write(f"Re   score on dev : {f1_score[1]:.4f}")
                 st.write(f"F1   score on dev : {f1_score[2]:.4f}")
-
 
 class QueryTest(TestModule):
     def __init__(self, **args):
