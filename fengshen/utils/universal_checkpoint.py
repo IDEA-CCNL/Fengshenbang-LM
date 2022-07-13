@@ -17,7 +17,7 @@ class UniversalCheckpoint():
         parser.add_argument('--save_weights_only', action='store_true', default=False)
         parser.add_argument('--every_n_epochs', default=0, type=int)
         # 因为这里之前的代码一直是默认打开的，所以这里增加一个兼容，配置了这个参数的时候不保存
-        parser.add_argument('--not_save_on_train_epoch_end', action='store_false', default=True)
+        parser.add_argument('--not_save_on_train_epoch_end', action='store_true', default=False)
 
         return parent_args
 
