@@ -30,7 +30,7 @@ FengShen训练框架是封神榜大模型开源计划的重要一环，在大模
 4. 适应各种设备环境，支持在CPU、GPU、TPU等不同设备上运行
 5. 集成主流的分布式训练逻辑，无需修改代码即可支持DDP、Zero Optimizer等分布式优化技术
 
-
+![avartar](../pics/fengshen_pic.png)
 
 
 ## 依赖环境
@@ -77,8 +77,6 @@ FengShen框架目前整体基于Pytorch-Lightning & Transformer进行开发，�
 3. 配置一些插件，比如log_monitor，checkpoint_callback等等。
 
 一个完整的DEMO可以看Randeng-BART系列实例 -> [文档](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/燃灯系列/BART-139M.html) [代码](https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/hf-ds/fengshen/examples/pretrain_bart)
-
-![avartar](pics/fengshen_pic.png)
 
 ## 分类下游任务
 
