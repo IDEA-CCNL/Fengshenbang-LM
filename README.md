@@ -52,11 +52,11 @@
 
 IDEA研究院正式宣布，我们开启 “封神榜”大模型开源计划。在这个计划中，我们全方面的开源一系列的自然语言预训练大模型，它们将覆盖文本分类、文本续写、文本摘要、语义纠错等NLP相关任务，不同的专业领域。而且我们承诺，我们将对这些模型做持续的升级，不断融合最新的数据和最新的训练算法。通过我们IDEA研究院的努力，我们打造中文认知智能的通用基础设施，避免重复建设，我们为全社会节省算力。
 
-![avatar](pics/pic1.png)
+![avatar](pics/model_pic1.png)
 
 同时，我们也希望各个公司、高校、机构加入到这个开源计划中，一起共建大模型开源体系。未来，当我们需要一个新的预训练模型，都应该是首先从这些开源大模型中选取一个最接近的，做继续训练，然后再把新的模型开源回这个体系。这样，每个人用最少的算力，就能得到自己的模型，同时这个开源大模型体系也能越来越大。
 
-![avatar](pics/pic2.png)
+![avatar](pics/model_pic2.png)
 
 为了更好的体验，拥抱开源社区，封神榜的所有模型都转化并同步到了Huggingface社区，你可以通过几行代码就能轻松使用封神榜的所有模型，欢迎来[IDEA-CCNL的huggingface社区](https://huggingface.co/IDEA-CCNL)下载。
 
@@ -119,6 +119,8 @@ sh finetune_classification.sh
 
 [封神榜系列：finetune一下二郎神就不小心拿下了第一](https://zhuanlan.zhihu.com/p/539870077)
 
+[2022AIWIN世界人工智能创新大赛：小样本多任务赛道冠军方案](https://zhuanlan.zhihu.com/p/539958182)
+
 # 引用
 ```
 @misc{Fengshenbang-LM,
@@ -129,6 +131,13 @@ sh finetune_classification.sh
 }
 ```
 # 联系我们
+IDEA研究院CCNL技术团队已创建封神榜开源讨论群，我们将在讨论群中不定期更新发布封神榜新模型与系列文章。请扫描下面二维码或者微信搜索“wxid_2qjw79580xsh22”，添加封神空间小助手进群交流！
+
+![avartar](pics/wechat_icon.png)
+
+
+我们也在持续招人，欢迎投递简历！
+
 ![avartar](pics/contactus.png)
 
 # 版权许可 
