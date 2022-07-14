@@ -118,7 +118,8 @@ class TestModule:
             scores = self.dist_fn(candidates)
         return scores
 
-    def bleu_fn(references, candidates, n = 2):
+    @staticmethod
+    def bleu_fn(references, candidates, n=2):
         unigram, bigram = [],[]
         for ref, can in zip(references, candidates):
             #can = normalize_answer(can)
@@ -133,7 +134,8 @@ class TestModule:
 
         return sum(unigram) / len(unigram), sum(bigram) / len(bigram)
 
-    def f1_fn(references, candidates, n = 2):
+    @staticmethod
+    def f1_fn(references, candidates, n=2):
         def pre_recall_f1(reference,candidate):
             from collections import Counter
             common = Counter(reference) & Counter(candidate)
@@ -162,6 +164,7 @@ class TestModule:
         return sum(pre)/len(pre), sum(re)/len(re), sum(f1)/len(f1)
 
     # Ref: https://github.com/microsoft/ProphetNet/blob/master/GLGE_baselines/script/script/evaluate/personachat/eval.py
+    @staticmethod
     def dist_fn(candidates):
         batch_size = len(candidates)
         intra_dist1, intra_dist2 = [],[]
@@ -255,21 +258,20 @@ class DialogueTest(TestModule):
                 candidates.append(output["answers"][0])
                 references.append(output["tgt"])
 
-            st.write("candidate")
-            st.write(candidates)
-            st.write("reference")
-            st.write(references)
-
+            scores = {}
             if "bleu" in metrics:
-                bleu_score = self.metric(references, candidates, fn="bleu" ,n=2)
-                st.write(f"Bleu1/2 score on dev : {bleu_score[0]:.4f}/{bleu_score[1]:.4f}")
-                st.write(f"Prec score on dev : {f1_score[0]:.4f}")
-            
-            if "f1" in metrics:
-                f1_score = self.metric(references, candidates, fn="f1", n=1)
-                st.write(f"Re   score on dev : {f1_score[1]:.4f}")
-                st.write(f"F1   score on dev : {f1_score[2]:.4f}")
+                bleu_score = self.bleu_fn(references, candidates, 2)
+                scores["bleu"] = bleu_score
 
+            if "f1" in metrics:
+                f1_score = self.f1_fn(references, candidates, 1)
+                scores["f1"] = f1_score
+
+            if "dist" in metrics:
+                dist_score = self.dist_fn(candidates)
+                scores["dist"] = dist_score
+
+        return scores
 class QueryTest(TestModule):
     def __init__(self, **args):
         super().__init__(**args)
