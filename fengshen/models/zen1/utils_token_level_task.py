@@ -291,6 +291,38 @@ class ConllProcessor(DataProcessor):
         return examples
 
 
+class WeiboProcessor(DataProcessor):
+    """Processor for the weibo data set."""
+
+    def get_train_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(
+            self._read_tsv(os.path.join(data_dir, "train.tsv")), "train")
+
+    def get_dev_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(
+            self._read_tsv(os.path.join(data_dir, "dev.tsv")), "dev")
+
+    def get_test_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(
+            self._read_tsv(os.path.join(data_dir, "test.tsv")), "test")
+
+    def get_labels(self):
+        return ['O', 'B-GPE.NAM', 'B-GPE.NOM', 'B-LOC.NAM', 'B-LOC.NOM', 'B-ORG.NAM', 'B-ORG.NOM', 'B-PER.NAM', 'B-PER.NOM', 'I-GPE.NAM', 'I-GPE.NOM', 'I-LOC.NAM', 'I-LOC.NOM', 'I-ORG.NAM', 'I-ORG.NOM', 'I-PER.NAM', 'I-PER.NOM', 'S-GPE.NAM', 'S-LOC.NOM', 'S-PER.NAM', 'S-PER.NOM']
+
+    def _create_examples(self, lines, set_type):
+        examples = []
+        for i, (sentence, label) in enumerate(lines):
+            guid = "%s-%s" % (set_type, i)
+            text_a = ' '.join(sentence)
+            text_b = None
+            label = label
+            examples.append(InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
+        return examples
+
+
 def convert_examples_to_features(examples, label_list, max_seq_length, tokenizer, ngram_dict):
     """Loads a data file into a list of `InputBatch`s."""
 
@@ -423,5 +455,6 @@ processors = {
     "cwsmsra": CwsmsraProcessor,
     "cwspku": CwsmsraProcessor,
     "genia": GeniaProcessor,
-    "pos": PosProcessor
+    "pos": PosProcessor,
+    'weibo': WeiboProcessor,
 }
