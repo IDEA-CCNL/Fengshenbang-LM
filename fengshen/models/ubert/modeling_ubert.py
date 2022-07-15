@@ -235,6 +235,23 @@ class biaffine(nn.Module):
         return bilinar_mapping
 
 
+class MultilabelCrossEntropy(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, y_pred, y_true):
+        y_true = y_true.float()
+        y_pred = torch.mul((1.0 - torch.mul(y_true, 2.0)), y_pred)
+        y_pred_neg = y_pred - torch.mul(y_true, 1e12)
+        y_pred_pos = y_pred - torch.mul(1.0 - y_true, 1e12)
+        zeros = torch.zeros_like(y_pred[..., :1])
+        y_pred_neg = torch.cat([y_pred_neg, zeros], axis=-1)
+        y_pred_pos = torch.cat([y_pred_pos, zeros], axis=-1)
+        neg_loss = torch.logsumexp(y_pred_neg, axis=-1)
+        pos_loss = torch.logsumexp(y_pred_pos, axis=-1)
+        loss = torch.mean(neg_loss + pos_loss)
+        return loss
+
 
 class UbertModel(BertPreTrainedModel):
 
@@ -247,7 +264,7 @@ class UbertModel(BertPreTrainedModel):
         self.key_layer = torch.nn.Sequential(torch.nn.Linear(in_features=self.config.hidden_size, out_features=self.config.biaffine_size),
                                              torch.nn.GELU())
         self.biaffine_query_key_cls = biaffine(self.config.biaffine_size, 1)
-        self.loss_softmax = multilabel_cross_entropy()
+        self.loss_softmax = MultilabelCrossEntropy()
         self.loss_sigmoid = torch.nn.BCEWithLogitsLoss(reduction='mean')
 
     def forward(self,
@@ -283,8 +300,12 @@ class UbertModel(BertPreTrainedModel):
         if span_labels == None:
             return 0, span_logits
         else:
+            soft_loss1 = self.loss_softmax(
+                span_logits.reshape(-1, num_label, seq_len*seq_len), span_labels.reshape(-1, num_label, seq_len*seq_len))
+            soft_loss2 = self.loss_softmax(span_logits.permute(
+                0, 2, 3, 1), span_labels.permute(0, 2, 3, 1))
             sig_loss = self.loss_sigmoid(span_logits, span_labels)
-            all_loss = 100000*(sig_loss)
+            all_loss = 10*(100*sig_loss+soft_loss1+soft_loss2)
             return all_loss, span_logits
 
 
