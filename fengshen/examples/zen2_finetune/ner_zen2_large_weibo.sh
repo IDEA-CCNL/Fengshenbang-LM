@@ -1,17 +1,17 @@
 #!/bin/bash
-#SBATCH --job-name=zen2_base_weibo # create a short name for your job
+#SBATCH --job-name=zen2_large_weibo # create a short name for your job
 #SBATCH --nodes=1 # node count
 #SBATCH --ntasks=1 # total number of tasks across all nodes
 #SBATCH --cpus-per-task=30 # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH --gres=gpu:1 # number of gpus per node
 #SBATCH --mail-type=ALL # send email when job begins, ends or failed etc. 
-#SBATCH -o /cognitive_comp/ganruyi/experiments/ner_finetune/zen2_base_weibo/%x-%j.log # output and error file name (%x=job name, %j=job id)
+#SBATCH -o %x-%j.log # output and error file name (%x=job name, %j=job id)
 
 
 # export CUDA_VISIBLE_DEVICES='2'
 export TORCH_EXTENSIONS_DIR=/cognitive_comp/ganruyi/tmp/torch_extendsions
 
-MODEL_NAME=zen2_base
+MODEL_NAME=zen2_large
 
 TASK=weibo
 
@@ -27,7 +27,7 @@ else
 fi
 
 DATA_DIR=/cognitive_comp/lujunyu/data_zh/NER_Aligned/weibo/
-PRETRAINED_MODEL_PATH=/cognitive_comp/ganruyi/hf_models/zen/zh_zen_base_2.0
+PRETRAINED_MODEL_PATH=/cognitive_comp/ganruyi/hf_models/zen/zh_zen_large_2.0
 
 CHECKPOINT_PATH=${ROOT_DIR}/ckpt/
 OUTPUT_PATH=${ROOT_DIR}/predict.json
@@ -37,7 +37,7 @@ DATA_ARGS="\
         --train_data train.all.bmes \
         --valid_data test.all.bmes \
         --test_data test.all.bmes \
-        --train_batchsize 32 \
+        --train_batchsize 16 \
         --valid_batchsize 16 \
         --max_seq_length 256 \
         --task_name weibo \

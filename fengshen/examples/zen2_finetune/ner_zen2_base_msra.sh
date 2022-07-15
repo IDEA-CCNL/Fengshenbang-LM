@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=zen2_base_weibo # create a short name for your job
+#SBATCH --job-name=zen2_base_msra # create a short name for your job
 #SBATCH --nodes=1 # node count
 #SBATCH --ntasks=1 # total number of tasks across all nodes
 #SBATCH --cpus-per-task=30 # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH --gres=gpu:1 # number of gpus per node
 #SBATCH --mail-type=ALL # send email when job begins, ends or failed etc. 
-#SBATCH -o /cognitive_comp/ganruyi/experiments/ner_finetune/zen2_base_weibo/%x-%j.log # output and error file name (%x=job name, %j=job id)
+#SBATCH -o /cognitive_comp/ganruyi/experiments/ner_finetune/zen2_base_msra/%x-%j.log # output and error file name (%x=job name, %j=job id)
 
 
 # export CUDA_VISIBLE_DEVICES='2'
@@ -13,7 +13,7 @@ export TORCH_EXTENSIONS_DIR=/cognitive_comp/ganruyi/tmp/torch_extendsions
 
 MODEL_NAME=zen2_base
 
-TASK=weibo
+TASK=msra
 
 ZERO_STAGE=1
 STRATEGY=deepspeed_stage_${ZERO_STAGE}
@@ -26,7 +26,7 @@ else
   echo ${ROOT_DIR} exist!!!!!!!!!!!!!!!
 fi
 
-DATA_DIR=/cognitive_comp/lujunyu/data_zh/NER_Aligned/weibo/
+DATA_DIR=/cognitive_comp/lujunyu/data_zh/NER_Aligned/MSRA/
 PRETRAINED_MODEL_PATH=/cognitive_comp/ganruyi/hf_models/zen/zh_zen_base_2.0
 
 CHECKPOINT_PATH=${ROOT_DIR}/ckpt/
@@ -34,13 +34,13 @@ OUTPUT_PATH=${ROOT_DIR}/predict.json
 
 DATA_ARGS="\
         --data_dir $DATA_DIR \
-        --train_data train.all.bmes \
-        --valid_data test.all.bmes \
-        --test_data test.all.bmes \
+        --train_data train_dev.char.bmes \
+        --valid_data test.char.bmes \
+        --test_data test.char.bmes \
         --train_batchsize 32 \
         --valid_batchsize 16 \
         --max_seq_length 256 \
-        --task_name weibo \
+        --task_name msra \
         "
 
 MODEL_ARGS="\
@@ -55,7 +55,7 @@ MODEL_CHECKPOINT_ARGS="\
         --monitor val_f1 \
         --save_top_k 3 \
         --mode max \
-        --every_n_train_steps 100 \
+        --every_n_train_steps 800 \
         --save_weights_only True \
         --dirpath $CHECKPOINT_PATH \
         --filename model-{epoch:02d}-{val_f1:.4f} \
@@ -65,7 +65,7 @@ TRAINER_ARGS="\
         --max_epochs 30 \
         --gpus 1 \
         --check_val_every_n_epoch 1 \
-        --val_check_interval 20 \
+        --val_check_interval 800 \
         --default_root_dir $ROOT_DIR \
         "
 

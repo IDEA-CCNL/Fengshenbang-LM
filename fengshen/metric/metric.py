@@ -60,9 +60,7 @@ class SeqEntityScore(object):
             origin = count
             found = found_counter.get(type_, 0)
             right = right_counter.get(type_, 0)
-            # print('origin:', origin)
-            # print('found:', found)
-            # print('right:', right)
+            # print('origin:', origin, ' found:', found, ' right:', right)
             recall, precision, f1 = self.compute(origin, found, right)
             class_info[type_] = {"acc": round(precision, 4), 'recall': round(recall, 4), 'f1': round(f1, 4)}
         origin = len(self.origins)
@@ -86,8 +84,8 @@ class SeqEntityScore(object):
         for label_path, pre_path in zip(label_paths, pred_paths):
             label_entities = get_entities(label_path, self.id2label, self.markup, self.middle_prefix)
             pre_entities = get_entities(pre_path, self.id2label, self.markup, self.middle_prefix)
-            print('label:', label_path, ',label_entities: ', label_entities)
-            print('pred:', pre_path, ',pre_entities: ', pre_entities)
+            # print('label:', label_path, ',label_entities: ', label_entities)
+            # print('pred:', pre_path, ',pre_entities: ', pre_entities)
             self.origins.extend(label_entities)
             self.founds.extend(pre_entities)
             self.rights.extend([pre_entity for pre_entity in pre_entities if pre_entity in label_entities])

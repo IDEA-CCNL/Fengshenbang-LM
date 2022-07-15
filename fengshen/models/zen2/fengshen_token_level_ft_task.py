@@ -12,12 +12,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from pytorch_lightning.callbacks import LearningRateMonitor
-from fengshen.models.zen2.modeling import ZenForTokenClassification
-from fengshen.metric.metric import SeqEntityScore
-from fengshen.models.zen2.tokenization import BertTokenizer
 from fengshen.models.zen2.ngram_utils import ZenNgramDict
-from fengshen.models.zen2.modeling import ZenConfig
+from fengshen.models.zen2.tokenization import BertTokenizer
+from fengshen.metric.metric import SeqEntityScore
+from fengshen.models.zen2.modeling import ZenForTokenClassification
+from pytorch_lightning.callbacks import LearningRateMonitor
 from dataclasses import dataclass
 import logging
 import math
@@ -233,10 +232,10 @@ def convert_examples_to_features(examples, label_map, max_seq_length, tokenizer,
 class DataProcessor(object):
     """Base class for data converters for sequence classification data sets."""
 
-    def get_examples(self, data_path, set_type):
+    def get_examples(self, data_path, set_type, quotechar=' '):
         """See base class."""
         return self._create_examples(
-            self._read_tsv(data_path), set_type)
+            self._read_tsv(data_path, self.get_quotechar()), set_type)
 
     def _create_examples(self, lines, set_type):
         examples = []
@@ -250,6 +249,9 @@ class DataProcessor(object):
     def get_labels(self):
         """Gets the list of labels for this data set."""
         raise NotImplementedError()
+
+    def get_quotechar(self):
+        return ' '
 
     @classmethod
     def _read_tsv(cls, input_file, quotechar=None):
@@ -269,7 +271,7 @@ class DataProcessor(object):
                     sentence = []
                     label = []
                 continue
-            splits = line.split(' ')
+            splits = line.split(quotechar)
             sentence.append(splits[0])
             label.append(splits[-1][:-1])
 
@@ -307,6 +309,43 @@ class WeiboProcessor(DataProcessor):
                 'E-PER.NAM', 'E-PER.NOM', 'M-GPE.NAM', 'M-LOC.NAM', 'M-LOC.NOM',
                 'M-ORG.NAM', 'M-ORG.NOM', 'M-PER.NAM', 'M-PER.NOM', 'O',
                 'S-GPE.NAM', 'S-LOC.NOM', 'S-PER.NAM', 'S-PER.NOM', '[CLS]', '[SEP]']
+
+
+class ResumeProcessor(DataProcessor):
+    """Processor for the resume data set."""
+
+    def get_labels(self):
+        return ['B-CONT', 'B-EDU', 'B-LOC', 'B-NAME', 'B-ORG', 'B-PRO',
+                'B-RACE', 'B-TITLE', 'E-CONT', 'E-EDU', 'E-LOC', 'E-NAME',
+                'E-ORG', 'E-PRO', 'E-RACE', 'E-TITLE', 'M-CONT', 'M-EDU',
+                'M-LOC', 'M-NAME', 'M-ORG', 'M-PRO', 'M-RACE', 'M-TITLE',
+                'O', 'S-NAME', 'S-ORG', 'S-RACE', '[CLS]', '[SEP]']
+
+
+class CMeEEProcessor(DataProcessor):
+    """Processor for the CMeEE data set."""
+
+    def get_quotechar(self):
+        return '\t'
+
+    def get_labels(self):
+        return ['B-临床表现', 'B-医学检验项目', 'B-医疗程序', 'B-医疗设备',
+                'B-微生物类', 'B-疾病', 'B-科室', 'B-药物', 'B-身体', 'I-临床表现',
+                'I-医学检验项目', 'I-医疗程序', 'I-医疗设备', 'I-微生物类',
+                'I-疾病', 'I-科室', 'I-药物', 'I-身体', 'O', '[CLS]', '[SEP]']
+
+
+class CLUENERProcessor(DataProcessor):
+    """Processor for the CLUENER data set."""
+
+    def get_quotechar(self):
+        return '\t'
+
+    def get_labels(self):
+        return ['B-书名', 'B-公司', 'B-地址', 'B-姓名', 'B-政府', 'B-景点',
+                'B-游戏', 'B-电影', 'B-组织机构', 'B-职位', 'I-书名', 'I-公司',
+                'I-地址', 'I-姓名', 'I-政府', 'I-景点', 'I-游戏', 'I-电影',
+                'I-组织机构', 'I-职位', 'O', '[CLS]', '[SEP]']
 
 
 class TaskDataset(Dataset):
@@ -410,8 +449,11 @@ class TaskDataModel(pl.LightningDataModule):
 
         processors = {
             'weibo': WeiboProcessor,
-            'ontonotes4': OntoNotes4Processor,
+            'resume': ResumeProcessor,
             'msra': MSRAProcessor,
+            'ontonotes4': OntoNotes4Processor,
+            'cmeee': CMeEEProcessor,
+            'cluener': CLUENERProcessor,
         }
         if args.task_name not in processors:
             raise ValueError("Task not found: %s" % (args.task_name))
@@ -463,8 +505,8 @@ class LitModel(pl.LightningModule):
 
     def __init__(self, args, id2label):
         super().__init__()
-        config = ZenConfig(os.path.join(args.pretrained_model_path, 'config.json'))
-        self.model = ZenForTokenClassification(config, len(id2label))
+        # config = ZenConfig(os.path.join(args.pretrained_model_path, 'config.json'))
+        self.model = ZenForTokenClassification.from_pretrained(args.pretrained_model_path, num_labels=len(id2label))
         self.seq_entity_score = SeqEntityScore(id2label, markup=args.markup, middle_prefix=args.middle_prefix)
         self.train_seq_entity_score = SeqEntityScore(id2label, markup=args.markup, middle_prefix=args.middle_prefix)
         self.id2label = id2label
@@ -490,38 +532,33 @@ class LitModel(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         outputs = self.model(**batch)
         loss = outputs.loss
-        logits = outputs.logits
-        preds = torch.argmax(F.log_softmax(logits, dim=2), dim=2)
-        preds = preds.detach().cpu().numpy()
-        labels = batch['labels'].detach().cpu().numpy()
-        num_labels = len(self.label2id)
-        y_true = []
-        y_pred = []
-        for i, label in enumerate(labels):
-            temp_1 = []
-            temp_2 = []
-            for j, m in enumerate(label):
-                if j == 0:
-                    continue
-                elif labels[i][j] == num_labels - 1:
-                    y_true.append(temp_1)
-                    y_pred.append(temp_2)
-                    break
-                else:
-                    temp_1.append(self.id2label[labels[i][j]])
-                    temp_2.append(self.id2label[preds[i][j]])
+        # logits = outputs.logits
+        # preds = torch.argmax(F.log_softmax(logits, dim=2), dim=2)
+        # preds = preds.detach().cpu().numpy()
+        # labels = batch['labels'].detach().cpu().numpy()
+        # num_labels = len(self.label2id)
+        # y_true = []
+        # y_pred = []
+        # for i, label in enumerate(labels):
+        #     temp_1 = []
+        #     temp_2 = []
+        #     for j, m in enumerate(label):
+        #         if j == 0:
+        #             continue
+        #         elif labels[i][j] == num_labels - 1:
+        #             y_true.append(temp_1)
+        #             y_pred.append(temp_2)
+        #             break
+        #         else:
+        #             temp_1.append(self.id2label[labels[i][j]])
+        #             temp_2.append(self.id2label[preds[i][j]])
 
-        self.train_seq_entity_score.update(y_true, y_pred)
-        result = self.train_seq_entity_score.result()
-        self.train_seq_entity_score.reset()
-        print(result)
+        # self.train_seq_entity_score.update(y_true, y_pred)
+        # result = self.train_seq_entity_score.result()
+        # self.train_seq_entity_score.reset()
         self.log('train_loss', loss)
 
         return loss
-
-    # def comput_metrix(self, logits, labels):
-
-    #     return acc
 
     def validation_step(self, batch, batch_idx):
         outputs = self.model(**batch)
