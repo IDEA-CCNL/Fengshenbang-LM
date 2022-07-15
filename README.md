@@ -119,7 +119,10 @@ sh finetune_classification.sh
 
 [封神榜系列：finetune一下二郎神就不小心拿下了第一](https://zhuanlan.zhihu.com/p/539870077)
 
+[封神榜系列之快速搭建你的算法demo](https://zhuanlan.zhihu.com/p/528077249)
+
 [2022AIWIN世界人工智能创新大赛：小样本多任务赛道冠军方案](https://zhuanlan.zhihu.com/p/539958182)
+
 
 # 引用
 ```
