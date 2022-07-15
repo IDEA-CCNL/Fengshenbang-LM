@@ -300,8 +300,10 @@ class UbertModel(BertPreTrainedModel):
         if span_labels == None:
             return 0, span_logits
         else:
-            soft_loss1 = self.loss_softmax(span_logits.reshape(-1,num_label,seq_len*seq_len), span_labels.reshape(-1,num_label,seq_len*seq_len))
-            soft_loss2 = self.loss_softmax(span_logits.permute(0,2,3,1), span_labels.permute(0,2,3,1))
+            soft_loss1 = self.loss_softmax(
+                span_logits.reshape(-1, num_label, seq_len*seq_len), span_labels.reshape(-1, num_label, seq_len*seq_len))
+            soft_loss2 = self.loss_softmax(span_logits.permute(
+                0, 2, 3, 1), span_labels.permute(0, 2, 3, 1))
             sig_loss = self.loss_sigmoid(span_logits, span_labels)
             all_loss = 10*(100*sig_loss+soft_loss1+soft_loss2)
             return all_loss, span_logits
