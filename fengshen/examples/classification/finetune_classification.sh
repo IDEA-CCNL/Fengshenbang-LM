@@ -23,7 +23,7 @@ DATA_ARGS="\
         --data_dir $DATA_DIR \
         --train_data train.json \
         --valid_data dev.json \
-        --test_data test.json \
+        --test_data test1.1.json \
         --train_batchsize 32 \
         --valid_batchsize 128 \
         --max_length 128 \
@@ -35,7 +35,6 @@ DATA_ARGS="\
 MODEL_ARGS="\
         --learning_rate 0.00002 \
         --weight_decay 0.1 \
-        --warmup 0.001 \
         --num_labels 15 \
         "
 
@@ -69,7 +68,7 @@ options=" \
         "
 
 DOCKER_PATH=/$ROOT_PATH/yangping/containers/pytorch21_06_py3_docker_image.sif
-SCRIPT_PATH=/$ROOT_PATH/yangping/nlp/Fengshenbang-LM/fengshen/examples/finetune_classification.py
+SCRIPT_PATH=/$ROOT_PATH/yangping/nlp/Fengshenbang-LM/fengshen/examples/classification/finetune_classification.py
 
 python3 $SCRIPT_PATH $options
 # singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $DOCKER_PATH python3 $SCRIPT_PATH $options
