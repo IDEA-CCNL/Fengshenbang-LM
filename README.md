@@ -136,7 +136,7 @@ sh finetune_classification.sh
 }
 ```
 # 联系我们
-IDEA研究院CCNL技术团队已创建封神榜开源讨论群，我们将在讨论群中不定期更新发布封神榜新模型与系列文章。请扫描下面二维码或者微信搜索“wxid_2qjw79580xsh22”，添加封神空间小助手进群交流！
+IDEA研究院CCNL技术团队已创建封神榜开源讨论群，我们将在讨论群中不定期更新发布封神榜新模型与系列文章。请扫描下面二维码或者微信搜索“fengshenbang-lm”，添加封神空间小助手进群交流！
 
 ![avartar](pics/wechat_icon.png)
 
