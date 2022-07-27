@@ -36,50 +36,25 @@
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 import copy
-import json
 import logging
 import math
 import os
 import sys
-from io import open
 
 import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss
+from transformers import PreTrainedModel
 
-from .file_utils import cached_path, WEIGHTS_NAME, CONFIG_NAME
+from .configuration_zen1 import ZenConfig
 
 logger = logging.getLogger(__name__)
 
 PRETRAINED_MODEL_ARCHIVE_MAP = {
-    'bert-base-uncased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-uncased-pytorch_model.bin",
-    'bert-large-uncased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-uncased-pytorch_model.bin",
-    'bert-base-cased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-cased-pytorch_model.bin",
-    'bert-large-cased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-cased-pytorch_model.bin",
-    'bert-base-multilingual-uncased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-multilingual-uncased-pytorch_model.bin",
-    'bert-base-multilingual-cased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-multilingual-cased-pytorch_model.bin",
-    'bert-base-chinese': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-chinese-pytorch_model.bin",
-    'bert-base-german-cased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-german-cased-pytorch_model.bin",
-    'bert-large-uncased-whole-word-masking': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-uncased-whole-word-masking-pytorch_model.bin",
-    'bert-large-cased-whole-word-masking': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-cased-whole-word-masking-pytorch_model.bin",
-    'bert-large-uncased-whole-word-masking-finetuned-squad': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-uncased-whole-word-masking-finetuned-squad-pytorch_model.bin",
-    'bert-large-cased-whole-word-masking-finetuned-squad': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-cased-whole-word-masking-finetuned-squad-pytorch_model.bin",
-    'bert-base-cased-finetuned-mrpc': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-cased-finetuned-mrpc-pytorch_model.bin",
+    'IDEA-CCNL/Erlangshen-ZEN1-224M-Chinese': 'https://huggingface.co/IDEA-CCNL/Erlangshen-ZEN1-224M-Chinese/resolve/main/pytorch_model.bin',
 }
 PRETRAINED_CONFIG_ARCHIVE_MAP = {
-    'bert-base-uncased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-uncased-config.json",
-    'bert-large-uncased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-uncased-config.json",
-    'bert-base-cased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-cased-config.json",
-    'bert-large-cased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-cased-config.json",
-    'bert-base-multilingual-uncased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-multilingual-uncased-config.json",
-    'bert-base-multilingual-cased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-multilingual-cased-config.json",
-    'bert-base-chinese': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-chinese-config.json",
-    'bert-base-german-cased': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-german-cased-config.json",
-    'bert-large-uncased-whole-word-masking': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-uncased-whole-word-masking-config.json",
-    'bert-large-cased-whole-word-masking': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-cased-whole-word-masking-config.json",
-    'bert-large-uncased-whole-word-masking-finetuned-squad': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-uncased-whole-word-masking-finetuned-squad-config.json",
-    'bert-large-cased-whole-word-masking-finetuned-squad': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-cased-whole-word-masking-finetuned-squad-config.json",
-    'bert-base-cased-finetuned-mrpc': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-cased-finetuned-mrpc-config.json",
+    'IDEA-CCNL/Erlangshen-ZEN1-224M-Chinese': 'https://huggingface.co/IDEA-CCNL/Erlangshen-ZEN1-224M-Chinese/resolve/main/config.json',
 }
 BERT_CONFIG_NAME = 'bert_config.json'
 TF_WEIGHTS_NAME = 'model.ckpt'
@@ -191,111 +166,6 @@ def swish(x):
 
 
 ACT2FN = {"gelu": gelu, "relu": torch.nn.functional.relu, "swish": swish}
-
-
-class ZenConfig(object):
-
-    """Configuration class to store the configuration of a `ZenModel`.
-    """
-
-    def __init__(self,
-                 vocab_size_or_config_json_file,
-                 word_vocab_size,
-                 hidden_size=768,
-                 num_hidden_layers=12,
-                 num_attention_heads=12,
-                 intermediate_size=3072,
-                 hidden_act="gelu",
-                 hidden_dropout_prob=0.1,
-                 attention_probs_dropout_prob=0.1,
-                 max_position_embeddings=512,
-                 type_vocab_size=2,
-                 initializer_range=0.02,
-                 layer_norm_eps=1e-12,
-                 num_hidden_word_layers=6):
-        """Constructs ZenConfig.
-
-        Args:
-            vocab_size_or_config_json_file: Vocabulary size of `inputs_ids` in `BertModel`.
-            hidden_size: Size of the encoder layers and the pooler layer.
-            num_hidden_layers: Number of hidden layers in the Transformer encoder.
-            num_attention_heads: Number of attention heads for each attention layer in
-                the Transformer encoder.
-            intermediate_size: The size of the "intermediate" (i.e., feed-forward)
-                layer in the Transformer encoder.
-            hidden_act: The non-linear activation function (function or string) in the
-                encoder and pooler. If string, "gelu", "relu" and "swish" are supported.
-            hidden_dropout_prob: The dropout probabilitiy for all fully connected
-                layers in the embeddings, encoder, and pooler.
-            attention_probs_dropout_prob: The dropout ratio for the attention
-                probabilities.
-            max_position_embeddings: The maximum sequence length that this model might
-                ever be used with. Typically set this to something large just in case
-                (e.g., 512 or 1024 or 2048).
-            type_vocab_size: The vocabulary size of the `token_type_ids` passed into
-                `BertModel`.
-            initializer_range: The sttdev of the truncated_normal_initializer for
-                initializing all weight matrices.
-            layer_norm_eps: The epsilon used by LayerNorm.
-        """
-        # if isinstance(vocab_size_or_config_json_file, str) or (sys.version_info[0] == 2
-        #                                                        and isinstance(vocab_size_or_config_json_file, unicode)):
-        if isinstance(vocab_size_or_config_json_file, str) or (sys.version_info[0] == 2):
-            with open(vocab_size_or_config_json_file, "r", encoding='utf-8') as reader:
-                json_config = json.loads(reader.read())
-            for key, value in json_config.items():
-                self.__dict__[key] = value
-                self.word_size = word_vocab_size
-        elif isinstance(vocab_size_or_config_json_file, int):
-            self.vocab_size = vocab_size_or_config_json_file
-            self.word_size = word_vocab_size
-            self.hidden_size = hidden_size
-            self.num_hidden_layers = num_hidden_layers
-            self.num_attention_heads = num_attention_heads
-            self.hidden_act = hidden_act
-            self.intermediate_size = intermediate_size
-            self.hidden_dropout_prob = hidden_dropout_prob
-            self.attention_probs_dropout_prob = attention_probs_dropout_prob
-            self.max_position_embeddings = max_position_embeddings
-            self.type_vocab_size = type_vocab_size
-            self.initializer_range = initializer_range
-            self.layer_norm_eps = layer_norm_eps
-            self.num_hidden_word_layers = num_hidden_word_layers
-        else:
-            raise ValueError("First argument must be either a vocabulary size (int)"
-                             "or the path to a pretrained model config file (str)")
-
-    @classmethod
-    def from_dict(cls, json_object):
-        """Constructs a `BertConfig` from a Python dictionary of parameters."""
-        config = ZenConfig(vocab_size_or_config_json_file=-1, word_vocab_size=104089)
-        for key, value in json_object.items():
-            config.__dict__[key] = value
-        return config
-
-    @classmethod
-    def from_json_file(cls, json_file):
-        """Constructs a `BertConfig` from a json file of parameters."""
-        with open(json_file, "r", encoding='utf-8') as reader:
-            text = reader.read()
-        return cls.from_dict(json.loads(text))
-
-    def __repr__(self):
-        return str(self.to_json_string())
-
-    def to_dict(self):
-        """Serializes this instance to a Python dictionary."""
-        output = copy.deepcopy(self.__dict__)
-        return output
-
-    def to_json_string(self):
-        """Serializes this instance to a JSON string."""
-        return json.dumps(self.to_dict(), indent=2, sort_keys=True) + "\n"
-
-    def to_json_file(self, json_file_path):
-        """ Save this instance to a json file."""
-        with open(json_file_path, "w", encoding='utf-8') as writer:
-            writer.write(self.to_json_string())
 
 
 try:
@@ -663,183 +533,32 @@ class ZenPreTrainingHeads(nn.Module):
         return prediction_scores, seq_relationship_score
 
 
-class ZenPreTrainedModel(nn.Module):
+class ZenPreTrainedModel(PreTrainedModel):
     """ An abstract class to handle weights initialization and
         a simple interface for dowloading and loading pretrained models.
     """
+    config_class = ZenConfig
+    base_model_prefix = "IDEA-CCNL/Erlangshen-ZEN1-224M-Chinese"
+    supports_gradient_checkpointing = True
+    _keys_to_ignore_on_load_missing = [r"position_ids"]
 
-    def __init__(self, config, *inputs, **kwargs):
-        super(ZenPreTrainedModel, self).__init__()
-        if not isinstance(config, ZenConfig):
-            raise ValueError(
-                "Parameter config in `{}(config)` should be an instance of class `BertConfig`. "
-                "To create a model from a Google pretrained model use "
-                "`model = {}.from_pretrained(PRETRAINED_MODEL_NAME)`".format(
-                    self.__class__.__name__, self.__class__.__name__
-                ))
-        self.config = config
-
-    def init_bert_weights(self, module):
-        """ Initialize the weights.
-        """
-        if isinstance(module, (nn.Linear, nn.Embedding)):
+    def _init_weights(self, module):
+        """Initialize the weights"""
+        if isinstance(module, nn.Linear):
             # Slightly different from the TF version which uses truncated_normal for initialization
             # cf https://github.com/pytorch/pytorch/pull/5617
-            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
-        elif isinstance(module, BertLayerNorm):
+            module.weight.data.normal_(
+                mean=0.0, std=self.config.initializer_range)
+            if module.bias is not None:
+                module.bias.data.zero_()
+        elif isinstance(module, nn.Embedding):
+            module.weight.data.normal_(
+                mean=0.0, std=self.config.initializer_range)
+            if module.padding_idx is not None:
+                module.weight.data[module.padding_idx].zero_()
+        elif isinstance(module, nn.LayerNorm):
             module.bias.data.zero_()
             module.weight.data.fill_(1.0)
-        if isinstance(module, nn.Linear) and module.bias is not None:
-            module.bias.data.zero_()
-
-    @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path, *inputs, **kwargs):
-        """
-        Instantiate a BertPreTrainedModel from a pre-trained model file or a pytorch state dict.
-        Download and cache the pre-trained model file if needed.
-
-        Params:
-            pretrained_model_name_or_path: either:
-                - a str with the name of a pre-trained model to load selected in the list of:
-                    . `bert-base-uncased`
-                    . `bert-large-uncased`
-                    . `bert-base-cased`
-                    . `bert-large-cased`
-                    . `bert-base-multilingual-uncased`
-                    . `bert-base-multilingual-cased`
-                    . `bert-base-chinese`
-                    . `bert-base-german-cased`
-                    . `bert-large-uncased-whole-word-masking`
-                    . `bert-large-cased-whole-word-masking`
-                - a path or url to a pretrained model archive containing:
-                    . `bert_config.json` a configuration file for the model
-                    . `pytorch_model.bin` a PyTorch dump of a BertForPreTraining instance
-                - a path or url to a pretrained model archive containing:
-                    . `bert_config.json` a configuration file for the model
-                    . `model.chkpt` a TensorFlow checkpoint
-            from_tf: should we load the weights from a locally saved TensorFlow checkpoint
-            cache_dir: an optional path to a folder in which the pre-trained models will be cached.
-            state_dict: an optional state dictionnary (collections.OrderedDict object) to use instead of Google pre-trained models
-            *inputs, **kwargs: additional input for the specific Bert class
-                (ex: num_labels for BertForSequenceClassification)
-        """
-        state_dict = kwargs.get('state_dict', None)
-        kwargs.pop('state_dict', None)
-        cache_dir = kwargs.get('cache_dir', None)
-        kwargs.pop('cache_dir', None)
-        from_tf = kwargs.get('from_tf', False)
-        kwargs.pop('from_tf', None)
-        multift = kwargs.get("multift", False)
-        kwargs.pop('multift', None)
-
-        if pretrained_model_name_or_path in PRETRAINED_MODEL_ARCHIVE_MAP:
-            archive_file = PRETRAINED_MODEL_ARCHIVE_MAP[pretrained_model_name_or_path]
-            config_file = PRETRAINED_CONFIG_ARCHIVE_MAP[pretrained_model_name_or_path]
-        else:
-            if from_tf:
-                # Directly load from a TensorFlow checkpoint
-                archive_file = os.path.join(pretrained_model_name_or_path, TF_WEIGHTS_NAME)
-                config_file = os.path.join(pretrained_model_name_or_path, BERT_CONFIG_NAME)
-            else:
-                archive_file = os.path.join(pretrained_model_name_or_path, WEIGHTS_NAME)
-                config_file = os.path.join(pretrained_model_name_or_path, CONFIG_NAME)
-        # redirect to the cache, if necessary
-        try:
-            resolved_archive_file = cached_path(archive_file, cache_dir=cache_dir)
-        except EnvironmentError:
-            if pretrained_model_name_or_path in PRETRAINED_MODEL_ARCHIVE_MAP:
-                logger.error(
-                    "Couldn't reach server at '{}' to download pretrained weights.".format(
-                        archive_file))
-            else:
-                logger.error(
-                    "Model name '{}' was not found in model name list ({}). "
-                    "We assumed '{}' was a path or url but couldn't find any file "
-                    "associated to this path or url.".format(
-                        pretrained_model_name_or_path,
-                        ', '.join(PRETRAINED_MODEL_ARCHIVE_MAP.keys()),
-                        archive_file))
-            return None
-        try:
-            resolved_config_file = cached_path(config_file, cache_dir=cache_dir)
-        except EnvironmentError:
-            if pretrained_model_name_or_path in PRETRAINED_CONFIG_ARCHIVE_MAP:
-                logger.error(
-                    "Couldn't reach server at '{}' to download pretrained model configuration file.".format(
-                        config_file))
-            else:
-                logger.error(
-                    "Model name '{}' was not found in model name list ({}). "
-                    "We assumed '{}' was a path or url but couldn't find any file "
-                    "associated to this path or url.".format(
-                        pretrained_model_name_or_path,
-                        ', '.join(PRETRAINED_CONFIG_ARCHIVE_MAP.keys()),
-                        config_file))
-            return None
-        if resolved_archive_file == archive_file and resolved_config_file == config_file:
-            logger.info("loading weights file {}".format(archive_file))
-            logger.info("loading configuration file {}".format(config_file))
-        else:
-            logger.info("loading weights file {} from cache at {}".format(
-                archive_file, resolved_archive_file))
-            logger.info("loading configuration file {} from cache at {}".format(
-                config_file, resolved_config_file))
-        # Load config
-        config = ZenConfig.from_json_file(resolved_config_file)
-        logger.info("Model config {}".format(config))
-        # Instantiate model.
-        model = cls(config, *inputs, **kwargs)
-        if state_dict is None and not from_tf:
-            state_dict = torch.load(resolved_archive_file, map_location='cpu')
-        # Load from a PyTorch state_dict
-        old_keys = []
-        new_keys = []
-        for key in state_dict.keys():
-            new_key = None
-            if 'gamma' in key:
-                new_key = key.replace('gamma', 'weight')
-            if 'beta' in key:
-                new_key = key.replace('beta', 'bias')
-            if new_key:
-                old_keys.append(key)
-                new_keys.append(new_key)
-        if multift:
-            state_dict.pop("classifier.weight")
-            state_dict.pop("classifier.bias")
-        for old_key, new_key in zip(old_keys, new_keys):
-            state_dict[new_key] = state_dict.pop(old_key)
-
-        missing_keys = []
-        unexpected_keys = []
-        error_msgs = []
-        # copy state_dict so _load_from_state_dict can modify it
-        metadata = getattr(state_dict, '_metadata', None)
-        state_dict = state_dict.copy()
-        if metadata is not None:
-            state_dict._metadata = metadata
-
-        def load(module, prefix=''):
-            local_metadata = {} if metadata is None else metadata.get(prefix[:-1], {})
-            module._load_from_state_dict(
-                state_dict, prefix, local_metadata, True, missing_keys, unexpected_keys, error_msgs)
-            for name, child in module._modules.items():
-                if child is not None:
-                    load(child, prefix + name + '.')
-
-        start_prefix = ''
-        if not hasattr(model, 'bert') and any(s.startswith('bert.') for s in state_dict.keys()):
-            start_prefix = 'bert.'
-        load(model, prefix=start_prefix)
-        if len(missing_keys) > 0:
-            logger.info("Weights of {} not initialized from pretrained model: {}".format(
-                model.__class__.__name__, missing_keys))
-        if len(unexpected_keys) > 0:
-            logger.info("Weights from pretrained model not used in {}: {}".format(
-                model.__class__.__name__, unexpected_keys))
-        if len(error_msgs) > 0:
-            raise RuntimeError('Error(s) in loading state_dict for {}:\n\t{}'.format(
-                model.__class__.__name__, "\n\t".join(error_msgs)))
-        return model
 
 
 class ZenModel(ZenPreTrainedModel):
@@ -891,7 +610,7 @@ class ZenModel(ZenPreTrainedModel):
         self.encoder = ZenEncoder(config, output_attentions=output_attentions,
                                   keep_multihead_output=keep_multihead_output)
         self.pooler = BertPooler(config)
-        self.apply(self.init_bert_weights)
+        self.init_weights()
 
     def prune_heads(self, heads_to_prune):
         """ Prunes heads of the model.
@@ -1034,7 +753,7 @@ class ZenForPreTraining(ZenPreTrainedModel):
         self.bert = ZenModel(config, output_attentions=output_attentions,
                              keep_multihead_output=keep_multihead_output)
         self.cls = ZenPreTrainingHeads(config, self.bert.embeddings.word_embeddings.weight)
-        self.apply(self.init_bert_weights)
+        self.init_weights()
 
     def forward(self, input_ids, input_ngram_ids, ngram_position_matrix, token_type_ids=None,
                 ngram_token_type_ids=None,
@@ -1115,7 +834,7 @@ class ZenForMaskedLM(ZenPreTrainedModel):
         self.bert = ZenModel(config, output_attentions=output_attentions,
                              keep_multihead_output=keep_multihead_output)
         self.cls = ZenOnlyMLMHead(config, self.bert.embeddings.word_embeddings.weight)
-        self.apply(self.init_bert_weights)
+        self.init_weights()
 
     def forward(self, input_ids, input_ngram_ids, ngram_position_matrix, token_type_ids=None, attention_mask=None, masked_lm_labels=None, head_mask=None):
         outputs = self.bert(input_ids, input_ngram_ids, ngram_position_matrix, token_type_ids, attention_mask,
@@ -1181,7 +900,7 @@ class ZenForNextSentencePrediction(ZenPreTrainedModel):
         self.bert = ZenModel(config, output_attentions=output_attentions,
                              keep_multihead_output=keep_multihead_output)
         self.cls = ZenOnlyNSPHead(config)
-        self.apply(self.init_bert_weights)
+        self.init_weights()
 
     def forward(self, input_ids, input_ngram_ids, ngram_position_matrix, token_type_ids=None, attention_mask=None, next_sentence_label=None, head_mask=None):
         outputs = self.bert(input_ids, input_ngram_ids, ngram_position_matrix, token_type_ids, attention_mask,
@@ -1243,14 +962,16 @@ class ZenForSequenceClassification(ZenPreTrainedModel):
     """
 
     def __init__(self, config, num_labels=2, output_attentions=False, keep_multihead_output=False):
-        super(ZenForSequenceClassification, self).__init__(config)
+        # super().__init__(config, num_labels, output_attentions, keep_multihead_output)
+        super().__init__(config)
+        self.config = config
         self.output_attentions = output_attentions
-        self.num_labels = num_labels
+        self.num_labels = config.num_labels
         self.bert = ZenModel(config, output_attentions=output_attentions,
                              keep_multihead_output=keep_multihead_output)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.classifier = nn.Linear(config.hidden_size, num_labels)
-        self.apply(self.init_bert_weights)
+        self.classifier = nn.Linear(config.hidden_size, self.num_labels)
+        self.init_weights()
 
     def forward(self, input_ids, input_ngram_ids, ngram_position_matrix, token_type_ids=None, attention_mask=None, labels=None, head_mask=None):
         outputs = self.bert(input_ids, input_ngram_ids, ngram_position_matrix, token_type_ids, attention_mask,
@@ -1263,13 +984,16 @@ class ZenForSequenceClassification(ZenPreTrainedModel):
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
 
+        loss = None
         if labels is not None:
             loss_fct = CrossEntropyLoss()
+            # print('logits***************', logits, labels)
+            # breakpoint()
             loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
-            return loss
+            return loss, logits
         elif self.output_attentions:
             return all_attentions, logits
-        return logits
+        return loss, logits
 
 
 class ZenForTokenClassification(ZenPreTrainedModel):
@@ -1312,14 +1036,14 @@ class ZenForTokenClassification(ZenPreTrainedModel):
     """
 
     def __init__(self, config, num_labels=2, output_attentions=False, keep_multihead_output=False):
-        super(ZenForTokenClassification, self).__init__(config)
+        super().__init__(config)
         self.output_attentions = output_attentions
-        self.num_labels = num_labels
+        self.num_labels = config.num_labels
         self.bert = ZenModel(config, output_attentions=output_attentions,
                              keep_multihead_output=keep_multihead_output)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
-        self.classifier = nn.Linear(config.hidden_size, num_labels)
-        self.apply(self.init_bert_weights)
+        self.classifier = nn.Linear(config.hidden_size, config.num_labels)
+        self.init_weights()
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, labels=None, valid_ids=None,
                 attention_mask_label=None, ngram_ids=None, ngram_positions=None, head_mask=None):
@@ -1344,6 +1068,7 @@ class ZenForTokenClassification(ZenPreTrainedModel):
         sequence_output = self.dropout(valid_output)
         logits = self.classifier(sequence_output)
 
+        loss = None
         if labels is not None:
             loss_fct = CrossEntropyLoss(ignore_index=0)
             # Only keep active parts of the loss
@@ -1355,6 +1080,6 @@ class ZenForTokenClassification(ZenPreTrainedModel):
                 loss = loss_fct(active_logits, active_labels)
             else:
                 loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
-            return loss
+            return loss, logits
         else:
-            return logits
+            return loss, logits

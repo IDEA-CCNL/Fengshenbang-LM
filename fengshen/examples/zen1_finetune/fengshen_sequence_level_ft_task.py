@@ -12,11 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from fengshen.models.zen1.tokenization import BertTokenizer
+from fengshen.models.zen1.modeling import ZenForSequenceClassification
+from fengshen.models.zen1.ngram_utils import ZenNgramDict
 from pytorch_lightning.callbacks import LearningRateMonitor
-from fengshen.models.zen2.tokenization import BertTokenizer
-from fengshen.models.zen2.ngram_utils import ZenNgramDict
-from fengshen.models.zen2.modeling import ZenModel
-from fengshen.models.zen2.modeling import ZenConfig
 import csv
 from dataclasses import dataclass
 import logging
@@ -27,6 +26,7 @@ from tqdm import tqdm
 import json
 import torch
 import pytorch_lightning as pl
+from random import shuffle
 import argparse
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torch.utils.data import Dataset, DataLoader
@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 class InputExample(object):
     """A single training/test example for simple sequence classification."""
 
-    def __init__(self, guid, text_a, text_b=None, label=None, qid=0):
+    def __init__(self, guid, text_a, text_b=None, label=None):
         """Constructs a InputExample.
 
         Args:
@@ -58,28 +58,24 @@ class InputExample(object):
         self.text_a = text_a
         self.text_b = text_b
         self.label = label
-        self.qid = qid
 
 
 class InputFeatures(object):
     """A single set of features of data."""
 
-    def __init__(self, input_ids, input_mask, segment_ids, label_id,
-                 ngram_ids, ngram_starts, ngram_lengths, ngram_tuples, ngram_seg_ids, ngram_masks, ngram_freqs,
-                 qid=-1):
+    def __init__(self, input_ids, input_mask, segment_ids, label_id, ngram_ids, ngram_positions, ngram_lengths,
+                 ngram_tuples, ngram_seg_ids, ngram_masks):
         self.input_ids = input_ids
         self.input_mask = input_mask
         self.segment_ids = segment_ids
         self.label_id = label_id
-        self.qid = qid
 
         self.ngram_ids = ngram_ids
-        self.ngram_starts = ngram_starts
+        self.ngram_positions = ngram_positions
         self.ngram_lengths = ngram_lengths
         self.ngram_tuples = ngram_tuples
         self.ngram_seg_ids = ngram_seg_ids
         self.ngram_masks = ngram_masks
-        self.ngram_freqs = ngram_freqs
 
 
 class DataProcessor(object):
@@ -197,9 +193,11 @@ class IflytekProcessor(DataProcessor):
 def convert_examples_to_features(examples, label_map, max_seq_length, tokenizer, ngram_dict):
     """Loads a data file into a list of `InputBatch`s."""
 
-    # label_map = {label : i for i, label in enumerate(label_list)}
     features = []
     for (ex_index, example) in enumerate(examples):
+        if ex_index % 10000 == 0:
+            logger.info("Writing example %d of %d" % (ex_index, len(examples)))
+
         tokens_a = tokenizer.tokenize(example.text_a)
 
         tokens_b = None
@@ -226,7 +224,7 @@ def convert_examples_to_features(examples, label_map, max_seq_length, tokenizer,
         # sequence or the second sequence. The embedding vectors for `type=0` and
         # `type=1` were learned during pre-training and are added to the wordpiece
         # embedding vector (and position vector). This is not *strictly* necessary
-        # since the [SEP] token unambigiously separates the sequences, but it makes
+        # since the [SEP] token unambiguously separates the sequences, but it makes
         # it easier for the model to learn the concept of sequences.
         #
         # For classification tasks, the first vector (corresponding to [CLS]) is
@@ -255,11 +253,12 @@ def convert_examples_to_features(examples, label_map, max_seq_length, tokenizer,
         assert len(input_mask) == max_seq_length
         assert len(segment_ids) == max_seq_length
 
+        label_id = label_map[example.label]
+
         # ----------- code for ngram BEGIN-----------
         ngram_matches = []
-        #  Filter the word segment from 2 to max_ngram_len to check whether there is a word
-        max_gram_n = ngram_dict.max_ngram_len
-        for p in range(2, max_gram_n):
+        #  Filter the word segment from 2 to 7 to check whether there is a word
+        for p in range(2, 8):
             for q in range(0, len(tokens) - p + 1):
                 character_segment = tokens[q:q + p]
                 # j is the starting position of the word
@@ -267,11 +266,9 @@ def convert_examples_to_features(examples, label_map, max_seq_length, tokenizer,
                 character_segment = tuple(character_segment)
                 if character_segment in ngram_dict.ngram_to_id_dict:
                     ngram_index = ngram_dict.ngram_to_id_dict[character_segment]
-                    ngram_freq = ngram_dict.ngram_to_freq_dict[character_segment]
-                    ngram_matches.append([ngram_index, q, p, character_segment, ngram_freq])
+                    ngram_matches.append([ngram_index, q, p, character_segment])
 
-        # shuffle(ngram_matches)
-        ngram_matches = sorted(ngram_matches, key=lambda s: s[0])
+        shuffle(ngram_matches)
         # max_word_in_seq_proportion = max_word_in_seq
         max_word_in_seq_proportion = math.ceil((len(tokens) / max_seq_length) * ngram_dict.max_ngram_in_seq)
         if len(ngram_matches) > max_word_in_seq_proportion:
@@ -280,54 +277,36 @@ def convert_examples_to_features(examples, label_map, max_seq_length, tokenizer,
         ngram_positions = [ngram[1] for ngram in ngram_matches]
         ngram_lengths = [ngram[2] for ngram in ngram_matches]
         ngram_tuples = [ngram[3] for ngram in ngram_matches]
-        ngram_freqs = [ngram[4] for ngram in ngram_matches]
-        ngram_seg_ids = [0 if position < len([id for id in segment_ids if id == 0]) else 1 for position in
-                         ngram_positions]
+        ngram_seg_ids = [0 if position < (len(tokens_a) + 2) else 1 for position in ngram_positions]
 
         ngram_mask_array = np.zeros(ngram_dict.max_ngram_in_seq, dtype=np.bool)
         ngram_mask_array[:len(ngram_ids)] = 1
 
+        # record the masked positions
+        ngram_positions_matrix = np.zeros(shape=(max_seq_length, ngram_dict.max_ngram_in_seq), dtype=np.int32)
+        for i in range(len(ngram_ids)):
+            ngram_positions_matrix[ngram_positions[i]:ngram_positions[i] + ngram_lengths[i], i] = 1.0
+
         # Zero-pad up to the max word in seq length.
         padding = [0] * (ngram_dict.max_ngram_in_seq - len(ngram_ids))
         ngram_ids += padding
-        ngram_positions += padding
         ngram_lengths += padding
         ngram_seg_ids += padding
-        ngram_freqs += padding
 
         # ----------- code for ngram END-----------
-
         label_id = label_map[example.label] if example.label is not None else 0
-        # if ex_index < 5:
-        #     logger.info("*** Example ***")
-        #     logger.info("guid: %s" % (example.guid))
-        #     logger.info("tokens: %s" % " ".join(
-        #             [str(x) for x in tokens]))
-        #     logger.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
-        #     logger.info("input_mask: %s" % " ".join([str(x) for x in input_mask]))
-        #     logger.info(
-        #             "segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
-        #     logger.info("label: %s (id = %d)" % (example.label, label_id))
-        #     logger.info("ngram_ids: %s" % " ".join([str(x) for x in ngram_ids]))
-        #     logger.info("ngram_positions: %s" % " ".join([str(x) for x in ngram_positions]))
-        #     logger.info("ngram_lengths: %s" % " ".join([str(x) for x in ngram_lengths]))
-        #     logger.info("ngram_tuples: %s" % " ".join([str(x) for x in ngram_tuples]))
-        #     logger.info("ngram_seg_ids: %s" % " ".join([str(x) for x in ngram_seg_ids]))
-        #     logger.info("ngram_freqs: %s" % " ".join([str(x) for x in ngram_freqs]))
-
         features.append(
             InputFeatures(input_ids=input_ids,
                           input_mask=input_mask,
                           segment_ids=segment_ids,
                           label_id=label_id,
                           ngram_ids=ngram_ids,
-                          ngram_starts=ngram_positions,
+                          ngram_positions=ngram_positions_matrix,
                           ngram_lengths=ngram_lengths,
                           ngram_tuples=ngram_tuples,
                           ngram_seg_ids=ngram_seg_ids,
-                          ngram_masks=ngram_mask_array,
-                          ngram_freqs=ngram_freqs,
-                          qid=example.qid))
+                          ngram_masks=ngram_mask_array))
+
     return features
 
 
@@ -383,37 +362,19 @@ class TaskCollator:
         input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
         segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
         label_ids = torch.tensor([f.label_id for f in features], dtype=torch.long)
-        # qids = torch.tensor([f.qid for f in features], dtype=torch.long)
-
         ngram_ids = torch.tensor([f.ngram_ids for f in features], dtype=torch.long)
-        ngram_starts = torch.tensor([f.ngram_starts for f in features], dtype=torch.long)
-        ngram_lengths = torch.tensor([f.ngram_lengths for f in features], dtype=torch.long)
+        ngram_positions = torch.tensor([f.ngram_positions for f in features], dtype=torch.long)
+        # ngram_lengths = torch.tensor([f.ngram_lengths for f in features], dtype=torch.long)
         # ngram_seg_ids = torch.tensor([f.ngram_seg_ids for f in features], dtype=torch.long)
         # ngram_masks = torch.tensor([f.ngram_masks for f in features], dtype=torch.long)
-        ngram_freqs = torch.tensor([f.ngram_freqs for f in features], dtype=torch.long)
-
-        batch_size = len(samples)
-        ngram_positions_matrix = torch.zeros(
-            size=(batch_size, self.args.max_seq_length, self.ngram_dict.max_ngram_in_seq),
-            dtype=torch.int)
-        for batch_id in range(batch_size):
-            ngram_id = ngram_ids[batch_id]
-            ngram_start = ngram_starts[batch_id]
-            ngram_length = ngram_lengths[batch_id]
-            for i in range(len(ngram_id)):
-                ngram_positions_matrix[batch_id][ngram_start[i]:ngram_start[i] + ngram_length[i], i] = ngram_freqs[batch_id][i]
-            ngram_positions_matrix[batch_id] \
-                = torch.div(ngram_positions_matrix[batch_id],
-                            torch.stack([torch.sum(ngram_positions_matrix[batch_id], 1)] *
-                                        ngram_positions_matrix[batch_id].size(1)).t() + 1e-10)
 
         return {
             'input_ids': input_ids,
             'input_ngram_ids': ngram_ids,
-            'ngram_position_matrix': ngram_positions_matrix,
+            'ngram_position_matrix': ngram_positions,
             'attention_mask': input_mask,
             'token_type_ids': segment_ids,
-            'labels': label_ids
+            'labels': label_ids,
 
         }
         # return default_collate(sample_list)
@@ -454,8 +415,8 @@ class TaskDataModel(pl.LightningDataModule):
         self.valid_batchsize = args.valid_batchsize
         self.collator = TaskCollator()
         self.collator.args = args
-        self.collator.tokenizer = BertTokenizer(args.vocab_file, do_lower_case=args.do_lower_case)
-        self.collator.ngram_dict = ZenNgramDict(args.pretrained_model_path, tokenizer=self.collator.tokenizer)
+        self.collator.tokenizer = BertTokenizer.from_pretrained(args.pretrained_model_path, do_lower_case=args.do_lower_case)
+        self.collator.ngram_dict = ZenNgramDict.from_pretrained(args.pretrained_model_path, tokenizer=self.collator.tokenizer)
 
         processors = {
             'afqmc': OcnliProcessor,
@@ -515,32 +476,6 @@ class TaskDataModel(pl.LightningDataModule):
         return label2id, id2label
 
 
-class taskModel(torch.nn.Module):
-    def __init__(self, args):
-        super().__init__()
-        self.loss_func = torch.nn.CrossEntropyLoss()
-        config = ZenConfig(os.path.join(args.pretrained_model_path, 'config.json'))
-        self.bert = ZenModel.from_pretrained(args.pretrained_model_path)
-        self.dropout = torch.nn.Dropout(config.hidden_dropout_prob)
-        self.classifier = torch.nn.Linear(config.hidden_size, args.num_labels)
-
-    def forward(self, input_ids, input_ngram_ids, ngram_position_matrix, token_type_ids=None, attention_mask=None, labels=None, head_mask=None):
-        outputs = self.bert(input_ids, input_ngram_ids,
-                            ngram_position_matrix, token_type_ids,
-                            attention_mask=attention_mask,
-                            output_all_encoded_layers=False,
-                            head_mask=head_mask)
-
-        _, pooled_output = outputs
-        pooled_output = self.dropout(pooled_output)
-        logits = self.classifier(pooled_output)
-        if labels is not None:
-            loss = self.loss_func(logits, labels.view(-1))
-            return loss, logits
-        else:
-            return 0, logits
-
-
 class LitModel(pl.LightningModule):
 
     @staticmethod
@@ -552,7 +487,7 @@ class LitModel(pl.LightningModule):
 
     def __init__(self, args):
         super().__init__()
-        self.model = taskModel(args)
+        self.model = ZenForSequenceClassification.from_pretrained(args.pretrained_model_path, num_labels=args.num_labels)
         self.save_hyperparameters(args)
 
     def setup(self, stage) -> None:

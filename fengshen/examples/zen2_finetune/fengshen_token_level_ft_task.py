@@ -12,10 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from fengshen.models.zen2.ngram_utils import ZenNgramDict
-from fengshen.models.zen2.tokenization import BertTokenizer
-from fengshen.metric.metric import SeqEntityScore
 from fengshen.models.zen2.modeling import ZenForTokenClassification
+from fengshen.metric.metric import SeqEntityScore
+from fengshen.models.zen2.tokenization import BertTokenizer
+from fengshen.models.zen2.ngram_utils import ZenNgramDict
 from pytorch_lightning.callbacks import LearningRateMonitor
 from dataclasses import dataclass
 import logging
@@ -444,8 +444,8 @@ class TaskDataModel(pl.LightningDataModule):
         self.valid_batchsize = args.valid_batchsize
         self.collator = TaskCollator()
         self.collator.args = args
-        self.collator.tokenizer = BertTokenizer(args.vocab_file, do_lower_case=args.do_lower_case)
-        self.collator.ngram_dict = ZenNgramDict(args.pretrained_model_path, tokenizer=self.collator.tokenizer)
+        self.collator.tokenizer = BertTokenizer.from_pretrained(args.pretrained_model_path, do_lower_case=args.do_lower_case)
+        self.collator.ngram_dict = ZenNgramDict.from_pretrained(args.pretrained_model_path, tokenizer=self.collator.tokenizer)
 
         processors = {
             'weibo': WeiboProcessor,

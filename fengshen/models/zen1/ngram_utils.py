@@ -17,9 +17,12 @@
 import os
 import logging
 
+from transformers import cached_path
+
 NGRAM_DICT_NAME = 'ngram.txt'
 
 logger = logging.getLogger(__name__)
+PRETRAINED_VOCAB_ARCHIVE_MAP = {'IDEA-CCNL/Erlangshen-ZEN1-224M-Chinese': 'https://huggingface.co/IDEA-CCNL/Erlangshen-ZEN1-224M-Chinese/resolve/main/ngram.txt'}
 
 
 class ZenNgramDict(object):
@@ -48,6 +51,54 @@ class ZenNgramDict(object):
                 self.ngram_to_freq_dict[ngram] = freq
                 self.id_to_ngram_list.append(tokens)
                 self.ngram_to_id_dict[tokens] = i + 1
+
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name_or_path, cache_dir=None, **kwargs):
+        """
+        Instantiate a PreTrainedBertModel from a pre-trained model file.
+        Download and cache the pre-trained model file if needed.
+        """
+        if pretrained_model_name_or_path in PRETRAINED_VOCAB_ARCHIVE_MAP:
+            ngram_file = PRETRAINED_VOCAB_ARCHIVE_MAP[pretrained_model_name_or_path]
+            if '-cased' in pretrained_model_name_or_path and kwargs.get('do_lower_case', True):
+                logger.warning("The pre-trained model you are loading is a cased model but you have not set "
+                               "`do_lower_case` to False. We are setting `do_lower_case=False` for you but "
+                               "you may want to check this behavior.")
+                kwargs['do_lower_case'] = False
+            elif '-cased' not in pretrained_model_name_or_path and not kwargs.get('do_lower_case', True):
+                logger.warning("The pre-trained model you are loading is an uncased model but you have set "
+                               "`do_lower_case` to False. We are setting `do_lower_case=True` for you "
+                               "but you may want to check this behavior.")
+                kwargs['do_lower_case'] = True
+        else:
+            ngram_file = pretrained_model_name_or_path
+        if os.path.isdir(ngram_file):
+            ngram_file = os.path.join(ngram_file, NGRAM_DICT_NAME)
+        # redirect to the cache, if necessary
+        try:
+            resolved_ngram_file = cached_path(ngram_file, cache_dir=cache_dir)
+        except EnvironmentError:
+            if pretrained_model_name_or_path in PRETRAINED_VOCAB_ARCHIVE_MAP:
+                logger.error(
+                    "Couldn't reach server at '{}' to download vocabulary.".format(
+                        ngram_file))
+            else:
+                logger.error(
+                    "Model name '{}' was not found in model name list ({}). "
+                    "We assumed '{}' was a path or url but couldn't find any file "
+                    "associated to this path or url.".format(
+                        pretrained_model_name_or_path,
+                        ', '.join(PRETRAINED_VOCAB_ARCHIVE_MAP.keys()),
+                        ngram_file))
+            return None
+        if resolved_ngram_file == ngram_file:
+            logger.info("loading vocabulary file {}".format(ngram_file))
+        else:
+            logger.info("loading vocabulary file {} from cache at {}".format(
+                ngram_file, resolved_ngram_file))
+        # Instantiate ngram.
+        ngram_dict = cls(resolved_ngram_file, **kwargs)
+        return ngram_dict
 
     def save(self, ngram_freq_path):
         with open(ngram_freq_path, "w", encoding="utf-8") as fout:

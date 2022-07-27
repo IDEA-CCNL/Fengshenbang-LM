@@ -27,7 +27,8 @@ else
 fi
 
 DATA_DIR=/cognitive_comp/yangping/data/ChineseCLUE_DATA/${TASK}_public/
-PRETRAINED_MODEL_PATH=/cognitive_comp/ganruyi/hf_models/zen/zh_zen_base_2.0
+# PRETRAINED_MODEL_PATH=/cognitive_comp/ganruyi/hf_models/zen/zh_zen_base_2.0
+PRETRAINED_MODEL_PATH=IDEA-CCNL/Erlangshen-ZEN2-345M-Chinese
 
 CHECKPOINT_PATH=${ROOT_DIR}/ckpt/
 OUTPUT_PATH=${ROOT_DIR}/predict.json
@@ -82,7 +83,7 @@ options=" \
         $MODEL_CHECKPOINT_ARGS \
         $TRAINER_ARGS \
 "
-SCRIPT_PATH=/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/models/zen2/fengshen_sequence_level_ft_task.py
+SCRIPT_PATH=/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/examples/zen2_finetune/fengshen_sequence_level_ft_task.py
 /home/ganruyi/anaconda3/bin/python $SCRIPT_PATH $options
 
 # SINGULARITY_PATH=/cognitive_comp/ganruyi/pytorch21_06_py3_docker_image_v2.sif

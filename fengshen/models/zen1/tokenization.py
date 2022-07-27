@@ -27,7 +27,7 @@ import os
 import unicodedata
 from io import open
 
-from .file_utils import cached_path
+from transformers import cached_path
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +45,7 @@ PRETRAINED_VOCAB_ARCHIVE_MAP = {
     'bert-large-uncased-whole-word-masking-finetuned-squad': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-uncased-whole-word-masking-finetuned-squad-vocab.txt",
     'bert-large-cased-whole-word-masking-finetuned-squad': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-large-cased-whole-word-masking-finetuned-squad-vocab.txt",
     'bert-base-cased-finetuned-mrpc': "https://s3.amazonaws.com/models.huggingface.co/bert/bert-base-cased-finetuned-mrpc-vocab.txt",
+    'IDEA-CCNL/Erlangshen-ZEN1-224M-Chinese': 'https://huggingface.co/IDEA-CCNL/Erlangshen-ZEN1-224M-Chinese/resolve/main/vocab.txt',
 }
 PRETRAINED_VOCAB_POSITIONAL_EMBEDDINGS_SIZE_MAP = {
     'bert-base-uncased': 512,

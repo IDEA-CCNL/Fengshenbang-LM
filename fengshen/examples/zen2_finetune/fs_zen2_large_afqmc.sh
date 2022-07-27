@@ -82,7 +82,7 @@ options=" \
         $MODEL_CHECKPOINT_ARGS \
         $TRAINER_ARGS \
 "
-SCRIPT_PATH=/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/models/zen2/fengshen_sequence_level_ft_task.py
+SCRIPT_PATH=/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/examples/zen2_finetune/fengshen_sequence_level_ft_task.py
 /home/ganruyi/anaconda3/bin/python $SCRIPT_PATH $options
 
 # SINGULARITY_PATH=/cognitive_comp/ganruyi/pytorch21_06_py3_docker_image_v2.sif
