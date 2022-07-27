@@ -29,8 +29,6 @@ import pytorch_lightning as pl
 import argparse
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torch.utils.data import Dataset, DataLoader
-import sys
-sys.path.append('../../../')
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt='%m/%d/%Y %H:%M:%S',
