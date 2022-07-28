@@ -39,8 +39,6 @@ from transformers import (
     AutoConfig,
     AutoTokenizer,
 )
-import sys
-sys.path.append('../../../')
 # os.environ["CUDA_VISIBLE_DEVICES"] = '6'
 
 
