@@ -1,33 +1,26 @@
 from cv2 import transform
 import pytorch_lightning as pl
-from transformers import BertTokenizer
 from dataclasses import dataclass
 import os
 import numpy as np
 import torch
-from transformers import CLIPProcessor, CLIPModel, CLIPTokenizer
 import pandas as pd
 from torch.utils.data import Dataset, DataLoader
-from PIL import Image
 import clip
-from transformers import BertTokenizer
-import open_clip
-import PIL
 from cosine_annealing_warmup import CosineAnnealingWarmupRestarts
 from torchvision import transforms as T
 import torch.nn as nn
 import torch.nn.functional as F
-import pytorch_lightning as pl
 import math
 import copy
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 import argparse
-from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
 from PIL import Image
 from torchvision.transforms import Normalize, Compose, RandomResizedCrop, InterpolationMode, ToTensor, Resize, \
     CenterCrop
-from transformers import BertTokenizer, BertForSequenceClassification, CLIPModel
+from transformers import BertTokenizer, BertForSequenceClassification
+from transformers import CLIPProcessor, CLIPModel, CLIPTokenizer
+
 
 class flickr30k_CNA(Dataset):
     def __init__(self, img_root_path='/home/chenweifeng/dataset/mm_data/Flickr30k-CNA/flickr30k/images', \
