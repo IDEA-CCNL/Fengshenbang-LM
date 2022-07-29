@@ -21,15 +21,21 @@ def cut_sent(path):
         with open(path, 'rt', encoding='utf-8') as f:
             for para in tqdm(f):
                 para = json.loads(para)
-                para_ = para['text']
+                para_ = para['text'] + ' '
                 # print('sentence piece......')
-                para_ = re.sub(r'([？]+|[。]+|[！]+|[!]+|[…]+|[\.]{3,})([^”’])', r"\1#####\2", para_)
-                para_ = re.sub(r'([。！？\?][”’])([^，。！？\?])', r'\1#####\2', para_)
+                para_ = re.sub('([？。！\?\!…]+)([^”’]|[”’])', r'\1#####\2', para_)
+                para_ = re.sub('([\.]{3,})([^”’])', r'\1#####\2', para_)
+
+                # 匹配 \1: 句子结束符紧挨’”  \2: 非句子结束符号，被引号包裹的句子
+                para_ = re.sub('([。！？\?\!…][”’])([^，。！？\?\!]|\s)', r'\1#####\2', para_)
+                para_ = re.sub('([\.]{3,}[”’])([^，。！？\?\!]|\s)', r'\1#####\2', para_)
+                para_ = re.sub('([#]{5})([”’])([^，。！？\?\!])', r'\2#####\3', para_)
+                para_ = para_.strip()
                 # 一个512里面多个样本
                 line_ = ''
                 for line in para_.split('#####'):
                     line = line.strip()
-                    if len(line_) < 512:
+                    if len(line_) < 512 and len(line)>0:
                         line_ += line
                     else:
                         w.writelines(json.dumps({'text': line_}, ensure_ascii=False)+'\n')
