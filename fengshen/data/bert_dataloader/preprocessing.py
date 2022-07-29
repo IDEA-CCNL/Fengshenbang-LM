@@ -23,24 +23,30 @@ def cut_sent(path):
                 para = json.loads(para)
                 para_ = para['text'] + ' '
                 # print('sentence piece......')
-                para_ = re.sub('([？。！\?\!…]+)([^”’]|[”’])', r'\1#####\2', para_)
+                para_ = re.sub('([？。！\?\!…]+)([^”’]|[”’])',
+                               r'\1#####\2', para_)
                 para_ = re.sub('([\.]{3,})([^”’])', r'\1#####\2', para_)
 
                 # 匹配 \1: 句子结束符紧挨’”  \2: 非句子结束符号，被引号包裹的句子
-                para_ = re.sub('([。！？\?\!…][”’])([^，。！？\?\!]|\s)', r'\1#####\2', para_)
-                para_ = re.sub('([\.]{3,}[”’])([^，。！？\?\!]|\s)', r'\1#####\2', para_)
-                para_ = re.sub('([#]{5})([”’])([^，。！？\?\!])', r'\2#####\3', para_)
+                para_ = re.sub(
+                    '([。！？\?\!…][”’])([^，。！？\?\!]|\s)', r'\1#####\2', para_)
+                para_ = re.sub(
+                    '([\.]{3,}[”’])([^，。！？\?\!]|\s)', r'\1#####\2', para_)
+                para_ = re.sub(
+                    '([#]{5})([”’])([^，。！？\?\!])', r'\2#####\3', para_)
                 para_ = para_.strip()
                 # 一个512里面多个样本
                 line_ = ''
                 for line in para_.split('#####'):
                     line = line.strip()
-                    if len(line_) < 512 and len(line)>0:
+                    if len(line_) < 512 and len(line) > 0:
                         line_ += line
                     else:
-                        w.writelines(json.dumps({'text': line_}, ensure_ascii=False)+'\n')
+                        w.writelines(json.dumps(
+                            {'text': line_}, ensure_ascii=False)+'\n')
                         line_ = line
-                w.writelines(json.dumps({'text': line_}, ensure_ascii=False)+'\n')
+                w.writelines(json.dumps(
+                    {'text': line_}, ensure_ascii=False)+'\n')
 
 
 def chain_iter(*filenames):
@@ -73,7 +79,8 @@ def processing1():
                   '_split', 'sentence_level.json')), 'wt', encoding='utf-8')
     for doc in tqdm(docs):
         for sentence in doc:
-            writer.writelines(json.dumps({"text": sentence}, ensure_ascii=False)+'\n')
+            writer.writelines(json.dumps(
+                {"text": sentence}, ensure_ascii=False)+'\n')
     pool.close()
     pool.join()
     writer.close()
@@ -86,7 +93,8 @@ if __name__ == '__main__':
     args = Config(num_worker=16)
 
     if not Path(args.data_path.parent, args.data_path.name+'_split').exists():
-        Path(args.data_path.parent, args.data_path.name+'_split').mkdir(parents=True)
+        Path(args.data_path.parent, args.data_path.name +
+             '_split').mkdir(parents=True)
 
     p_ = [str(i) for i in args.data_path.glob('*')]
     # 简单shuffle
