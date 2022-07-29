@@ -27,7 +27,8 @@ import re
 import jieba
 import numpy as np
 
-sys.path.insert(0, '/data0/wuziwei/codes/Fengshenbang-LM/fengshen')
+# 如果没有安装fengshen模块，请把Fengshenbang-LM/fengshen加入到系统环境变量
+sys.path.insert(0, '../../../fengshen')
 
 os.environ["CUDA_VISIBLE_DEVICES"] = '0,1'
 
@@ -110,7 +111,6 @@ class DataCollate(object):
         #     print('labels',labels)
         #     print('decode labels:',self.tokenizer.decode(labels))
         #     print('*'*20)
-        # print('!!!!!!',torch.tensor(input_ids).shape)
         return {
             'input_ids': torch.tensor(input_ids),
             'labels': torch.tensor(batch_labels),
@@ -119,10 +119,10 @@ class DataCollate(object):
         }
 
 
-class MegatronBert(LightningModule):
+class Bert(LightningModule):
     @staticmethod
     def add_module_specific_args(args_parser):
-        parser = args_parser.add_argument_group('MegatronBert')
+        parser = args_parser.add_argument_group('Bert')
         parser.add_argument('--model_path', type=str, default='')
         parser.add_argument('--learning_rate', default=1e-5, type=float)
         parser.add_argument('--weight_decay', default=0.1, type=float)
@@ -179,11 +179,18 @@ class MegatronBert(LightningModule):
         return output.loss
 
     def comput_metrix(self, logits, labels):
+        ones=torch.ones_like(labels)
+        zero=torch.zeros_like(labels)
+        mask=torch.where(labels<0,zero,ones)
+        mask=mask.view(size=(-1,)).float()
+        # y_true=labels.view(size=(-1,)).float()
+
         y_pred = torch.argmax(logits, dim=-1)
         y_pred = y_pred.view(size=(-1,))
         y_true = labels.view(size=(-1,)).float()
         corr = torch.eq(y_pred, y_true)
-        acc = torch.sum(corr.float()) / labels.size()[0]
+        corr=torch.multiply(corr.float(),mask)
+        acc = torch.sum(corr.float()) / torch.sum(mask)
         return acc
 
     def validation_step(self, batch, batch_idx):
@@ -232,7 +239,7 @@ if __name__ == '__main__':
     args_parser = argparse.ArgumentParser()
     args_parser = BertDataModule.add_data_specific_args(args_parser)
     args_parser = Trainer.add_argparse_args(args_parser)
-    args_parser = MegatronBert.add_module_specific_args(args_parser)
+    args_parser = Bert.add_module_specific_args(args_parser)
     args_parser = CustomCKPT.add_argparse_args(args_parser)
     args_parser.add_argument('--deepspeed')
     args_parser.add_argument('--seq_max_length')
@@ -245,7 +252,7 @@ if __name__ == '__main__':
 
     print('data load complete')
 
-    model = MegatronBert(args)
+    model = Bert(args)
     print('model load complete')
 
     lr_monitor = LearningRateMonitor(logging_interval='step')
