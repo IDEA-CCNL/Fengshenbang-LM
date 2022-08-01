@@ -146,7 +146,6 @@ def main():
         trainer = Trainer.from_argparse_args(args,
                                              logger=logger,
                                              callbacks=[checkpoint_callback]
-
                                              )
         trainer.fit(model, data_model)
 
