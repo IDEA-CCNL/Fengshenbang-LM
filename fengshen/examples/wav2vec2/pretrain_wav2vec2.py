@@ -18,7 +18,6 @@ import os
 class Wav2vec2PretrainDataLoader():
     def __init__(self, args, model):
         self.args = args
-        # self.dictionaries = self.load_dictionaries()
         self.load_datasets = {}
         self.wav2vec2_model = model.model
         self.feature_extractor = model.feature_extractor
@@ -35,14 +34,9 @@ class Wav2vec2PretrainDataLoader():
 
     def load_dataset(self, split: str, **kwargs):
         data_path = self.args.data
-
-        # upgrade old task
-        # if not hasattr(self.args, "autoregressive"):
-        #     self.args.autoregressive = not self.args.criterion == "ctc"
-
         manifest_path = os.path.join(data_path, "{}.tsv".format(split))
 
-        self.datasets[split] = datasets.Wav2Vec2Dataset(
+        self.datasets[split] = datasets.Wav2vec2Dataset(
             manifest_path=manifest_path,
             sample_rate=self.args.sample_rate,
             collater_outside=self.collater,
@@ -227,12 +221,7 @@ if __name__ == '__main__':
     args_parser = Wav2vec2Lightning.add_module_specific_args(args_parser)
     args_parser = UniversalCheckpoint.add_argparse_args(args_parser)
     args_parser.add_argument('--ckpt_path', type=str, )
-    # args = args_parser.parse_args("--data /cognitive_comp/zhuojianheng/data/manifest".split())
     args = args_parser.parse_args()
-
-    # data_loader = perpare_data(args)
-    # module = Wav2vec2Lightning(args, loader=data_loader)
-    # print(module)
 
     data_module = UniversalDataModule(
         args=args, tokenizer=None, collate_fn=None)

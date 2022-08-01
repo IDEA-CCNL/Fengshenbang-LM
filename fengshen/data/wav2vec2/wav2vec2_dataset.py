@@ -40,7 +40,7 @@ def add_data_specific_args(parent_args):
     parser.add_argument('--enable_padding', type=bool)
     parser.add_argument('--normalize', type=bool)
     parser.add_argument('--padding', type=str)
-    # parser.add_argument('--criterion', type=str, default = "ctc")
+    parser.add_argument('--datatype', type=str, default="librispeech")
     return parent_args
 
 
@@ -146,7 +146,7 @@ class DataCollatorForWav2Vec2Pretraining:
 # LICENSE file in the root directory of this source tree.
 
 
-class Wav2Vec2Dataset(torch.utils.data.Dataset):
+class Wav2vec2Dataset(torch.utils.data.Dataset):
     def __init__(
         self,
         manifest_path,
@@ -228,7 +228,11 @@ class Wav2Vec2Dataset(torch.utils.data.Dataset):
             assert is_sf_audio_data(byte_data)
             path_or_fp = io.BytesIO(byte_data)
 
-        wav, curr_sample_rate = sf.read(path_or_fp, dtype="float32")
+        if path_or_fp.split(".")[-1] == "npy":
+            wav = np.load(path_or_fp)
+            curr_sample_rate = int((path_or_fp.split("_")[-1]).split(".")[0])
+        else:
+            wav, curr_sample_rate = sf.read(path_or_fp, dtype="float32")
         # feats = torch.from_numpy(wav).float()
         fn_split = os.path.splitext(os.path.basename(fn))[0].split('-')
         result = {
