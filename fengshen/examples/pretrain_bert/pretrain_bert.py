@@ -179,17 +179,17 @@ class Bert(LightningModule):
         return output.loss
 
     def comput_metrix(self, logits, labels):
-        ones=torch.ones_like(labels)
-        zero=torch.zeros_like(labels)
-        mask=torch.where(labels<0,zero,ones)
-        mask=mask.view(size=(-1,)).float()
+        ones = torch.ones_like(labels)
+        zero = torch.zeros_like(labels)
+        mask = torch.where(labels<0, zero, ones)
+        mask = mask.view(size=(-1,)).float()
         # y_true=labels.view(size=(-1,)).float()
 
         y_pred = torch.argmax(logits, dim=-1)
         y_pred = y_pred.view(size=(-1,))
         y_true = labels.view(size=(-1,)).float()
         corr = torch.eq(y_pred, y_true)
-        corr=torch.multiply(corr.float(),mask)
+        corr=torch.multiply(corr.float(), mask)
         acc = torch.sum(corr.float()) / torch.sum(mask)
         return acc
 
