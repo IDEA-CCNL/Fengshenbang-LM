@@ -59,7 +59,7 @@ EOT
 export PL_DEEPSPEED_CONFIG_PATH=$config_json
 export TORCH_EXTENSIONS_DIR=/cognitive_comp/yangqi/torch_extensions
 
-TASK="query"
+TASK="dial"
 DATA_ARGS="\
         --task ${TASK} \
         --datasets_name dusinc_${TASK} \
