@@ -6,9 +6,8 @@
 import argparse
 import os
 import sys
-import io
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Tuple
 
 import torch
 import logging
@@ -18,14 +17,6 @@ from transformers import (
 )
 from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices, _sample_negative_indices
 import numpy as np
-
-from fairseq.data.audio.audio_utils import (
-    parse_path,
-    read_from_stored_zip,
-    is_sf_audio_data,
-)
-from fairseq.data.text_compressor import TextCompressor, TextCompressionLevel
-
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +33,31 @@ def add_data_specific_args(parent_args):
     parser.add_argument('--padding', type=str)
     parser.add_argument('--datatype', type=str, default="librispeech")
     return parent_args
+
+
+def uniform_sample_negatives_indices(
+    features_shape: Tuple,
+    num_groups: int,
+    num_vars: int,
+    num_negatives: int,
+    mask_time_indices: Optional[np.ndarray] = None
+):
+    """
+    Sample `num_negatives` vectors from uniform distribution.
+    output: (B, T, num_negatives, num_codevector_groups)
+    (:, :, :, i) range in [i*num_codevectors_per_group, (i-1)*num_codevectors_per_group)
+    """
+    batch_size, sequence_length = features_shape
+    sampled_negative_indices = np.random.randint(
+        0,
+        num_vars,
+        size=(batch_size, sequence_length, num_negatives, num_groups),
+        dtype=np.int32
+    )
+    for i in range(num_groups):
+        sampled_negative_indices[:, :, :, i] += num_vars*i
+
+    return sampled_negative_indices
 
 
 @dataclass
@@ -96,7 +112,8 @@ class DataCollatorForWav2Vec2Pretraining:
             item["input_values"] = inputs.input_values[0]
             item["input_length"] = len(inputs.input_values[0])
 
-        features = [{"input_values": item["input_values"]} for item in features]
+        features = [{"input_values": item["input_values"]}
+                    for item in features]
 
         batch = self.feature_extractor.pad(
             features,
@@ -108,7 +125,8 @@ class DataCollatorForWav2Vec2Pretraining:
         device = batch["input_values"].device
         batch_size = batch["input_values"].shape[0]
 
-        mask_indices_seq_length = self.model._get_feat_extract_output_lengths(batch["input_values"].shape[-1])
+        mask_indices_seq_length = self.model._get_feat_extract_output_lengths(
+            batch["input_values"].shape[-1])
         # make sure masked sequence length is a Python scalar
         mask_indices_seq_length = int(mask_indices_seq_length)
 
@@ -130,13 +148,24 @@ class DataCollatorForWav2Vec2Pretraining:
         )
 
         # sample negative indices
-        sampled_negative_indices = _sample_negative_indices(
-            features_shape,
-            self.model.config.num_negatives,
-            mask_time_indices=mask_time_indices,
-        )
-        batch["mask_time_indices"] = torch.tensor(mask_time_indices, dtype=torch.long, device=device)
-        batch["sampled_negative_indices"] = torch.tensor(sampled_negative_indices, dtype=torch.long, device=device)
+        if self.args.sample_way == "data":
+            sampled_negative_indices = _sample_negative_indices(
+                features_shape,
+                self.model.config.num_negatives,
+                mask_time_indices=mask_time_indices,
+            )
+        else:
+            sampled_negative_indices = uniform_sample_negatives_indices(
+                features_shape=features_shape,
+                num_groups=self.model.config.num_codevector_groups,
+                num_vars=self.model.config.num_codevectors_per_group,
+                num_negatives=self.model.config.num_negatives,
+                mask_time_indices=mask_time_indices,
+            )
+        batch["mask_time_indices"] = torch.tensor(
+            mask_time_indices, dtype=torch.long, device=device)
+        batch["sampled_negative_indices"] = torch.tensor(
+            sampled_negative_indices, dtype=torch.long, device=device)
 
         return batch
 
@@ -151,16 +180,25 @@ class Wav2vec2Dataset(torch.utils.data.Dataset):
         self,
         manifest_path,
         sample_rate,
-        collater_outside,
+        model: Wav2Vec2ForPreTraining,
+        args: argparse.Namespace,
+        feature_extractor: Wav2Vec2FeatureExtractor,
+        padding: Union[bool, str] = "longest",
+        pad_to_multiple_of: Optional[int] = None,
         max_sample_size=None,
         min_sample_size=0,
         shuffle=True,
         pad=False,
         normalize=False,
-        text_compression_level=TextCompressionLevel.none,
     ):
         super().__init__()
-        self.collater_outside = collater_outside
+        self.collater_outside = DataCollatorForWav2Vec2Pretraining(
+            model=model,
+            args=args,
+            feature_extractor=feature_extractor,
+            padding=padding,
+            pad_to_multiple_of=pad_to_multiple_of
+        )
         self.sample_rate = sample_rate
         self.sizes = []
         self.max_sample_size = (
@@ -175,7 +213,6 @@ class Wav2vec2Dataset(torch.utils.data.Dataset):
         self.texts = []
         sizes = []
         self.skipped_indices = set()
-        self.text_compressor = TextCompressor(level=text_compression_level)
         with open(manifest_path, "r") as f:
             self.root_dir = f.readline().strip()
             for i, line in enumerate(f):
@@ -186,7 +223,7 @@ class Wav2vec2Dataset(torch.utils.data.Dataset):
                     skipped += 1
                     self.skipped_indices.add(i)
                     continue
-                self.fnames.append(self.text_compressor.compress(items[0]))
+                self.fnames.append(items[0].encode())
                 sizes.append(sz)
         logger.info(f"loaded {len(self.fnames)}, skipped {skipped} samples")
 
@@ -220,32 +257,38 @@ class Wav2vec2Dataset(torch.utils.data.Dataset):
         import soundfile as sf
         fn = self.fnames[index]
         fn = fn if isinstance(self.fnames, list) else fn.as_py()
-        fn = self.text_compressor.decompress(fn)
+        fn = fn.decode()
+
         path_or_fp = os.path.join(self.root_dir, fn)
-        _path, slice_ptr = parse_path(path_or_fp)
-        if len(slice_ptr) == 2:
-            byte_data = read_from_stored_zip(_path, slice_ptr[0], slice_ptr[1])
-            assert is_sf_audio_data(byte_data)
-            path_or_fp = io.BytesIO(byte_data)
 
         if path_or_fp.split(".")[-1] == "npy":
             wav = np.load(path_or_fp)
             curr_sample_rate = int((path_or_fp.split("_")[-1]).split(".")[0])
+            fn_split = os.path.splitext(os.path.basename(fn))[0].split('-')
+            result = {
+                'file': path_or_fp,
+                'audio': {
+                    'path': path_or_fp,
+                    'array': wav,
+                    'sampling_rate': curr_sample_rate
+                },
+                'id': fn,
+            }
         else:
             wav, curr_sample_rate = sf.read(path_or_fp, dtype="float32")
         # feats = torch.from_numpy(wav).float()
-        fn_split = os.path.splitext(os.path.basename(fn))[0].split('-')
-        result = {
-            'chapter_id': int(fn_split[1]),
-            'file': path_or_fp,
-            'audio': {
-                'path': path_or_fp,
-                'array': wav,
-                'sampling_rate': curr_sample_rate
-            },
-            'id': fn,
-            'speaker_id': int(fn_split[0]),
-        }
+            fn_split = os.path.splitext(os.path.basename(fn))[0].split('-')
+            result = {
+                'chapter_id': int(fn_split[1]),
+                'file': path_or_fp,
+                'audio': {
+                    'path': path_or_fp,
+                    'array': wav,
+                    'sampling_rate': curr_sample_rate
+                },
+                'id': fn,
+                'speaker_id': int(fn_split[0]),
+            }
 
         # feats = self.postprocess(feats, curr_sample_rate)
         return result

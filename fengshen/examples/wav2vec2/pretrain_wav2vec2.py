@@ -1,5 +1,6 @@
-from transformers import Wav2Vec2ForPreTraining, Wav2Vec2FeatureExtractor
+from transformers import Wav2Vec2FeatureExtractor
 from transformers import Wav2Vec2Config
+from modeling_wav2vec import Wav2Vec2ForPreTraining
 
 import fengshen.data.wav2vec2.wav2vec2_dataset as datasets
 from fengshen.data.universal_datamodule import UniversalDataModule
@@ -21,12 +22,6 @@ class Wav2vec2PretrainDataLoader():
         self.load_datasets = {}
         self.wav2vec2_model = model.model
         self.feature_extractor = model.feature_extractor
-        self.collater = datasets.DataCollatorForWav2Vec2Pretraining(
-            model=self.wav2vec2_model,
-            args=args,
-            feature_extractor=self.feature_extractor,
-            pad_to_multiple_of=args.pad_to_multiple_of
-        )
 
     @property
     def datasets(self):
@@ -39,7 +34,9 @@ class Wav2vec2PretrainDataLoader():
         self.datasets[split] = datasets.Wav2vec2Dataset(
             manifest_path=manifest_path,
             sample_rate=self.args.sample_rate,
-            collater_outside=self.collater,
+            model=self.wav2vec2_model,
+            args=self.args,
+            feature_extractor=self.feature_extractor,
             max_sample_size=self.args.max_sample_size,
             min_sample_size=self.args.min_sample_size,
             pad=self.args.labels is not None or self.args.enable_padding,
@@ -91,7 +88,24 @@ class Wav2vec2Lightning(LightningModule):
                 " >= 7.5 (Volta)."
             ),
         )
-
+        parser.add_argument(
+            "--feature_grad_mult",
+            type=float,
+            default=1,
+            help="modified the feature encoder's gradient"
+        )
+        parser.add_argument(
+            "--sample_way",
+            type=str,
+            default="data",
+            help="decide the way to sample negatives"
+        )
+        parser.add_argument(
+            "--num_negatives",
+            type=int,
+            default=100,
+            help="number of negative samples"
+        )
         return parent_parser
 
     def __init__(self, args, ** kwargs) -> None:
@@ -101,16 +115,19 @@ class Wav2vec2Lightning(LightningModule):
         self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(
             args.model_path)
         config = Wav2Vec2Config.from_pretrained(args.model_path)
+        config.feature_grad_mult = args.feature_grad_mult
+        config.sample_way = args.sample_way
+        config.num_negatives = args.num_negatives
         self.config = config
         self.model = Wav2Vec2ForPreTraining(config=config)
+        self.completed_steps = 0
+        # used to update gumbel temperature
+        self.sub_steps = 0
+        # used for accumulate gradient
 
     def setup(self, stage) -> None:
         if stage == 'fit':
             train_loader = self.trainer._data_connector._train_dataloader_source.dataloader()
-            self.completed_steps = 0
-            # used to update gumbel temperature
-            self.sub_steps = 0
-            # used for accumulate gradient
 
             # Calculate total steps
             if self.trainer.max_epochs > 0:
@@ -146,18 +163,7 @@ class Wav2vec2Lightning(LightningModule):
     def training_step(self, batch, batch_idx):
         output = self(**batch)
         num_losses = batch["mask_time_indices"].sum()
-        if self.trainer.accumulate_grad_batches and self.sub_steps % self.trainer.accumulate_grad_batches == 0:
-            gumbel_temperature = max(
-                self.args.max_gumbel_temperature *
-                self.args.gumbel_temperature_decay**self.completed_steps,
-                self.args.min_gumbel_temperature,
-            )
-            if hasattr(self.model, "module"):
-                self.model.module.set_gumbel_temperature(gumbel_temperature)
-            else:
-                self.model.set_gumbel_temperature(gumbel_temperature)
-            self.completed_steps += 1
-        else:
+        if self.trainer.accumulate_grad_batches and (self.sub_steps % self.trainer.accumulate_grad_batches == 0):
             gumbel_temperature = max(
                 self.args.max_gumbel_temperature *
                 self.args.gumbel_temperature_decay**self.completed_steps,
@@ -176,9 +182,14 @@ class Wav2vec2Lightning(LightningModule):
             'div_loss': output.diversity_loss/num_losses
         }
         self.log("train", logs)
-        return {
-            "loss": output.loss/num_losses,
-        }
+        if self.trainer.accumulate_grad_batches:
+            return {
+                "loss": output.loss/num_losses/self.trainer.accumulate_grad_batches,
+            }
+        else:
+            return {
+                "loss": output.loss/num_losses,
+            }
 
     def validation_step(self, batch, batch_idx):
         # print([item for item in batch])
@@ -198,6 +209,8 @@ class Wav2vec2Lightning(LightningModule):
         # Save the current loop info in the mid of epoch
         # if you lightning <= 1.6.0  uncomment the line below
         # checkpoint['loops'] = self.trainer.checkpoint_connector._get_loops_state_dict()
+        checkpoint["sub_steps"] = self.sub_steps
+        checkpoint["completed_steps"] = self.completed_steps
         if self.trainer.global_rank == 0:
             self.model.save_pretrained(os.path.join(
                 self.trainer.checkpoint_callback.dirpath,
@@ -208,6 +221,8 @@ class Wav2vec2Lightning(LightningModule):
         if 'global_samples' in checkpoint:
             self.consumed_samples = checkpoint['global_samples']
         self.trainer.fit_loop.epoch_loop._batches_that_stepped = global_step_offset
+        self.completed_steps = checkpoint["completed_steps"]
+        self.sub_steps = checkpoint["sub_steps"]
 
 
 if __name__ == '__main__':

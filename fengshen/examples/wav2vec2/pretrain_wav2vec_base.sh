@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=pretrain_bart # create a short name for your job
+#SBATCH --job-name=wav2vec2 # create a short name for your job
 #SBATCH --nodes=1 # node count
 #SBATCH --ntasks-per-node=4 # number of tasks to run per node
 #SBATCH --cpus-per-task=30 # cpu-cores per task (>1 if multi-threaded tasks)
@@ -7,7 +7,7 @@
 #SBATCH -o %x-%j.log # output and error log file names (%x for job id)
 #SBATCH -x dgx050
 
-MODEL_NAME=wav2vec2-base-patrick-dev
+MODEL_NAME=wav2vec2-base
 config_json="./$MODEL_NAME.ds_config.json"
 
 export MASTER_PORT=20992
@@ -97,13 +97,13 @@ MODEL_CHECKPOINT_ARGS="\
 TRAINER_ARGS="\
         --gradient_clip_val 1.0 \
         --max_epochs 10 \
-        --gpus 1 \
+        --gpus 4 \
         --num_nodes 1 \
         --strategy deepspeed_stage_${ZERO_STAGE} \
         --log_every_n_steps 100 \
         --val_check_interval 50 \
 	    --limit_val_batches 10 \
-        --accumulate_grad_batches 1 \
+        --accumulate_grad_batches 8 \
         --precision 16 \
         --ckpt_path ${HOME_PATH}/fengshen-${MODEL_NAME}/ckpt/last.ckpt \
         --default_root_dir ${HOME_PATH}/fengshen-${MODEL_NAME}/ \
