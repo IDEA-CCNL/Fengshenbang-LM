@@ -1,4 +1,4 @@
-from data.clip_dataloader.flickr import FlickrDataModule
+from fengshen.data.clip_dataloader.flickr import FlickrDataModule
 import pytorch_lightning as pl
 import numpy as np
 import torch
@@ -9,8 +9,6 @@ import copy
 import argparse
 from transformers import BertForSequenceClassification
 from transformers import CLIPModel
-import sys
-sys.path.append('../../')
 
 
 class CLIPLightning(pl.LightningModule):

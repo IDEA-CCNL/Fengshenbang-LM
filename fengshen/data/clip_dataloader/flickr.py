@@ -101,4 +101,4 @@ class FlickrDataModule(pl.LightningDataModule):
         return DataLoader(self.val_dataset, batch_size=self.batch_size)
 
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size)
+        return DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=20)
