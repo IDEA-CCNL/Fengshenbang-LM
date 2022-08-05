@@ -15,7 +15,7 @@ MODEL_NAME=pegasus-base_test
 config_json="./$MODEL_NAME.ds_config.json"
 export MASTER_PORT=$[RANDOM%10000+40000]
 
-MICRO_BATCH_SIZE=16
+MICRO_BATCH_SIZE=4
 
 # Deepspeed figures out GAS dynamically from dynamic GBS via set_train_batch_size()
 cat <<EOT > $config_json
@@ -73,10 +73,10 @@ DATA_ARGS="\
         "
 
 MODEL_ARGS="\
-        --model_path /cognitive_comp/dongxiaoqun/pretrained_model/pegasus-base_test/ \
+        --model_path /cognitive_comp/dongxiaoqun/pretrained_model/pegasus-base/ \
         --learning_rate 1e-5 \
         --weight_decay 0.1 \
-        --warmup 0.001 \
+        --warmup_ratio 0.001 \
         "
 
 MODEL_CHECKPOINT_ARGS="\
@@ -84,7 +84,7 @@ MODEL_CHECKPOINT_ARGS="\
         --save_top_k 3 \
         --mode min \
         --every_n_train_steps 200 \
-        --dirpath /cognitive_comp/dongxiaoqun/train_model/fengshen-$MODEL_NAME/ckpt \
+        --dirpath /cognitive_comp/dongxiaoqun/train_model/fengshen-$MODEL_NAME_debug/ckpt \
         --filename model-{step:02d}-{train_loss:.4f} \
         --save_last \
         "
@@ -92,13 +92,13 @@ MODEL_CHECKPOINT_ARGS="\
 TRAINER_ARGS="\
         --gradient_clip_val 1.0 \
         --max_epochs 1 \
-        --gpus 8 \
+        --gpus 2 \
         --num_nodes 1 \
-        --strategy deepspeed_stage_1 \
+        --strategy ddp \
         --log_every_n_steps 100 \
         --val_check_interval 0.1 \
         --accumulate_grad_batches 8 \
-        --default_root_dir /cognitive_comp/dongxiaoqun/train_model/fengshen-$MODEL_NAME \
+        --default_root_dir /cognitive_comp/dongxiaoqun/train_model/fengshen-$MODEL_NAME_debug \
         --stopword_path /cognitive_comp/dongxiaoqun/pretrained_model/pegasus-large/stopwords \
         "
 
@@ -111,9 +111,9 @@ export options=" \
         "
 
 SINGULARITY_PATH=/cognitive_comp/dongxiaoqun/software/docker/pytorch21_06_py3_docker_image_v2.sif
-export SCRIPT_PATH=/cognitive_comp/dongxiaoqun/project/Fengshenbang-LM/fengshen/examples/pegasus/pretrain_pegasus.py
+export SCRIPT_PATH=/cognitive_comp/dongxiaoqun/project/idea-ccnl/bug_fix/Fengshenbang-LM/fengshen/examples/pegasus/pretrain_pegasus.py
 
 # python $SCRIPT_PATH $options
-srun singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c 'python3 $SCRIPT_PATH $options'
-# srun singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c 'python3 $SCRIPT_PATH $options'
-# srun --job-name=pegasus-large_1node --nodes=1 --ntasks-per-node=8 --gres=gpu:8 --cpus-per-task=30 -o pegasus-large_1node.log --jobid=165651 singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c 'python3 $SCRIPT_PATH $options'
+source activate
+conda activate torchnew
+srun --nodes=1 --ntasks-per-node=1 --gres=gpu:2 --cpus-per-task=30 -o ${MODEL_NAME}-%J.log --jobid=226191 bash -c 'python3 $SCRIPT_PATH $options'
