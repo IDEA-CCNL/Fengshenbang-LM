@@ -233,6 +233,7 @@ if __name__ == '__main__':
                         help='dir or csv file')
     parser.add_argument('--test_root', type=str,
                         help='image root path')
+    parser.add_argument('--num_workers', type=int, default=0)
 
     # huggingface pretrain model 定义
     parser.add_argument('--pretrain_model', type=str,
