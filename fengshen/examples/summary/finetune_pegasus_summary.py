@@ -1,21 +1,21 @@
-from fengshen.utils.utils import chinese_char_tokenize
-from fengshen.utils.universal_checkpoint import UniversalCheckpoint
-from fengshen.examples.pegasus.tokenizers_pegasus import PegasusTokenizer
-from fs_datasets import load_dataset
-from typing import Optional
-from pytorch_lightning.callbacks import LearningRateMonitor
-from pytorch_lightning import Trainer, loggers, LightningModule, LightningDataModule
-from transformers import PegasusForConditionalGeneration
-from torchmetrics.text.rouge import ROUGEScore
+from fengshen.models.model_utils import add_module_args
 from torch.utils.data import DataLoader
-import json
-import argparse
-import os
+from torchmetrics.text.rouge import ROUGEScore
+from transformers import PegasusForConditionalGeneration
+from pytorch_lightning import Trainer, loggers, LightningModule, LightningDataModule
+from pytorch_lightning.callbacks import LearningRateMonitor
+from typing import Optional
+from fengshen.data.fs_datasets import load_dataset
+from fengshen.examples.pegasus.tokenizers_pegasus import PegasusTokenizer
+from fengshen.utils.universal_checkpoint import UniversalCheckpoint
+from fengshen.utils.utils import chinese_char_tokenize
 import sys
 import torch
+import os
+import argparse
+import json
+sys.path.append("../../../")
 
-sys.path.append('../../../')
-sys.path.append("../../../../")
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = '3'
 
@@ -75,9 +75,9 @@ class FinetuneSummary(LightningModule):
     @staticmethod
     def add_model_specific_args(parent_args):
         parser = parent_args.add_argument_group('BaseModel')
-        parser.add_argument('--learning_rate', default=1e-4, type=float)
-        parser.add_argument('--weight_decay', default=0.1, type=float)
-        parser.add_argument('--warmup', default=0.01, type=float)
+        # parser.add_argument('--learning_rate', default=1e-4, type=float)
+        # parser.add_argument('--weight_decay', default=0.1, type=float)
+        # parser.add_argument('--warmup', default=0.01, type=float)
         parser.add_argument('--rouge_keys',
                             default='rougeL,rouge1,rouge2',
                             type=str)
@@ -214,9 +214,8 @@ class FinetuneSummary(LightningModule):
         self.save_prediction_to_file(preds, texts, labels)
 
     def configure_optimizers(self):
-        # using deepspeed optimizer config
-        pass
-        # raise NotImplementedError
+        from fengshen.models.model_utils import configure_optimizers
+        return configure_optimizers(self)
 
 
 class LCSTSDataModule(LightningDataModule):
@@ -301,6 +300,7 @@ def main():
     total_parser = LCSTSDataModule.add_data_specific_args(total_parser)
 
     # * Args for training
+    total_parser = add_module_args(total_parser)
     total_parser = Trainer.add_argparse_args(total_parser)
     total_parser = UniversalCheckpoint.add_argparse_args(total_parser)
     total_parser = FinetuneSummary.add_model_specific_args(total_parser)
