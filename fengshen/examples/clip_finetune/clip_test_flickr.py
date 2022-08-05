@@ -7,7 +7,8 @@ import torch.nn.functional as F
 import math
 import copy
 import argparse
-from transformers import CLIPModel, BertForSequenceClassification
+from transformers import BertForSequenceClassification
+from transformers import CLIPModel
 import sys
 sys.path.append('../../')
 
@@ -110,6 +111,70 @@ class CLIPLightning(pl.LightningModule):
         loss = (F.cross_entropy(image_logits, ground_truth) + F.cross_entropy(text_logits, ground_truth)).div(2)
         self.log('val_loss', loss, prog_bar=True)
 
+    def test_step(self, test_batch, idx):
+        image, text, labels = test_batch
+        image_features = self.clip_model.get_image_features(image)
+        text_features = self.text_encoder(text).logits
+        image_features = image_features / image_features.norm(dim=1, keepdim=True)
+        text_features = text_features / text_features.norm(dim=1, keepdim=True)
+        return [image_features, text_features, labels]
+
+    def test_epoch_end(self, outputs):
+        image_features = torch.cat([x[0] for x in outputs])
+        text_features = torch.cat([x[1] for x in outputs])
+        labels = [label for x in outputs for label in x[2]]
+        print(image_features.shape, text_features.shape, len(labels))
+        self.get_metrics(image_features, text_features, labels, 100)
+
+    def get_metrics(self, image_features, text_features, labels, logit_scale):
+        # 计算相似度，支持多个样本的情况（比如一个图片有多个caption）
+        # img2txt计算的时候要用到，因为一张图片可能对应多个文本。
+        # txt2img计算的时候不需要（一般一个text只有一个对应图片）
+        # metrics = {}
+        logits_per_image = (logit_scale * image_features @ text_features.t()).detach().cpu()
+        logits_per_text = logits_per_image.t().detach().cpu()
+
+        logits = {"image_to_text": logits_per_image, "text_to_image": logits_per_text}
+
+        label2idx = {}  # 计算label到idx的映射。
+        repeat_id = []
+        for i, label in enumerate(labels):
+            if label not in label2idx:
+                label2idx[label] = [i]
+            else:
+                # 表示该index的标签出现过，记录这个index，后续算txt2img分数的时候，这些index的权值要降低。
+                label2idx[label].append(i)
+                repeat_id.append(i)
+        # print(label2idx)    # 标注了每个label的idx
+
+        # print('repeat_id:', repeat_id)
+        ground_truth = [label2idx[label] for label in labels]
+        # print(ground_truth)
+
+        for name, logit in logits.items():
+            # print(name, logit.shape)
+            if name == 'text_to_image':
+                logit[:, repeat_id] -= 1e8   # 这部分的分数要降低。（重复出现的图片，直接忽略）
+            r1_stat, r5_stat, r10_stat = [], [], []
+            ranking = torch.argsort(logit, descending=True)  # index of the largest element to the smallest
+            # print(name, ranking[:, :10])
+            for i, each_query in enumerate(ranking[:, :10]):
+                for j, q in enumerate(each_query):
+                    if q in ground_truth[i]:
+                        if j == 0:
+                            r1_stat.append(1)
+                            r5_stat.append(1)
+                            r10_stat.append(1)
+                            break
+                        if j < 5:
+                            r5_stat.append(1)
+                            r10_stat.append(1)
+                            break
+                        if j < 10:
+                            r10_stat.append(1)
+                            break
+            print(f'{name} r1:{sum(r1_stat)/len(logit)}, r5:{sum(r5_stat)/len(logit)}, r10:{sum(r10_stat)/len(logit)}')
+
     def configure_optimizers(self):
         lr = {
             "RN50": 5e-4,
@@ -166,6 +231,10 @@ if __name__ == '__main__':
                         help='dir or csv file')
     parser.add_argument('--val_root', type=str,
                         help='image root path')
+    parser.add_argument('--test_filename', type=str,
+                        help='dir or csv file')
+    parser.add_argument('--test_root', type=str,
+                        help='image root path')
 
     # huggingface pretrain model 定义
     parser.add_argument('--pretrain_model', type=str,
@@ -176,5 +245,5 @@ if __name__ == '__main__':
     dm = FlickrDataModule(args)
 
     model = CLIPLightning(model_name=args.model, minibatch_size=args.batch_size//2)
-    trainer = pl.Trainer(gpus=args.num_gpus, precision=16, max_epochs=args.num_epoches)
-    trainer.fit(model, dm)
+    trainer = pl.Trainer(gpus=args.num_gpus, precision=16, max_epochs=args.num_epoches,)
+    trainer.test(model, dm)
