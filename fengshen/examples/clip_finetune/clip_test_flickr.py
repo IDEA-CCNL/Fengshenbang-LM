@@ -1,4 +1,4 @@
-from data.clip_dataloader.flickr import FlickrDataModule
+from fengshen.data.clip_dataloader.flickr import FlickrDataModule
 import pytorch_lightning as pl
 import numpy as np
 import torch
@@ -9,8 +9,6 @@ import copy
 import argparse
 from transformers import BertForSequenceClassification
 from transformers import CLIPModel
-import sys
-sys.path.append('../../')
 
 
 class CLIPLightning(pl.LightningModule):
@@ -235,6 +233,7 @@ if __name__ == '__main__':
                         help='dir or csv file')
     parser.add_argument('--test_root', type=str,
                         help='image root path')
+    parser.add_argument('--num_workers', type=int, default=0)
 
     # huggingface pretrain model 定义
     parser.add_argument('--pretrain_model', type=str,

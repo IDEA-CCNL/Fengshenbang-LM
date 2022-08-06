@@ -1,5 +1,6 @@
 python clip_test_flickr.py --batch_size 512 \
 --num_gpus 1 \
+--num_workers 20 \
 --train_filename /shared_space/ccnl/mm_data/Flickr30k-CNA/train/flickr30k_cna_train.txt \
 --val_filename /shared_space/ccnl/mm_data/Flickr30k-CNA/val/flickr30k_cna_val.txt \
 --test_filename /shared_space/ccnl/mm_data/Flickr30k-CNA/test/flickr30k_cn_test.txt \

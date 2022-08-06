@@ -83,6 +83,7 @@ class FlickrDataModule(pl.LightningDataModule):
         self.image_size = 224
         self.prepare_data_per_node = True
         self._log_hyperparams = False
+        self.num_workers = args.num_workers
 
     def setup(self, stage=None):
         # dataset
@@ -95,10 +96,10 @@ class FlickrDataModule(pl.LightningDataModule):
         self.test_dataset = flickr30k_CNA(self.test_root, self.test_filename, transform=test_transform)
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size)
+        return DataLoader(self.train_dataset, batch_size=self.batch_size, num_workers=self.num_workers)
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size)
+        return DataLoader(self.val_dataset, batch_size=self.batch_size, num_workers=self.num_workers)
 
     def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.batch_size)
+        return DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers)
