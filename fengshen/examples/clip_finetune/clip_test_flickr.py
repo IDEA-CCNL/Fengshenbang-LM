@@ -1,4 +1,6 @@
-from fengshen.data.clip_dataloader.flickr import FlickrDataModule
+import sys
+sys.path.append('../../')
+from data.clip_dataloader.flickr import FlickrDataModule
 import pytorch_lightning as pl
 import numpy as np
 import torch
@@ -219,7 +221,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_epoches', type=int, default=10)
     parser.add_argument('--num_gpus', type=int, default=2)
-
+    
     # dataset
     parser.add_argument('--train_filename', type=str,
                         help='dir or csv file')
@@ -244,5 +246,5 @@ if __name__ == '__main__':
     dm = FlickrDataModule(args)
 
     model = CLIPLightning(model_name=args.model, minibatch_size=args.batch_size//2)
-    trainer = pl.Trainer(gpus=args.num_gpus, precision=16, max_epochs=args.num_epoches,)
+    trainer = pl.Trainer(gpus=args.num_gpus, precision=16, max_epochs=args.num_epoches)
     trainer.test(model, dm)
