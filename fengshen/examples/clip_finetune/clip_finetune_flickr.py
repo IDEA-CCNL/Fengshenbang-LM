@@ -1,106 +1,17 @@
+import sys
+sys.path.append('../../')
+from data.clip_dataloader.flickr import FlickrDataModule
 import pytorch_lightning as pl
-import os
 import numpy as np
 import torch
-from torch.utils.data import Dataset, DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 import torch.nn.functional as F
 import math
 import copy
 import argparse
-from PIL import Image
-from torchvision.transforms import Normalize, Compose, RandomResizedCrop, InterpolationMode, ToTensor, Resize, \
-    CenterCrop
-from transformers import BertTokenizer, BertForSequenceClassification
-from transformers import CLIPModel
+from transformers import CLIPModel, BertForSequenceClassification
 
 
-class flickr30k_CNA(Dataset):
-    def __init__(self, img_root_path='/home/chenweifeng/dataset/mm_data/Flickr30k-CNA/flickr30k/images',
-                 annot_path='/home/chenweifeng/dataset/mm_data/Flickr30k-CNA/test/flickr30k_cn_test.txt',
-                 transform=None):
-        self.images = []
-        self.captions = []
-        self.labels = []
-        self.root = img_root_path
-        with open(annot_path, 'r') as f:
-            for line in f:
-                line = line.strip().split('\t')
-                key, caption = line[0].split('#')[0], line[1]
-                img_path = key + '.jpg'
-                self.images.append(img_path)
-                self.captions.append(caption)
-                self.labels.append(key)
-        self.transforms = transform
-        self.tokenizer = BertTokenizer.from_pretrained("hfl/chinese-roberta-wwm-ext")
-
-        # NOTE large 模型
-        self.context_length = 77
-
-    def __len__(self):
-        return len(self.images)
-
-    def __getitem__(self, idx):
-        img_path = str(self.images[idx])
-        image = self.transforms(Image.open(os.path.join(self.root, img_path)))
-        text = self.tokenizer(str(self.captions[idx]), max_length=self.context_length,
-                              padding='max_length', truncation=True, return_tensors='pt')['input_ids'][0]
-        label = self.labels[idx]
-        return image, text, label
-
-
-def _convert_to_rgb(image):
-    return image.convert('RGB')
-
-
-def image_transform(
-        image_size: int,
-        is_train: bool,
-        mean=(0.48145466, 0.4578275, 0.40821073),
-        std=(0.26862954, 0.26130258, 0.27577711)
-):
-    normalize = Normalize(mean=mean, std=std)
-    if is_train:
-        return Compose([
-            RandomResizedCrop(image_size, scale=(0.9, 1.0), interpolation=InterpolationMode.BICUBIC),
-            _convert_to_rgb,
-            ToTensor(),
-            normalize,
-        ])
-    else:
-        return Compose([
-            Resize(image_size, interpolation=InterpolationMode.BICUBIC),
-            CenterCrop(image_size),
-            _convert_to_rgb,
-            ToTensor(),
-            normalize,
-        ])
-
-
-class FlickrDataModule(pl.LightningDataModule):
-    def __init__(self, args):
-        self.batch_size = args.batch_size
-        self.train_filename = args.train_filename  # NOTE 标注的文件夹
-        self.train_root = args.train_root  # NOTE 图片地址
-        self.val_filename = args.val_filename
-        self.val_root = args.val_root
-        self.pretrain_model = args.pretrain_model
-        self.image_size = 224
-        self.prepare_data_per_node = True
-        self._log_hyperparams = False
-
-    def setup(self, stage=None):
-        # dataset
-        train_transform = image_transform(224, True)
-        val_transform = image_transform(224, False)
-        self.train_dataset = flickr30k_CNA(self.train_root, self.train_filename, transform=train_transform)
-        self.val_dataset = flickr30k_CNA(self.val_root, self.val_filename, transform=val_transform)
-
-    def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size)
-
-    def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size)
 
 
 class CLIPLightning(pl.LightningModule):
@@ -200,6 +111,78 @@ class CLIPLightning(pl.LightningModule):
         ground_truth = torch.arange(len(image_logits)).long().to(image_logits.device)
         loss = (F.cross_entropy(image_logits, ground_truth) + F.cross_entropy(text_logits, ground_truth)).div(2)
         self.log('val_loss', loss, prog_bar=True)
+        return [image_norm, text_norm, labels]
+    
+    def validation_epoch_end(self, outputs):
+        image_features = torch.cat([x[0] for x in outputs])
+        text_features = torch.cat([x[1] for x in outputs])
+        labels = [label for x in outputs for label in x[2]]
+        print(image_features.shape, text_features.shape, len(labels))
+        self.get_metrics(image_features, text_features, labels, 100)
+
+    def test_step(self, test_batch, idx):
+        image, text, labels = test_batch
+        image_features = self.clip_model.get_image_features(image)
+        text_features = self.text_encoder(text).logits
+        image_features = image_features / image_features.norm(dim=1, keepdim=True)
+        text_features = text_features / text_features.norm(dim=1, keepdim=True)
+        return [image_features, text_features, labels]
+
+    def test_epoch_end(self, outputs):
+        image_features = torch.cat([x[0] for x in outputs])
+        text_features = torch.cat([x[1] for x in outputs])
+        labels = [label for x in outputs for label in x[2]]
+        print(image_features.shape, text_features.shape, len(labels))
+        self.get_metrics(image_features, text_features, labels, 100)
+
+    def get_metrics(self, image_features, text_features, labels, logit_scale):
+        # 计算相似度，支持多个样本的情况（比如一个图片有多个caption）
+        # img2txt计算的时候要用到，因为一张图片可能对应多个文本。
+        # txt2img计算的时候不需要（一般一个text只有一个对应图片）
+        # metrics = {}
+        logits_per_image = (logit_scale * image_features @ text_features.t()).detach().cpu()
+        logits_per_text = logits_per_image.t().detach().cpu()
+
+        logits = {"image_to_text": logits_per_image, "text_to_image": logits_per_text}
+
+        label2idx = {}  # 计算label到idx的映射。
+        repeat_id = []
+        for i, label in enumerate(labels):
+            if label not in label2idx:
+                label2idx[label] = [i]
+            else:
+                # 表示该index的标签出现过，记录这个index，后续算txt2img分数的时候，这些index的权值要降低。
+                label2idx[label].append(i)
+                repeat_id.append(i)
+        # print(label2idx)    # 标注了每个label的idx
+
+        # print('repeat_id:', repeat_id)
+        ground_truth = [label2idx[label] for label in labels]
+        # print(ground_truth)
+
+        for name, logit in logits.items():
+            # print(name, logit.shape)
+            if name == 'text_to_image':
+                logit[:, repeat_id] -= 1e8   # 这部分的分数要降低。（重复出现的图片，直接忽略）
+            r1_stat, r5_stat, r10_stat = [], [], []
+            ranking = torch.argsort(logit, descending=True)  # index of the largest element to the smallest
+            # print(name, ranking[:, :10])
+            for i, each_query in enumerate(ranking[:, :10]):
+                for j, q in enumerate(each_query):
+                    if q in ground_truth[i]:
+                        if j == 0:
+                            r1_stat.append(1)
+                            r5_stat.append(1)
+                            r10_stat.append(1)
+                            break
+                        if j < 5:
+                            r5_stat.append(1)
+                            r10_stat.append(1)
+                            break
+                        if j < 10:
+                            r10_stat.append(1)
+                            break
+            print(f'{name} r1:{sum(r1_stat)/len(logit)}, r5:{sum(r5_stat)/len(logit)}, r10:{sum(r10_stat)/len(logit)}')
 
     def configure_optimizers(self):
         lr = {
@@ -245,7 +228,7 @@ if __name__ == '__main__':
 
     # experiment setting
     parser.add_argument('--batch_size', type=int, default=128)
-    parser.add_argument('--num_epoches', type=int, default=10)
+    parser.add_argument('--num_epoches', type=int, default=1)
     parser.add_argument('--num_gpus', type=int, default=2)
 
     # dataset
@@ -257,6 +240,11 @@ if __name__ == '__main__':
                         help='dir or csv file')
     parser.add_argument('--val_root', type=str,
                         help='image root path')
+    parser.add_argument('--test_filename', type=str,
+                        help='dir or csv file')
+    parser.add_argument('--test_root', type=str,
+                        help='image root path')
+    parser.add_argument('--num_workers', type=int, default=0)
 
     # huggingface pretrain model 定义
     parser.add_argument('--pretrain_model', type=str,
@@ -268,4 +256,7 @@ if __name__ == '__main__':
 
     model = CLIPLightning(model_name=args.model, minibatch_size=args.batch_size//2)
     trainer = pl.Trainer(gpus=args.num_gpus, precision=16, max_epochs=args.num_epoches)
-    trainer.fit(model, dm)
+    trainer.test(model, dm) # zero-shot test
+    trainer.fit(model, dm)  # finetune on train set
+    trainer.test(model, dm) # test again
+
