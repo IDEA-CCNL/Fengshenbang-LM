@@ -26,7 +26,7 @@ setup(
     scripts=[],
     entry_points={
         'console_scripts': [
-            'test = test.help:main'
+            'fengshen-pipeline = fengshen.cli.fengshen_pipeline:main'
         ]
     }
 )

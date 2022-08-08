@@ -40,20 +40,22 @@ class UniversalDataModule(LightningDataModule):
         tokenizer,
         collate_fn,
         args,
+        datasets=None,
         **kwargs,
     ):
         super().__init__()
-        print('---------begin to load datasets {}'.format(args.datasets_name), flush=True)
-        self.datasets = None
         # 如果不传入datasets的名字，则可以在对象外部替换内部的datasets为模型需要的
-        if args.datasets_name is not None:
-            from ..fs_datasets import load_dataset
+        if datasets is None:
+            from fengshen.data.fs_datasets import load_dataset
+            print('---------begin to load datasets {}'.format(args.datasets_name), flush=True)
             self.datasets = load_dataset(
                 args.datasets_name, num_proc=args.num_workers)
+            print('---------ending load datasets {}'.format(args.datasets_name))
+        else:
+            self.datasets = datasets
         self.tokenizer = tokenizer
         self.collate_fn = collate_fn
         self.save_hyperparameters(args)
-        print('---------ending load datasets {}'.format(args.datasets_name))
 
     def get_custom_sampler(self, ds):
         from .universal_sampler import PretrainingRandomSampler

@@ -12,6 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from fengshen.models.zen1 import ZenModel
 from dataclasses import dataclass
 from fengshen.models.megatron_t5 import T5Config
 from fengshen.models.megatron_t5 import T5EncoderModel
@@ -38,6 +39,7 @@ from transformers import (
     AutoConfig,
     AutoTokenizer,
 )
+# os.environ["CUDA_VISIBLE_DEVICES"] = '6'
 
 
 model_dict = {'huggingface-bert': BertModel,
@@ -45,6 +47,7 @@ model_dict = {'huggingface-bert': BertModel,
               'huggingface-megatron_bert': MegatronBertModel,
               'fengshen-megatron_t5': T5EncoderModel,
               'fengshen-longformer': LongformerModel,
+              'fengshen-zen1': ZenModel,
               'huggingface-auto': AutoModel,
               }
 
@@ -54,6 +57,7 @@ config_dict = {'huggingface-bert': BertConfig,
                'huggingface-megatron_bert': MegatronBertConfig,
                'fengshen-megatron_t5': T5Config,
                'fengshen-longformer': LongformerConfig,
+               'fengshen-zen1': BertConfig,
                'huggingface-auto': AutoConfig}
 
 
@@ -209,6 +213,7 @@ class taskModel(torch.nn.Module):
         self.args = args
         self.config = config_dict[args.model_type].from_pretrained(
             args.pretrained_model_path)
+        print('args mode type:', args.model_type)
         self.bert_encoder = model_dict[args.model_type].from_pretrained(
             args.pretrained_model_path)
         self.cls_layer = torch.nn.Linear(
@@ -367,8 +372,8 @@ def main():
     model = LitModel(args, len(data_model.train_dataloader()))
 
     trainer.fit(model, data_model)
-    result = trainer.predict(model, data_model)
-    save_test(result, args, data_model)
+    # result = trainer.predict(model, data_model)
+    # save_test(result, args, data_model)
 
 
 if __name__ == "__main__":

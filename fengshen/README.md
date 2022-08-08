@@ -30,6 +30,8 @@ FengShen训练框架是封神榜大模型开源计划的重要一环，在大模
 4. 适应各种设备环境，支持在CPU、GPU、TPU等不同设备上运行
 5. 集成主流的分布式训练逻辑，无需修改代码即可支持DDP、Zero Optimizer等分布式优化技术
 
+![avartar](../pics/fengshen_pic.png)
+
 
 ## 依赖环境
 
