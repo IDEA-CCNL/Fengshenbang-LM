@@ -1,5 +1,6 @@
 import argparse
 from collections import Counter
+import statistics
 from transformers import GPT2Tokenizer, GPT2LMHeadModel
 import os, random, re
 import torch
@@ -7,13 +8,13 @@ import json
 import jieba
 import argparse, sys
 from tqdm import tqdm
-from torchmetrics.functional import bleu_score
 #from torchtext.data.metrics import bleu_score
+from torchmetrics.functional import bleu_score
+from torchmetrics.functional.text.rouge import rouge_score
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
+import evaluate
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
-device =  torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class TestModule:
     def __init__(self, args):
@@ -21,6 +22,7 @@ class TestModule:
         self.args = args
         self.model_path = args.model_path
         self.root_dir = self.args.root_dir
+       
         self.tokenizer, self.model = self.load_model(args.model_path)
 
     @staticmethod
@@ -43,6 +45,7 @@ class TestModule:
         tokenizer = GPT2Tokenizer.from_pretrained(token_path)
         model = GPT2LMHeadModel.from_pretrained(model_path)
 
+        device =  torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model.to(device)
         if self.args.verbose:
             print(f"Load model from {model_path} and tokenizer from {tokenizer}")
@@ -105,9 +108,11 @@ class TestModule:
         input_dict["answers"] = answers
         return input_dict        
 
+    # Ref: https://github.com/microsoft/ProphetNet/blob/master/GLGE_baselines/script/script/evaluate/personachat/eval.py
+    # align with Prophet need Smoothing function
     @staticmethod
     def bleu_fn(references, candidates, n=2):
-        unigram, bigram = [],[]
+        unigram, bigram, trigram, quagram = [],[],[],[]
         for ref, can in zip(references, candidates):
             reference = [[ref]]
             candidate = [can]
@@ -121,10 +126,14 @@ class TestModule:
             #score1, score2= sentence_bleu(reference,candidate,weights=[(1.0,),(0.5,0.5)]) #methods 7 ref prophetnet
             score1 = bleu_score(candidate,reference,1,False)
             score2 = bleu_score(candidate,reference,2,False)
+            score3 = bleu_score(candidate,reference,3,False)
+            score4 = bleu_score(candidate,reference,4,False)
             unigram.append(score1)
             bigram.append(score2)
+            trigram.append(score3)
+            quagram.append(score4)
 
-        return sum(unigram) / len(unigram), sum(bigram) / len(bigram)
+        return sum(unigram) / len(unigram), sum(bigram) / len(bigram), sum(trigram) / len(trigram), sum(quagram) / len(quagram)
 
     @staticmethod
     def f1_fn(references, candidates, n=1):
@@ -190,13 +199,62 @@ class TestModule:
     def ppl_fn(reference,candidates):
         pass
 
-    def rouge_fn(reference,candidates):
-        pass
+    # rewrite from https://github.com/microsoft/ProphetNet/blob/master/GLGE_baselines/script/script/evaluate/qg/rouge/rouge.py
+    # ROUGE_L
+    @staticmethod
+    def rouge_fn(reference,candidates,n=1):
+        score_list = []
+        for ref, can in zip(reference, candidates):
+
+            if n == 1:
+                ref = [[ref]]
+                can = [can]
+            else:
+                ref = [" ".join(jieba.cut(ref)).split()]  # may have multiple ref, need [[ref1]]
+                can = " ".join(jieba.cut(can)).split()
+                
+            print(can,ref)
+            score = rouge_score(can,ref)
+            score_list.append(score)
+
+        return score
 
     # direct get vocab length
+    @staticmethod
     def vocab_fn(candidates):
-        pass
+        counts = {}
+        for can in zip(candidates):
+            can_vocab = jieba.lcut(can)
+            for word in can_vocab:
+                counts[word] = counts.get(word, 0) + 1
+            
+        return {"vocab_length" :len(counts.keys()) }
+
+    # unified evaluate with transformer
+    def fn(self,refs, cans,metric="bleu"):
+        """
+        Input: 单个 [ref] 和单个 can 列表, ref 内需要 [] 包裹多条 
+            reference = [["哈哈，我也不会这些操作"],["是吗"]]
+            candidate = ["哈哈哈 ，我只会说 。但是实际操作也不会","是的"]
+            fn(reference, candidate)
+        """
+        if metric == "dist":
+            scores = self.dist_fn(cans)
+        elif metric == "vocab":
+            scores = self.vocab_fn(refs,cans)
+        elif metric == "bleu":
+            scores = self.bleu_fn(refs,cans,2)
+        elif metric == "rouge":
+            scores = self.rouge_fn(refs,cans)
+        elif metric == "f1":
+            scores = self.f1_fn(refs,cans,1)
+        else:
+            # deprecated now
+            # transformer may have a bug in chinese evaluate
+            metric = evaluate.load(metric)
+            scores = metric.compute(predictions=cans, references=refs)
         
+        return scores    
 
     # The four following functions are adapted from Meta ParlAI:
     # https://github.com/facebookresearch/ParlAI/blob/main/parlai/core/metrics.py
@@ -226,27 +284,26 @@ class DialogueTest(TestModule):
     def __init__(self, args):
         super().__init__(args)
         self.task = 'dial'
-
-        data_file = self.args.data_file
-        #data_file = f"/cognitive_comp/yangqi/data/DuSinc/dev_{self.task}.json"
-        #data_file = f"/cognitive_comp/yangqi/data/DuSinc/test_{self.task}_a.json"
-        
-        self.examples = self.load_dataset(data_file)
+        self.data_file = self.args.data_file
+        self.examples = self.load_dataset(self.data_file)
+        self.log_file = self.root_dir + "./eval_test.txt"
 
     def preprocess(self, item, context=1, max_kno_len=256, max_src_len=128, max_tgt_len=128):
         if "knowledge" in item:
             item["kno"] = item["knowledge"]  #convert name
 
         if "[SEP]" in item["src"]:
-            src = " ".join(item["src"].split("[SEP]")[-1*context:]) #上下文处理不太好，所以只暴露最后几条上下文，相当于滑动 windows
+            #src = " ".join(item["src"].split("[SEP]")[-1*context:]) #上下文处理不太好，所以只暴露最后几条上下文，相当于滑动 windows
+            src = " ".join(item["src"].split("[SEP]")) #上下文处理不太好，所以只暴露最后几条上下文，相当于滑动 windows
         else:
             src = item["src"]
         src = self.truncate(src, max_src_len-2)
         kno = self.truncate(item["kno"],max_kno_len-2)
         tgt = self.truncate(item["tgt"], max_tgt_len-2)
         
-        input_text = f'knowledge: {kno} context: {src} response:'
+        input_text = self.truncate(f'knowledge: {kno} context: {src} response:', self.args.text_length)
         input_text = self.tokenizer(input_text,return_tensors='pt')
+        device =  torch.device("cuda" if torch.cuda.is_available() else "cpu")
         input_text.to(device)
 
         return {
@@ -259,15 +316,15 @@ class DialogueTest(TestModule):
     def generate(self, input_dict, prompt="response:"):
         return super().generate(input_dict, prompt)
 
-    def evaluate(self, metrics):
-        if self.args.verbose:
-            print(f"-----Begin Evaluate-------")
-        nums = min(self.args.eg_num,len(self.examples))
+    def predict(self, output=True):
+        # only predict adn output file
+        #nums = min(self.args.eg_num,len(self.examples))
+        nums = len(self.examples)
         candidates, references = [],[]
-
-        for idx in tqdm(range(nums)):
-        #for idx in tqdm(range(100)):
-            #kno, src, tgt = data[idx]
+        
+        print(f"Data Inference")
+        
+        for idx in tqdm(range(nums)):    
             item = self.examples[idx]
             input_dict = self.preprocess(item)
             output = self.generate(input_dict)
@@ -275,100 +332,63 @@ class DialogueTest(TestModule):
             candidates.append(output["answers"][0])
             references.append(output["tgt"])
 
-        scores = {}
-        if "bleu" in metrics:
-            scores["bleu1"], scores["bleu2"] = self.bleu_fn(references, candidates, 2)
+        if output:
+            f = open(self.root_dir+"cam_ref.txt","w", encoding="utf-8")
+            f.write(f"------------ Args ------------\n")
+            for key in list(vars(self.args).keys()):
+                f.write(f"{key} : {vars(self.args)[key]}\n")
+            f.write("-------------------------------\n")
 
-        if "f1" in metrics:
-            scores["pre"],scores["re"], scores["f1"] = self.f1_fn(references, candidates, 1)
+            for can, ref in zip(candidates,references):
+                f.write(can+'\t'+ref+'\n')
+            f.close()
+        return candidates, references
 
-        if "dist" in metrics:
-            scores["inter_dist1"],scores["inter_dist2"],scores["intra_dist1"],scores["intra_dist2"] = self.dist_fn(candidates)
+    def load_predict(self,load_file):
+        cans, refs = [],[]
+        with open(load_file,"r") as f:
+            for line in f.readlines()[19:]:
+                can, ref = line.strip().split("\t")
+                cans.append(can)
+                refs.append(ref)
+        return cans, refs
+
+    def evaluate(self, metrics, load_file=None):
+        f = open(self.log_file,'w+')
 
         if self.args.verbose:
-            print(f"-----End Evaluate-------")
-        self.info(candidates,scores)
-        return scores
+            print(f"-----Begin Evaluate-------")
+            f.write(f"Dataset file: {self.args.data_file} Length:{len(self.examples)}")
+            f.write(f"------------ Args ------------")
+            for key in list(vars(self.args).keys()):
+                f.write(f"{key} : {vars(self.args)[key]}\n")
 
-    def info(self, candidates, scores):
-        f = open("./eval_test.txt",'w')
-        f.write(f"Dataset file: {self.args.data_file} Length:{len(self.examples)}")
-
-        f.write(f"------------ metrics ------------")
-        for key in scores.keys():
-            f.write(f"{key} score: {scores[key]}\n")
-        
-        f.write(f"------------ answers ------------")
-        for can in candidates:
-            f.write(can+'\n')
-
-
-class QueryTest(TestModule):
-    def __init__(self, **args):
-        super().__init__(**args)
-        self.task = 'dial'
-
-        data_file = f"/cognitive_comp/yangqi/data/DuSinc/dev_{self.task}.json"
-        self.examples = self.load_dataset(data_file)
-
-    def preprocess(self, item, context=1, max_src_len=128, max_tgt_len=128):
-        if "[SEP]" in item["src"]:
-            src = " ".join(item["src"].split("[SEP]")[-1*context:]) #上下文处理不太好，所以只暴露最后几条上下文，相当于滑动 windows
+        if load_file:
+            candidates, references = self.load_predict(self.root_dir + load_file)
         else:
-            src = item["src"]
-        src = self.truncate(src, max_src_len-2)
-        kno = ""
-        tgt = self.truncate(item["tgt"], max_tgt_len-2)
-        
-        input_text = f'knowledge: {kno} context: {src} response:'
-        input_text = self.tokenizer(input_text,return_tensors='pt')
-        input_text.to(device)
+            candidates, references = self.predict()
+            print(candidates, references)
 
-        return {
-            "input_text":input_text,
-            "src"       :src,
-            "tgt"       :tgt
-        }
-
-    def generate(self, input_dict, prompt="query:"):
-        return super().generate(input_dict, prompt)
-
-    def evaluate(self):
-        nums = min(nums,len(self.examples))
-        candidates, references = [],[]
-
-        with st.spinner("正在评估中"):
-            for idx in tqdm(range(nums)):
-            #for idx in tqdm(range(100)):
-                #kno, src, tgt = data[idx]
-                item = self.examples[idx]
-                input_dict = self.preprocess(item)
-                output = self.generate(input_dict)
-
-                candidates.append(output["answers"][0])
-                references.append(output["tgt"])
-
-            scores = {}
-            if "bleu" in metrics:
-                bleu_score = self.bleu_fn(references, candidates, 2)
-                scores["bleu"] = bleu_score
-
-            if "f1" in metrics:
-                f1_score = self.f1_fn(references, candidates, 1)
-                scores["f1"] = f1_score
-
-            if "dist" in metrics:
-                dist_score = self.dist_fn(candidates)
-                scores["dist"] = dist_score
-
-        return scores     
-
+        scores = {}
+        for m in metrics:
+            print(f"Evaluate {m} score")
+            assert len(references) == len(candidates)
+            scores[m] = self.fn(references,candidates,m)
+ 
+        if self.args.verbose:
+            print(f"-----End Evaluate-------")
+            f.write(f"------------ metrics ------------\n")
+            for key in scores.keys():
+                f.write(f"{key} score: {scores[key]}\n")
+            f.close()
+        return scores
 
 def parse_augment():
     args_parser = argparse.ArgumentParser()
     args_parser.add_argument('--runname',type=str)
     args_parser.add_argument('--dataset', type=str,default='duconv')
     args_parser.add_argument('--root_dir', type=str,default='/cognitive_comp/yangqi/model/')
+    args_parser.add_argument('--gpu', type=bool,default=True)
     args_parser.add_argument('--data_file', type=str,default='/cognitive_comp/yangqi/data/DuSinc/dev_dial.json')
     args_parser.add_argument('--model_path', type=str,default='Wenzhong-Finetune-Loss0.1')
     args_parser.add_argument('--token_path', type=str,default=None)
@@ -391,4 +411,13 @@ def parse_augment():
 
 args = parse_augment()
 tester = DialogueTest(args)
-scores = tester.evaluate(["bleu","f1","dist"])
+scores = tester.evaluate(["bleu","f1","dist","vocab"])
+
+"""
+python eval.py --root_dir '/cognitive_comp/yangqi/logs/wenzhong_merge/' --model_path 'Wenzhong-GPT2-110M/ckpt_dial/hf_pretrained_epoch10_step60000/'
+
+perplexity
+exact_match
+"rouge","exact_match"
+f1
+"""
