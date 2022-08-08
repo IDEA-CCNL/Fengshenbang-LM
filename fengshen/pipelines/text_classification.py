@@ -5,7 +5,6 @@ from typing import Dict, List
 from .base import (
     _CONFIG_MODEL_TYPE,
     _CONFIG_TOKENIZER_TYPE)
-from transformers import BertConfig
 from fengshen.models.roformer import RoFormerForSequenceClassification
 from fengshen.models.longformer import LongformerForSequenceClassification
 from fengshen.models.zen1 import ZenForSequenceClassification
