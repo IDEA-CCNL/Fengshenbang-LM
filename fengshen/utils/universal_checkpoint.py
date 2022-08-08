@@ -13,9 +13,9 @@ class UniversalCheckpoint():
             '--filename', default='model-{epoch:02d}-{train_loss:.4f}', type=str)
         parser.add_argument('--save_last', action='store_true', default=False)
         parser.add_argument('--save_top_k', default=3, type=float)
-        parser.add_argument('--every_n_train_steps', default=1, type=float)
+        parser.add_argument('--every_n_train_steps', default=None, type=float)
         parser.add_argument('--save_weights_only', action='store_true', default=False)
-        parser.add_argument('--every_n_epochs', default=0, type=int)
+        parser.add_argument('--every_n_epochs', default=None, type=int)
         parser.add_argument('--save_on_train_epoch_end', action='store_true', default=None)
 
         return parent_args
