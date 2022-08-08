@@ -16,7 +16,7 @@ import sys
 
 sys.path.append("../../../../")
 
-jieba.dt.tmp_dir = os.path.expanduser("~./cache/")
+jieba.dt.tmp_dir = os.path.expanduser("~/.cache/")
 # jieba.enable_parallel(8)
 jieba.initialize()
 
