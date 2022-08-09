@@ -51,7 +51,7 @@ form.form_submit_button("提交")
 
 def generate_qa(input_text, n_sample, model_id='7', length=64, translator='baidu', level=0.7):
     # st.write('调用了generate函数')
-    URL = 'http://192.168.190.63:6605/qa'
+    URL = 'http://xxx.xxx.xxx.63:6605/qa'
     data = {"text": input_text, "n_sample": n_sample, "model_id": model_id,
             "length": length, 'translator': translator, 'level': level}
     r = requests.get(URL, params=data)
