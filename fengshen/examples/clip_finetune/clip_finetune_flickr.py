@@ -11,9 +11,6 @@ import copy
 import argparse
 from transformers import CLIPModel, BertForSequenceClassification
 
-
-
-
 class CLIPLightning(pl.LightningModule):
     def __init__(self, model_name='ViT-B/32', minibatch_size=2):
         """A lightning wrapper for a CLIP model as specified in the paper.
@@ -112,7 +109,7 @@ class CLIPLightning(pl.LightningModule):
         loss = (F.cross_entropy(image_logits, ground_truth) + F.cross_entropy(text_logits, ground_truth)).div(2)
         self.log('val_loss', loss, prog_bar=True)
         return [image_norm, text_norm, labels]
-    
+
     def validation_epoch_end(self, outputs):
         image_features = torch.cat([x[0] for x in outputs])
         text_features = torch.cat([x[1] for x in outputs])
@@ -256,7 +253,7 @@ if __name__ == '__main__':
 
     model = CLIPLightning(model_name=args.model, minibatch_size=args.batch_size//2)
     trainer = pl.Trainer(gpus=args.num_gpus, precision=16, max_epochs=args.num_epoches)
-    trainer.test(model, dm) # zero-shot test
+    trainer.test(model, dm)  # zero-shot test
     trainer.fit(model, dm)  # finetune on train set
-    trainer.test(model, dm) # test again
+    trainer.test(model, dm)  # test again
 
