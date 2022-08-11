@@ -99,12 +99,15 @@ TRAINER_ARGS="
 DATA_DIR=/cognitive_comp/ganruyi/data_datasets_LCSTS_LCSTS/
 prompt="summary:"
 DATA_ARGS="
-    --data_dir $DATA_DIR
+    --datasets_name lcsts \
+    --num_workers 30 \
     --train_batchsize $MICRO_BATCH_SIZE \
-    --valid_batchsize $MICRO_BATCH_SIZE \
-    --train_data train.jsonl\
-    --valid_data valid1.jsonl\
-    --test_data  valid1.jsonl\
+    --val_batchsize $MICRO_BATCH_SIZE \
+    --test_batchsize $MICRO_BATCH_SIZE \
+    --max_enc_length 128 \
+    --max_dec_length 64 \
+    --val_datasets_field val \
+    --prompt $prompt \
 "
 # --prompt $prompt \
 # --pretrained_model_path /cognitive_comp/ganruyi/experiments/randeng_t5_77M_summary/ckpt/hf_pretrained_epoch1_step75019 \

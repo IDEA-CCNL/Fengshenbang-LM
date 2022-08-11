@@ -1,4 +1,3 @@
-
 from fengshen.examples.pegasus.data_utils import (
     _is_control,
     _is_punctuation,
