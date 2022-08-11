@@ -2,9 +2,9 @@
 
 
 
+# Finetune Wenzhong Dialogue
 
-
-## 运行代码 
+## Usage
 
 ```bash
 # finetune_wenzhong_dialogue.py    主文件
@@ -13,16 +13,17 @@
 # train
 bash examples/wenzhong_dialo/finetune_wenzhong_dialogue.sh
 
-# cognitive_comp/yangqi/logs/wenzhong_dialo/Wenzhong-GOT-110M skpt & log 
+# test during traiing
 
-# test
-python examples/mt5_summary.py --gpus=1 --test_data=test_public.jsonl
---default_root_dir=/cognitive_comp/yangqi/logs/wenzhong_dialo/Wenzhong-GPT-110M
---do_eval_only
---resume_from_checkpoint=/cognitive_comp/yangqi/logs/wenzhong_dialo/Wenzhong-GPT-110M/ckpt/model-epoch=01-train_loss=1.9166.ckpt
---strategy=ddp
+# test saved model
+bash examples/wenzhong_dialo/finetune_wenzhong_dialogue.sh
 
 ```
 
-
 ## Update
+
+- 1.0 完成 Wenzhong 模型的知识对话任务 Finetune（数据集 DuSinc）
+- 1.1 完成 Eval 脚本（BLEU,DIST,F1）
+- 1.2 新增 fs_dataset 多数据集 ConcatDataset 导入
+- 1.3 新增 Mixing Sampler from T5 paper Sec. 3.2
+- 1.4 新增全量多数据集 & 平衡多数据集两种方式代码脚本（主要是dataset subname 和 log 地址等修改）

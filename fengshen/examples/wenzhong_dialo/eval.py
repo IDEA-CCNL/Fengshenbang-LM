@@ -8,11 +8,13 @@ import json
 import jieba
 import argparse, sys
 from tqdm import tqdm
-#from torchtext.data.metrics import bleu_score
 from torchmetrics.functional import bleu_score
 from torchmetrics.functional.text.rouge import rouge_score
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 import evaluate
+import sys
+sys.path.append("../../../")
+from fengshen.utils import chinese_char_tokenize #内部分词
 
 
 
@@ -44,6 +46,9 @@ class TestModule:
 
         tokenizer = GPT2Tokenizer.from_pretrained(token_path)
         model = GPT2LMHeadModel.from_pretrained(model_path)
+        tokenizer.add_special_tokens({
+            'pad_token': '[PAD]'
+        })
 
         device =  torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model.to(device)
@@ -82,8 +87,9 @@ class TestModule:
                 **input_dict["input_text"],
                 return_dict_in_generate=True,
                 output_scores=True,
-                max_length=self.args.text_length,
-                do_sample=True,
+                max_new_tokens = 128,
+                #max_length=self.args.text_length,
+                do_sample=self.args.do_sample,
                 num_beams=self.args.num_beams,
                 temperature = self.args.temp,
                 top_k = self.args.top_k,
@@ -98,9 +104,16 @@ class TestModule:
         answers = []
         
         for idx, sent in enumerate(outputs.sequences):
-            result = self.tokenizer.decode(sent,skip_special_tokens=True)
+            result = self.tokenizer.decode(sent,skip_special_tokens=True, clean_up_tokenization_spaces=True)
+            print(input_dict["src"])
+            print(result)
             result = result.split(self.tokenizer.eos_token)[0]
+            print(result)
             answer = result.split(sep=prompt,maxsplit=1)[1]
+            # try:
+            #     answer = result.split(sep=prompt,maxsplit=1)[1]
+            # except:
+            #     answer = ""
             #else:
             #    answer = result.split(sep="query:",maxsplit=1)[1]
             answers.append(answer)
@@ -108,10 +121,42 @@ class TestModule:
         input_dict["answers"] = answers
         return input_dict        
 
+    @staticmethod
+    def bleu_fn(references, candidates):
+        references = [chinese_char_tokenize(ref[0]) for ref in references]
+        candidates = [chinese_char_tokenize(can) for can in candidates]
+        scores_list = {}
+        for i in range(1,5):
+            scores_list['bleu_'+str(i)] = bleu_score(candidates,references,i,False)
+
+        return scores_list
+
+    @staticmethod
+    def rouge_fn(references, candidates):
+        references = [chinese_char_tokenize(ref[0]) for ref in references]
+        candidates = [chinese_char_tokenize(can) for can in candidates]
+        scores_list = rouge_score(candidates,references)
+        return scores_list
+
+    @staticmethod
+    def em_fn(references, candidates):
+        def em(ref,can):
+            common = Counter(ref) & Counter(can)
+            print(common)
+            num_same = sum(common.values())
+            return num_same
+
+        em_list = []
+        for refs, can in zip(references, candidates):
+            em_score = max([em(ref,can) for ref in refs])
+            em_list.append(em_score)
+            
+        return {"exact_match": sum(em_list) /len(em_list)}
+
     # Ref: https://github.com/microsoft/ProphetNet/blob/master/GLGE_baselines/script/script/evaluate/personachat/eval.py
     # align with Prophet need Smoothing function
     @staticmethod
-    def bleu_fn(references, candidates, n=2):
+    def deprecated_bleu_fn(references, candidates):
         unigram, bigram, trigram, quagram = [],[],[],[]
         for ref, can in zip(references, candidates):
             reference = [[ref]]
@@ -124,6 +169,7 @@ class TestModule:
 
             #chencherry = SmoothingFunction()
             #score1, score2= sentence_bleu(reference,candidate,weights=[(1.0,),(0.5,0.5)]) #methods 7 ref prophetnet
+            
             score1 = bleu_score(candidate,reference,1,False)
             score2 = bleu_score(candidate,reference,2,False)
             score3 = bleu_score(candidate,reference,3,False)
@@ -136,7 +182,7 @@ class TestModule:
         return sum(unigram) / len(unigram), sum(bigram) / len(bigram), sum(trigram) / len(trigram), sum(quagram) / len(quagram)
 
     @staticmethod
-    def f1_fn(references, candidates, n=1):
+    def f1_fn(references, candidates, word_level=False):
         def pre_recall_f1(reference,candidate):
             from collections import Counter
             common = Counter(reference) & Counter(candidate)
@@ -148,21 +194,32 @@ class TestModule:
             f1 = (2 * precision * recall) / (precision + recall)
             return precision, recall, f1
 
-        pre, re, f1 = [],[],[]
-        for ref, can in zip(references, candidates):
-            #can = normalize_answer(can)
-            if n == 1: # token live
-                reference = [[ref[i] for i in range(len(ref))]]
-                candidate = [can[i] for i in range(len(can))]
-            else: # word level
-                reference = [" ".join(jieba.cut(ref)).split()]
-                candidate = " ".join(jieba.cut(can)).split()
-            
-            (_pre, _re, _f1)  = [pre_recall_f1(r, candidate) for r in reference][0]
-            pre.append(_pre)
-            re.append(_re)
+        if word_level:
+            reference = [" ".join(jieba.cut(ref)).split() for ref in references]
+            candidate = [" ".join(jieba.cut(can)).split() for can in candidates]
+        else:  # unigram token-level
+            reference = [references[i][0] for i in range(len(references))]
+            candidate = [candidates[i] for i in range(len(candidates))]
+
+        # same as unigram char-level
+        #reference = [chinese_char_tokenize(ref[0]) for ref in reference]
+        #candidate = [chinese_char_tokenize(can) for can in candidate]
+
+        prec, recall, f1 = [],[],[]
+        for ref, can in zip(reference,candidate):
+            (_pre, _re, _f1)  = pre_recall_f1(ref, can)
+            prec.append(_pre)
+            recall.append(_re)
             f1.append(_f1)
-        return sum(pre)/len(pre), sum(re)/len(re), sum(f1)/len(f1)
+
+        def mean(x):
+            return sum(x)/len(x)
+
+        return {
+            "prec":mean(prec),
+            "re":mean(recall),
+            "f1":mean(f1)
+        }
 
     def acc_fn(references, candidates):
         num_same = 0 # 2-classification
@@ -172,7 +229,7 @@ class TestModule:
             if ref == can:
                 num_same = num_same + 1
         
-        return num_same / len(candidates)            
+        return {"acc" :num_same / len(candidates)}            
 
     # Ref: https://github.com/microsoft/ProphetNet/blob/master/GLGE_baselines/script/script/evaluate/personachat/eval.py
     @staticmethod
@@ -194,41 +251,30 @@ class TestModule:
         inter_dist2 = (len(bigrams_all)+1e-12) / (sum(bigrams_all.values())+1e-5)
         intra_dist1 = sum(intra_dist1) / len(intra_dist1) #每一句计算 dist 求均值 
         intra_dist2 = sum(intra_dist2) / len(intra_dist2)
-        return inter_dist1, inter_dist2, intra_dist1, intra_dist2 
+
+        return {
+            "dist_inter_1" : inter_dist1,
+            "dist_inter_2" : inter_dist2,
+            "dist_intra_1" : intra_dist1,
+            "dist_intra_2" : intra_dist2,
+        }
 
     def ppl_fn(reference,candidates):
         pass
 
-    # rewrite from https://github.com/microsoft/ProphetNet/blob/master/GLGE_baselines/script/script/evaluate/qg/rouge/rouge.py
-    # ROUGE_L
-    @staticmethod
-    def rouge_fn(reference,candidates,n=1):
-        score_list = []
-        for ref, can in zip(reference, candidates):
-
-            if n == 1:
-                ref = [[ref]]
-                can = [can]
-            else:
-                ref = [" ".join(jieba.cut(ref)).split()]  # may have multiple ref, need [[ref1]]
-                can = " ".join(jieba.cut(can)).split()
-                
-            print(can,ref)
-            score = rouge_score(can,ref)
-            score_list.append(score)
-
-        return score
 
     # direct get vocab length
     @staticmethod
     def vocab_fn(candidates):
-        counts = {}
-        for can in zip(candidates):
-            can_vocab = jieba.lcut(can)
-            for word in can_vocab:
+        vocab = []
+        for can in candidates:
+            counts = {}
+            words = jieba.lcut(can)
+            for word in words:
                 counts[word] = counts.get(word, 0) + 1
-            
-        return {"vocab_length" :len(counts.keys()) }
+            vocab.append(len(counts.keys()))
+
+        return {"vocab_length" : sum(vocab)/len(vocab)}
 
     # unified evaluate with transformer
     def fn(self,refs, cans,metric="bleu"):
@@ -238,16 +284,20 @@ class TestModule:
             candidate = ["哈哈哈 ，我只会说 。但是实际操作也不会","是的"]
             fn(reference, candidate)
         """
+        print(refs)
+        print(cans)
         if metric == "dist":
             scores = self.dist_fn(cans)
         elif metric == "vocab":
-            scores = self.vocab_fn(refs,cans)
+            scores = self.vocab_fn(cans)
         elif metric == "bleu":
-            scores = self.bleu_fn(refs,cans,2)
+            scores = self.bleu_fn(refs,cans)
         elif metric == "rouge":
             scores = self.rouge_fn(refs,cans)
         elif metric == "f1":
-            scores = self.f1_fn(refs,cans,1)
+            scores = self.f1_fn(refs,cans)
+        elif metric == "exact_match":
+            scores = self.em_fn(refs,cans)
         else:
             # deprecated now
             # transformer may have a bug in chinese evaluate
@@ -286,23 +336,32 @@ class DialogueTest(TestModule):
         self.task = 'dial'
         self.data_file = self.args.data_file
         self.examples = self.load_dataset(self.data_file)
-        self.log_file = self.root_dir + "./eval_test.txt"
+        self.log_file = self.root_dir + self.args.log_file
 
-    def preprocess(self, item, context=1, max_kno_len=256, max_src_len=128, max_tgt_len=128):
+    def preprocess(self, item, context=1, max_kno_len=256, max_src_len=128, max_tgt_len=128, max_seq_len=512):
         if "knowledge" in item:
             item["kno"] = item["knowledge"]  #convert name
 
-        if "[SEP]" in item["src"]:
-            #src = " ".join(item["src"].split("[SEP]")[-1*context:]) #上下文处理不太好，所以只暴露最后几条上下文，相当于滑动 windows
-            src = " ".join(item["src"].split("[SEP]")) #上下文处理不太好，所以只暴露最后几条上下文，相当于滑动 windows
-        else:
-            src = item["src"]
-        src = self.truncate(src, max_src_len-2)
+
+        # if "[SEP]" in item["src"]:
+        #     #src = " ".join(item["src"].split("[SEP]")[-1*context:]) #上下文处理不太好，所以只暴露最后几条上下文，相当于滑动 windows
+        #     src = " ".join(item["src"].split("[SEP]")) #上下文处理不太好，所以只暴露最后几条上下文，相当于滑动 windows
+        # else:
+        #     src = item["src"]
+        src = self.truncate(item["src"], max_src_len-2)
         kno = self.truncate(item["kno"],max_kno_len-2)
-        tgt = self.truncate(item["tgt"], max_tgt_len-2)
+        tgt = self.truncate(item["tgt"], max_tgt_len-1)
         
-        input_text = self.truncate(f'knowledge: {kno} context: {src} response:', self.args.text_length)
-        input_text = self.tokenizer(input_text,return_tensors='pt')
+        input_text = f'knowledge: {kno} context: {src} response:' 
+        input_text = self.tokenizer.encode_plus(
+            input_text,
+            return_tensors='pt')
+            # padding=True,
+            # max_length=max_seq_len-1,
+            # truncation=True)
+        #import pdb; pdb.set_trace() 
+        # inputs includes response
+        
         device =  torch.device("cuda" if torch.cuda.is_available() else "cpu")
         input_text.to(device)
 
@@ -318,8 +377,8 @@ class DialogueTest(TestModule):
 
     def predict(self, output=True):
         # only predict adn output file
-        #nums = min(self.args.eg_num,len(self.examples))
-        nums = len(self.examples)
+        nums = min(self.args.eg_num,len(self.examples))
+        # nums = len(self.examples)
         candidates, references = [],[]
         
         print(f"Data Inference")
@@ -333,14 +392,18 @@ class DialogueTest(TestModule):
             references.append(output["tgt"])
 
         if output:
-            f = open(self.root_dir+"cam_ref.txt","w", encoding="utf-8")
+            f = open(self.root_dir+"cam_ref.json","w", encoding="utf-8")
             f.write(f"------------ Args ------------\n")
             for key in list(vars(self.args).keys()):
                 f.write(f"{key} : {vars(self.args)[key]}\n")
             f.write("-------------------------------\n")
 
             for can, ref in zip(candidates,references):
-                f.write(can+'\t'+ref+'\n')
+                json.dumps({
+                    "can":can,
+                    "ref":ref
+                },f,ensure_ascii=False)
+                f.write("\n")
             f.close()
         return candidates, references
 
@@ -348,6 +411,7 @@ class DialogueTest(TestModule):
         cans, refs = [],[]
         with open(load_file,"r") as f:
             for line in f.readlines()[19:]:
+                print(line)
                 can, ref = line.strip().split("\t")
                 cans.append(can)
                 refs.append(ref)
@@ -366,14 +430,14 @@ class DialogueTest(TestModule):
         if load_file:
             candidates, references = self.load_predict(self.root_dir + load_file)
         else:
-            candidates, references = self.predict()
+            candidates, references = self.predict(output=True)
             print(candidates, references)
 
         scores = {}
         for m in metrics:
             print(f"Evaluate {m} score")
             assert len(references) == len(candidates)
-            scores[m] = self.fn(references,candidates,m)
+            scores.update(self.fn(references,candidates,m))
  
         if self.args.verbose:
             print(f"-----End Evaluate-------")
@@ -391,7 +455,9 @@ def parse_augment():
     args_parser.add_argument('--gpu', type=bool,default=True)
     args_parser.add_argument('--data_file', type=str,default='/cognitive_comp/yangqi/data/DuSinc/dev_dial.json')
     args_parser.add_argument('--model_path', type=str,default='Wenzhong-Finetune-Loss0.1')
+    args_parser.add_argument('--log_file', type=str,default='evalall_beam.txt')
     args_parser.add_argument('--token_path', type=str,default=None)
+    args_parser.add_argument('--do_sample', type=bool,default=True)
     args_parser.add_argument('--n_sample', type=int,default=1)
     args_parser.add_argument('--text_length', type=int,default=512)
     args_parser.add_argument('--top_k', type=int,default=0)
@@ -400,7 +466,7 @@ def parse_augment():
     args_parser.add_argument('--rep_pen', type=float,default=1.6)
     args_parser.add_argument('--temp', type=float,default=1.2)
     args_parser.add_argument('--context', type=int,default=1)
-    args_parser.add_argument('--eg_num', type=int,default=10) #only test script
+    args_parser.add_argument('--eg_num', type=int,default=1041) #only test script
     args_parser.add_argument('--verbose', type=bool,default=True) 
 
     if len(sys.argv) == 1:
@@ -411,13 +477,5 @@ def parse_augment():
 
 args = parse_augment()
 tester = DialogueTest(args)
-scores = tester.evaluate(["bleu","f1","dist","vocab"])
-
-"""
-python eval.py --root_dir '/cognitive_comp/yangqi/logs/wenzhong_merge/' --model_path 'Wenzhong-GPT2-110M/ckpt_dial/hf_pretrained_epoch10_step60000/'
-
-perplexity
-exact_match
-"rouge","exact_match"
-f1
-"""
+# scores = tester.predict()
+scores = tester.evaluate(["bleu","f1","dist","vocab","exact_match","rouge"])
