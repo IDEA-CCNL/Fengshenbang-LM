@@ -109,8 +109,26 @@ sh finetune_classification.sh
 # 封神框架
 为了让大家好用封神榜大模型，参与大模型的继续训练和下游应用，我们同步开源了FengShen(封神)框架。我们参考了[HuggingFace](https://github.com/huggingface/transformers), [Megatron-LM](https://github.com/NVIDIA/Megatron-LM), [Pytorch-Lightning](https://github.com/PyTorchLightning/pytorch-lightning), [DeepSpeed](https://github.com/microsoft/DeepSpeed)等优秀的开源框架，结合NLP领域的特点, 以Pytorch为基础框架，Pytorch-Lightning为Pipeline重新设计了FengShen。 FengShen可以应用在基于海量数据(TB级别数据)的大模型(百亿级别参数)预训练以及各种下游任务的微调，用户可以通过配置的方式很方便地进行分布式训练和节省显存的技术，更加聚焦在模型实现和创新。同时FengShen也能直接使用[HuggingFace](https://github.com/huggingface/transformers)中的模型结构进行继续训练，方便用户进行领域模型迁移。FengShen针对封神榜开源的模型和模型的应用，提供丰富、真实的源代码和示例。随着封神榜模型的训练和应用，我们也会不断优化FengShen框架，敬请期待。
 
-[三分钟上手封神](fengshen/README.md)
+## 安装
+```
+git clone https://github.com/IDEA-CCNL/Fengshenbang-LM.git
+cd Fengshenbang-LM
+pip install --editable .
+```
 
+## Pipelines
+封神框架目前在适配各种下游任务的Pipeline，支持命令行一键启动Predict、Finetuning。
+以Text Classification为例
+```
+# predict
+❯ fengshen-pipeline text_classification predict --model='IDEA-CCNL/Erlangshen-Roberta-110M-Similarity' --text='今天心情不好[SEP]今天很开心'
+[{'label': 'not similar', 'score': 0.9988130331039429}]
+
+# train
+fengshen-pipeline text_classification train --model='IDEA-CCNL/Erlangshen-Roberta-110M-Similarity' --datasets='IDEA-CCNL/AFQMC' --gpus=0 --texta_name=sentence1 --strategy=ddp
+```
+
+[三分钟上手封神](fengshen/README.md)
 
 # 封神榜系列文章
 [封神榜系列之从数据并行开始大模型训练](https://zhuanlan.zhihu.com/p/512194216)
