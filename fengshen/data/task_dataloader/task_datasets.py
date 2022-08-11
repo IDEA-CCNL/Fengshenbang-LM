@@ -7,6 +7,57 @@ import torch
 import pytorch_lightning as pl
 import os
 
+class AbstractCollator:
+    """
+    collector for summary task
+    """
+    def __init__(self, tokenizer, max_enc_length, max_dec_length, prompt):
+        self.tokenizer = tokenizer
+        self.max_enc_length = max_enc_length
+        self.max_dec_length = max_dec_length
+        self.prompt = prompt
+
+    def __call__(self, samples):
+
+        labels = []
+        attn_mask = []
+        # decoder_attn_mask = []
+        source_inputs = []
+        for sample in samples:
+            encode_dict = self.tokenizer.encode_plus(
+                self.prompt + sample['text'],
+                max_length=self.max_enc_length,
+                padding='max_length',
+                truncation=True,
+                return_tensors='pt')
+            decode_dict = self.tokenizer.encode_plus(
+                sample['summary'],
+                max_length=self.max_dec_length,
+                padding='max_length',
+                truncation=True,
+                return_tensors='pt')
+            source_inputs.append(encode_dict['input_ids'].squeeze())
+            labels.append(decode_dict['input_ids'].squeeze())
+            attn_mask.append(encode_dict['attention_mask'].squeeze())
+            # decoder_attn_mask.append(decode_dict['attention_mask'].squeeze())
+        # labels = torch.tensor(decode_dict['input'])
+
+        source_inputs = torch.stack(source_inputs)
+        labels = torch.stack(labels)
+        attn_mask = torch.stack(attn_mask)
+        # decoder_attn_mask = torch.stack(decoder_attn_mask)
+        # decode_input_idxs = shift_tokens_right(labels, self.tokenizer.pad_token_id, self.tokenizer.pad_token_id)
+        end_token_index = torch.where(labels == self.tokenizer.eos_token_id)[1]
+        for idx, end_idx in enumerate(end_token_index):
+            labels[idx][end_idx + 1:] = -100
+
+        return {
+            "input_ids": source_inputs,
+            "attention_mask": attn_mask,
+            "labels": labels,
+            "text": [sample['text'] for sample in samples],
+            "summary": [sample['summary'] for sample in samples]
+        }
 
 class LCSTSDataset(Dataset):
     '''
