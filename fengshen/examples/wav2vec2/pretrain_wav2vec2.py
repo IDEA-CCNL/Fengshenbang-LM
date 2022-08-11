@@ -258,6 +258,7 @@ if __name__ == '__main__':
 
     trainer = Trainer.from_argparse_args(args,
                                          logger=logger,
+                                         profiler="pytorch",
                                          callbacks=[
                                              lr_monitor,
                                              checkpoint_callback])
