@@ -12,6 +12,7 @@ class AbstractCollator:
     """
     collector for summary task
     """
+
     def __init__(self, tokenizer, max_enc_length, max_dec_length, prompt):
         self.tokenizer = tokenizer
         self.max_enc_length = max_enc_length
@@ -59,6 +60,7 @@ class AbstractCollator:
             "text": [sample['text'] for sample in samples],
             "summary": [sample['summary'] for sample in samples]
         }
+
 
 class LCSTSDataset(Dataset):
     '''

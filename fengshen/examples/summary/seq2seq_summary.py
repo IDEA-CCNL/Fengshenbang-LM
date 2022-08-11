@@ -1,24 +1,24 @@
 
+import torch
+import os
+import argparse
+import json
+import pytorch_lightning as pl
+from fengshen.models.model_utils import add_module_args
+from fengshen.data.task_dataloader.task_datasets import AbstractCollator
+from fengshen.data.universal_datamodule import UniversalDataModule
+from fengshen.utils.universal_checkpoint import UniversalCheckpoint
+from fengshen.utils.utils import chinese_char_tokenize
+from torchmetrics.text.rouge import ROUGEScore
+from pytorch_lightning import Trainer, loggers
+from pytorch_lightning.callbacks import LearningRateMonitor
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import sys
 sys.path.append('../../../')
 
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-from pytorch_lightning.callbacks import LearningRateMonitor
-from pytorch_lightning import Trainer, loggers
-from torchmetrics.text.rouge import ROUGEScore
-
-from fengshen.utils.utils import chinese_char_tokenize
-from fengshen.utils.universal_checkpoint import UniversalCheckpoint
-from fengshen.data.universal_datamodule import UniversalDataModule
-from fengshen.data.task_dataloader.task_datasets import AbstractCollator
-from fengshen.models.model_utils import add_module_args
-import pytorch_lightning as pl
-import json
-import argparse
-import os
-import torch
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = '3,4'
+
 
 class FinetuneSummary(pl.LightningModule):
     @staticmethod
@@ -137,6 +137,7 @@ class FinetuneSummary(pl.LightningModule):
     def configure_optimizers(self):
         from fengshen.models.model_utils import configure_optimizers
         return configure_optimizers(self)
+
 
 def main():
     total_parser = argparse.ArgumentParser("Summary Task")
