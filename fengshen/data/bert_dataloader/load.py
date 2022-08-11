@@ -193,8 +193,5 @@ class BertDataModule(LightningDataModule):
 
 
 if __name__ == '__main__':
-    # pre = PreProcessing(_SPLIT_DATA_PATH)
-    # pre.processing()
-
     dataset = BertDataGenerate(_SPLIT_DATA_PATH, num_proc=16)
     dataset.generate_cache_arrow()
