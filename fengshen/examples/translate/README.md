@@ -3,7 +3,7 @@
 
 数据预处理部分目前整合不多，主要提供一个最终的转换文件，转换成模型应用格式，前期还是应用mose等工具进行数据的预处理部分，产出处理后的源目标语言和目标语言两份数据，再调用本脚本合并
 
-前期数据预处理脚本可参考，deltalm在fairseq中的demo，[prepare_iwslt14.sh](!https://github.com/microsoft/unilm/blob/master/deltalm/examples/prepare_iwslt14.sh)
+前期数据预处理脚本可参考，deltalm在fairseq中的demo，prepare_iwslt14.sh：https://github.com/microsoft/unilm/blob/master/deltalm/examples/prepare_iwslt14.sh)
 
 ### 目标格式
 需要将翻译的源语言和目标语言转换到一个文件中，格式如下：
@@ -56,4 +56,4 @@ pyhton = 3.8.10
 pytorch =1.10.0    
 transformers = 4.20.1    
 
-相关环境安装可参考Wiki：[环境配置](!http://wiki.team.idea.edu.cn/pages/viewpage.action?pageId=16291924)
+相关环境安装可参考Wiki：http://wiki.team.idea.edu.cn/pages/viewpage.action?pageId=16291924
