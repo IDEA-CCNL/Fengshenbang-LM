@@ -255,10 +255,20 @@ if __name__ == '__main__':
             not os.path.exists(args.ckpt_path):
         print('--------warning no checkpoint found--------, remove args')
         args.ckpt_path = None
-
+    from pytorch_lightning.profiler import PyTorchProfiler
+    schedule = torch.profiler.schedule(
+        wait=1,
+        warmup=2,
+        active=4,
+        repeat=1)
+    os.makedirs("./run/{}".format(os.environ["SLURM_JOB_ID"]), exist_ok=True)
+    profiler = PyTorchProfiler(
+        dirpath="./run/{}".format(os.environ["SLURM_JOB_ID"]),
+        filename="profile", schedule=schedule
+    )
     trainer = Trainer.from_argparse_args(args,
                                          logger=logger,
-                                         profiler="pytorch",
+                                         profiler=profiler,
                                          callbacks=[
                                              lr_monitor,
                                              checkpoint_callback])
