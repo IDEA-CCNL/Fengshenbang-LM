@@ -20,7 +20,6 @@ setup(
         'deepspeed == 0.5.10',
         'jieba-fast >= 0.53',
         'jieba >= 0.40.0',
-        'protobuf == 3.20.1',
     ],
 
     scripts=[],

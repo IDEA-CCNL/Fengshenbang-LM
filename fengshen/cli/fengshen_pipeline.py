@@ -25,6 +25,9 @@ def main():
     elif method == 'train':
         datasets = load_dataset(args.datasets)
         pipeline.train(datasets)
+    else:
+        raise Exception(
+            'cmd not support, now only support {predict, train}')
 
 
 if __name__ == '__main__':
