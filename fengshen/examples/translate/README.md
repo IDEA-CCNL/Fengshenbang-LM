@@ -31,7 +31,12 @@ python prepare_dataset.py /cognitive_comp/dongxiaoqun/iwslt14/iwslt14.tokenized.
 ## deltalm 模型
 
 ### 原deltalm模型路径
-/cognitive_comp/dongxiaoqun/pretrained_model/deltalm/
+/shared_space/dongxiaoqun/deltalm/
+
+主要包含三个文件：
+config.json：模型配置文件
+pytorch_model.bin：模型文件
+spm.model：sentence_piece文件
 
 ### deltalm 模型结构
 均实现在 Fengshenbang-LM/fengshen/models/deltalm 路径下，文件结构如下：
