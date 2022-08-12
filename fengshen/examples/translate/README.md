@@ -39,10 +39,10 @@ pytorch_model.bin：模型文件
 spm.model：sentence_piece文件    
 
 ### deltalm 模型结构
-均实现在 Fengshenbang-LM/fengshen/models/deltalm 路径下，文件结构如下：
-1） modeling_deltalm.py 实现模型的基本结构，结构如论文所示
-2） tokenizer_deltalm.py 实现模型的tokenzier部分
-3） configuration_deltalm.py 实现模型的config配置部分
+均实现在 Fengshenbang-LM/fengshen/models/deltalm 路径下，文件结构如下：    
+1） modeling_deltalm.py 实现模型的基本结构，结构如论文所示    
+2） tokenizer_deltalm.py 实现模型的tokenzier部分    
+3） configuration_deltalm.py 实现模型的config配置部分    
 
 ### finetune 德译英示例
 主要实现代码在 Fengshenbang-LM/fengshen/examples/translate/finetune_deltalm.py
