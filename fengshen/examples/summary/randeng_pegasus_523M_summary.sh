@@ -88,7 +88,7 @@ export TORCH_EXTENSIONS_DIR=/cognitive_comp/dongxiaoqun/torch_extendsions
 # --strategy deepspeed_stage_${ZERO_STAGE} \
 TRAINER_ARGS="
     --max_epochs 10 \
-    --gpus 8 \
+    --gpus 1 \
     --num_nodes 1 \
     --strategy deepspeed_stage_${ZERO_STAGE} \
     --default_root_dir $ROOT_DIR \
@@ -100,29 +100,33 @@ TRAINER_ARGS="
     --every_n_train_steps 10000 \
     --val_check_interval 0.1 \
 "
-
+prompt='"'
 DATA_ARGS="
     --datasets_name lcsts \
     --num_workers 30 \
     --train_batchsize $MICRO_BATCH_SIZE \
     --val_batchsize $MICRO_BATCH_SIZE \
     --test_batchsize $MICRO_BATCH_SIZE \
-    --max_seq_length 128 \
+    --max_enc_length 128 \
     --max_dec_length 64 \
+    --val_datasets_field val \
+    --prompt $prompt \
 "
+
 # --prompt $prompt \
 # --pretrained_model_path /cognitive_comp/ganruyi/experiments/randeng_t5_77M_summary/ckpt/hf_pretrained_epoch1_step75019 \
 
 # mode_path="/cognitive_comp/dongxiaoqun/train_model/fengshen-pegasus-base/ckpt/hf_pretrained_epoch0_step22200/"
 mode_path="/cognitive_comp/dongxiaoqun/train_model/fengshen-pegasus-large/ckpt/hf_pretrained_epoch0_step122000"
-cp /cognitive_comp/dongxiaoqun/pretrained_model/pegasus-large/vocab.txt $mode_path/ 
+cp /cognitive_comp/dongxiaoqun/pretrained_model/pegasus-large/vocab.txt $mode_path/
+
 MODEL_ARGS="
     --pretrained_model_path  $mode_path \
     --output_save_path $output_save_path \
+    --self_tokenizer \
 "
 
-SCRIPTS_PATH=/cognitive_comp/dongxiaoqun/project/Fengshenbang-LM/fengshen/examples/summary/finetune_pegasus_summary.py
-SINGULARITY_PATH=/cognitive_comp/dongxiaoqun/software/docker/pytorch21_06_py3_docker_image_v2.sif
+SCRIPTS_PATH=/cognitive_comp/dongxiaoqun/debug/Fengshenbang-LM/fengshen/examples/summary/seq2seq_summary.py
 
 export CMD=" \
     $SCRIPTS_PATH \
@@ -132,5 +136,8 @@ export CMD=" \
     "
 
 echo $CMD
-srun singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c 'python3 $CMD'
+
+source activate
+conda activate torchnew
+srun --nodes=1 --ntasks-per-node=1 --gres=gpu:1 --cpus-per-task=30 -o ${MODEL_NAME}-%J.log --jobid=229555 bash -c 'python3 $SCRIPT_PATH $CMD'
 
