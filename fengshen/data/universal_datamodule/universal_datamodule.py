@@ -106,7 +106,7 @@ class UniversalDataModule(LightningDataModule):
         return DataLoader(
             ds,
             batch_size=self.hparams.train_batchsize,
-            num_workers=self.hparams.num_workers,
+            num_workers=self.hparams.dataloader_workers,
             collate_fn=collate_fn,
             pin_memory=True,
         )
@@ -121,7 +121,7 @@ class UniversalDataModule(LightningDataModule):
             ds,
             batch_size=self.hparams.val_batchsize,
             shuffle=False,
-            num_workers=self.hparams.num_workers,
+            num_workers=self.hparams.dataloader_workers,
             collate_fn=collate_fn,
             sampler=DistributedSampler(
                 ds, shuffle=False),
