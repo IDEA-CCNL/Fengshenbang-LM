@@ -2,7 +2,9 @@ from fengshen.data.fs_datasets.load import load_dataset, list_datasets
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, DistributedSampler
 from torch.utils.data.dataset import ConcatDataset
+import torch
 from typing import Optional
+from dataclasses import dataclass
 
 def get_consume_samples(data_model: LightningDataModule) -> int:
     if hasattr(data_model.trainer.lightning_module, 'consumed_samples'):
@@ -259,3 +261,147 @@ class MixingDataModule(LightningDataModule):
                 self.datasets[self.hparams.test_datasets_field], shuffle=False),
             pin_memory=True,
         )
+
+
+# rewarite from pretrain_bart Text Filling Collator
+# x = src + kno +  tgt
+def truncate_sequence(document:str, max_num_tokens:int,reverse=False):
+    total_length = len(document)
+    if total_length <= max_num_tokens:
+        return document
+    else: 
+        if reverse:
+            return document[-1*max_num_tokens:]
+        else:
+            return document[:max_num_tokens]
+
+def padding_to_maxlength(ids, max_length, pad_id):
+    cur_len = len(ids)
+    len_diff = max_length - len(ids)
+    return ids + [pad_id] * len_diff, [1] * cur_len + [0] * len_diff
+    
+@dataclass
+class DialoCollator:
+    tokenizer: None
+    max_seq_length: int = 512 
+    max_kno_length: int = 256
+    max_src_length: int = 128
+    max_tgt_length: int = 128
+
+    @ staticmethod
+    def add_data_specific_args(parent_args):
+        parser = parent_args.add_argument_group('Wenzhong Text Filling Collator')
+        parser.add_argument('--max_seq_length', default=512, type=int) #总序列最长多长
+        parser.add_argument('--max_src_length', default=256, type=int) #总序列最长多长
+        parser.add_argument('--max_kno_length', default=128, type=int) #知识最长多长
+        parser.add_argument('--max_tgt_length', default=128, type=int) #回复最长多长
+        return parent_args
+
+    def __init__(self, tokenizer, args):
+        self.tokenizer = tokenizer
+        self.args = args
+        self.max_seq_length = args.max_seq_length
+        
+    def generate_sample(self, x):
+        # tokenize sentence
+        x = self.tokenizer.bos_token + x + self.tokenizer.eos_token
+        input_dicts = self.tokenizer.encode_plus(
+            x,
+            max_length=self.max_seq_length, 
+            padding="max_length",
+            truncation=True, 
+            return_tensors='pt'
+        )
+        
+        input_ids = input_dicts["input_ids"]
+        attn_mask = input_dicts["attention_mask"]
+        labels = input_ids
+
+        return [input_ids, labels, attn_mask]
+
+    def __call__(self, samples):
+        for s in samples:
+            s["knowledge"] = s["kno"]
+
+        input_ids, labels, attn_mask = [],[],[]
+        for s in samples:
+            # 需要补充 bos , eos, 所以最长长度需要-2
+            s["knowledge"] = truncate_sequence(s["knowledge"],self.args.max_kno_length-2)
+            s["src"] = truncate_sequence(s["src"],self.args.max_src_length-2)
+            s["tgt"] = truncate_sequence(s["tgt"],self.args.max_tgt_length-1)
+
+            x_trunc = f'knowledge: {s["knowledge"]} context: {s["src"]} response:{s["tgt"]}' #prompt
+         
+            g = self.generate_sample(x_trunc)
+            
+            input_ids.append(g[0])
+            labels.append(g[1])
+            attn_mask.append(g[2])
+
+        return {
+            'input_ids': torch.cat(input_ids),
+            'attention_mask': torch.cat(attn_mask),
+            'labels': torch.cat(labels),
+            "knowledge": s["knowledge"],
+            "question":s["src"]
+        }
+
+@dataclass
+class QueryCollator:
+    tokenizer: None
+    max_seq_length: int = 512 
+    max_src_length: int = 496
+    max_tgt_length: int = 16
+
+    @ staticmethod
+    def add_data_specific_args(parent_args):
+        parser = parent_args.add_argument_group('Bart Text Filling Collator')
+        parser.add_argument('--max_seq_length', default=512, type=int) #总序列最长多长
+        parser.add_argument('--max_src_length', default=496, type=int) #总序列最长多长
+        parser.add_argument('--max_tgt_length', default=16, type=int) #回复最长多长
+        return parent_args
+
+    def __init__(self, tokenizer, args):
+        self.tokenizer = tokenizer
+        self.args = args
+        self.max_seq_length = args.max_seq_length
+        
+    def generate_sample(self, x):
+        # tokenize sentence
+        x = self.tokenizer.bos_token + x + self.tokenizer.eos_token
+        input_dicts = self.tokenizer.encode_plus(
+            x,
+            max_length=self.max_seq_length, 
+            padding="max_length",
+            truncation=True, 
+            return_tensors='pt'
+        )
+        
+        input_ids = input_dicts["input_ids"]
+        attn_mask = input_dicts["attention_mask"]
+        labels = input_ids
+
+        return [input_ids, labels, attn_mask]
+
+    def __call__(self, samples):
+        input_ids, labels, attn_mask = [],[],[]
+        for s in samples:
+            # 需要补充 bos , eos, 所以最长长度需要-2
+            s["src"] = truncate_sequence(s["src"],self.args.max_src_length-2)
+            s["tgt"] = truncate_sequence(s["tgt"],self.args.max_tgt_length-1)
+
+            x_trunc = f'context: {s["src"]} query:{s["tgt"]}' #prompt
+         
+            g = self.generate_sample(x_trunc)
+            
+            input_ids.append(g[0])
+            labels.append(g[1])
+            attn_mask.append(g[2])
+
+        return {
+            'input_ids': torch.cat(input_ids),
+            'attention_mask': torch.cat(attn_mask),
+            'labels': torch.cat(labels),
+            "query": s["tgt"],
+            "question":s["src"]
+        }
