@@ -72,7 +72,7 @@ DATA_ARGS="\
         "
 
 MODEL_ARGS="\
-        --model_path /raid/wuziwei/pretrained_model_hf/bert_base4idea2.0 \
+        --model_path /raid/wuziwei/pretrained_model_hf/bert_base4wudao \
         --learning_rate 1e-5 \
         --weight_decay 0.01 \
         --warmup 0.001 \
