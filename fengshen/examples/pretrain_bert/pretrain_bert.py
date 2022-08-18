@@ -23,7 +23,7 @@ import argparse
 import sys
 import torch
 import os
-import re
+from torch import nn
 import jieba
 import numpy as np
 
@@ -75,7 +75,7 @@ class DataCollate(object):
                 word = word_list[i]
                 if rands > self.mask_rate and len(word) < 4:
                     word = word_list[i]
-                    word_encode = tokenizer.encode(word, add_special_tokens=False)
+                    word_encode = self.tokenizer.encode(word, add_special_tokens=False)
                     for token in word_encode:
                         mask_ids.append(token)
                         labels.append(self.ignore_labels)
@@ -174,9 +174,13 @@ class Bert(LightningModule):
 
     def training_step(self, batch, batch_idx):
         output = self.model(**batch)
+        sentence_output = self.model(batch.input_ids)
         # print(output)
+        # mask lm loss output.loss
         self.log('train_loss', output.loss)
-        return output.loss
+        # constrative loss
+        cons_loss = constrative_loss(sentence_output)
+        return output.loss + cons_loss
 
     def comput_metrix(self, logits, labels):
         ones = torch.ones_like(labels)

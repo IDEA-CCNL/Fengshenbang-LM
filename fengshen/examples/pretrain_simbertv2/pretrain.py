@@ -1,4 +1,3 @@
-from data.bert_dataloader.load import BertDataModule
 from transformers import (
     BertTokenizer,
     BertConfig,
@@ -23,33 +22,16 @@ import argparse
 import sys
 import torch
 import os
-from torch import nn
+import re
 import jieba
 import numpy as np
 
-# 如果没有安装fengshen模块，请把Fengshenbang-LM/fengshen加入到系统环境变量
-sys.path.insert(0, '../../../fengshen')
+# sys.path.insert(0, '/raid/wuziwei/codes/Fengshenbang-LM/fengshen')
+# from data.bert_dataloader.load import BertDataModule
+from data_loader import BertDataModule,DataCollate
+os.environ["CUDA_VISIBLE_DEVICES"] = '4,6'
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '0,1'
-
-
-class MeanPooler(nn.Module):
-    def __init__(self, hidden_size):
-        super().__init__()
-        self.dense = nn.Linear(hidden_size, hidden_size)
-        self.activation = nn.GELU()
-
-    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        # We "pool" the model by simply taking the hidden state corresponding
-        # to the first token.
-        # first_token_tensor = hidden_states[:, 0]
-        first_token_tensor = torch.mean(hidden_states, dim=1)
-        pooled_output = self.dense(first_token_tensor)
-        pooled_output = self.activation(pooled_output)
-        return pooled_output
-
-
-class DataCollate(object):
+class DataCollateNouse(object):
 
     def __init__(self, tokenizer, max_length, mask_rate=0.15, max_ngram=3, if_padding=True) -> None:
         self.tokenizer = tokenizer
@@ -91,7 +73,7 @@ class DataCollate(object):
                 word = word_list[i]
                 if rands > self.mask_rate and len(word) < 4:
                     word = word_list[i]
-                    word_encode = self.tokenizer.encode(word, add_special_tokens=False)
+                    word_encode = tokenizer.encode(word, add_special_tokens=False)
                     for token in word_encode:
                         mask_ids.append(token)
                         labels.append(self.ignore_labels)
@@ -135,21 +117,129 @@ class DataCollate(object):
         }
 
 
+class MaskTask(object):
 
-def constrative_loss(model_output,lamda=0.05):
-    # 取hiddenstate的方式有多种，有所有层池化，mean，也可以取最后一层
-    # hidenstate 池化
-    # hidenstate 归一化
-    # hidenstate 求向量点积 也就是相似度矩阵
-    # 用公式 exp(f(x)·f(x+))/(exp(f(x)·f(x+))+sum(exp(f(x)·f(x_i-)))) 对batch内所有样本求loss
-    torch.matmul(model_output)
-    pass
+    def __init__(self, tokenizer, max_length, mask_rate=0.15, max_ngram=3, if_padding=True) -> None:
+        self.tokenizer = tokenizer
+        self.max_length = max_length
+        self.word_cuter = jieba.cut
+        self.vocab_length = len(tokenizer)
+        self.mask_rate = mask_rate
+        self.ignore_labels = -100
+        self.ngrams = np.arange(1, max_ngram + 1, dtype=np.int64)
+        pvals = 1. / np.arange(1, max_ngram + 1)
+        pvals /= pvals.sum(keepdims=True)  # p(n) = 1/n / sigma(1/k)
+        self.pvals = pvals
+        self.padding = if_padding
+
+    def token_process(self, token_id):
+        rand = np.random.random()
+        if rand <= 0.8:
+            return self.tokenizer.mask_token_id
+        elif rand <= 0.9:
+            return token_id
+        else:
+            return np.random.randint(1, self.vocab_length)
+
+    def __call__(self, samples):
+        input_ids = []
+        attention_mask = []
+        token_type_ids = []
+        batch_labels = []
+        # print('^-^ batch size :',len(samples))
+        for sample in samples:
+            word_list = list(self.word_cuter(sample['text']))
+            mask_ids, labels = [], []
+
+            record = []
+            for i in range(len(word_list)):
+                rands = np.random.random()
+                if i in record:
+                    continue
+                word = word_list[i]
+                if rands > self.mask_rate and len(word) < 4:
+                    word = word_list[i]
+                    word_encode = tokenizer.encode(word, add_special_tokens=False)
+                    for token in word_encode:
+                        mask_ids.append(token)
+                        labels.append(self.ignore_labels)
+                    record.append(i)
+                else:
+                    n = np.random.choice(self.ngrams, p=self.pvals)
+                    for index in range(n):
+                        ind = index + i
+                        if ind in record or ind >= len(word_list):
+                            continue
+                        record.append(ind)
+                        word = word_list[ind]
+                        word_encode = tokenizer.encode(word, add_special_tokens=False)
+                        for token in word_encode:
+                            mask_ids.append(self.token_process(token))
+                            labels.append(token)
+            if self.padding:
+                if len(mask_ids) > self.max_length:
+                    input_ids.append(mask_ids[:self.max_length])
+                    batch_labels.append(labels[:self.max_length])
+                else:
+                    lenght = len(mask_ids)
+                    mask_ids.extend([0]*(self.max_length-lenght))
+                    labels.extend([-100]*(self.max_length-lenght))
+                    input_ids.append(mask_ids)
+                    batch_labels.append(labels)
+            attention_mask.append([1]*self.max_length)
+            token_type_ids.append([0]*self.max_length)
+
+        #     print('sentence:',sample['text'])
+        #     print('input_ids:',mask_ids)
+        #     print('decode inputids:',self.tokenizer.decode(mask_ids))
+        #     print('labels',labels)
+        #     print('decode labels:',self.tokenizer.decode(labels))
+        #     print('*'*20)
+        return {
+            'input_ids': torch.tensor(input_ids),
+            'labels': torch.tensor(batch_labels),
+            'attention_mask': torch.tensor(attention_mask),
+            'token_type_ids': torch.tensor(token_type_ids)
+        }
+
+
+def constrative_loss(X):
+    # X为bert的隐层输出，batch * lenght * hidden size，做池化后(mean了一下)为 batch * hidden size
+    # X = b * hidden_ize 如：16*768 32*768
+    # x为一个batch的样本，两两做内积，i为偶数，i和i+1 为一对相似样本，i为奇数，i和i-1为一对相似样本
+    # loss描述，对每个句子，要尽量让和相似句的内积大，与其他句的内积越小
+    # loss 计算公式为 -log(exp(X_i*X_(i+1))/{exp(X_i*X_(i+1)+exp(X_i * X_(i != i+1))})
+    total_loss = 0
+    # print('not padding',X[:,:2,:])
+    # print('padding',X[:,-2:,:])
+    # 做归一化 or 不做
+    X = torch.mean(X,dim=1)
+    X = torch.cosine_similarity(X.unsqueeze(1),X.unsqueeze(0),dim=-1)
+    # X = torch.matmul(X,X.T)
+    X_diag = X.diag()
+    x = X - torch.diag_embed(X_diag)
+    x = torch.exp(x)
+    for i in range(x.shape[0]):
+        if i % 2 == 0:
+            fz = x[i][i+1]
+            fm = sum(x[i])
+            # print('fz,fm,o',fz,fm)
+            total_loss += torch.log(fz/(fm+1e-10))
+        if i%2 != 0:
+            fz = x[i][i-1]
+            fm = sum(x[i])
+            # print('fz,fm,j',fz,fm)
+            total_loss += torch.log(fz/fm+1e-10)
+    # print('sim loss :',total_loss)
+    # input()
+    # torch.cosine_similarity()
+    return -total_loss/x.shape[0]
 
 
 class Bert(LightningModule):
     @staticmethod
     def add_module_specific_args(args_parser):
-        parser = args_parser.add_argument_group('Bert')
+        parser = args_parser.add_argument_group('MegatronBert')
         parser.add_argument('--model_path', type=str, default='')
         parser.add_argument('--learning_rate', default=1e-5, type=float)
         parser.add_argument('--weight_decay', default=0.1, type=float)
@@ -159,9 +249,10 @@ class Bert(LightningModule):
     def __init__(self, args):
         super().__init__()
         self.save_hyperparameters(args)
-        self.bertconfig = BertConfig.from_pretrained(args.model_path)
+        # self.bertconfig = BertConfig.from_pretrained(args.model_path)
         # self.model = BertForPreTraining(self.bertconfig)
-        self.model = BertForMaskedLM(self.bertconfig)
+        # self.model = BertForMaskedLM(self.bertconfig)
+        self.model = BertForMaskedLM.from_pretrained(args.model_path)
 
     def setup(self, stage) -> None:
         if stage == 'fit':
@@ -200,27 +291,28 @@ class Bert(LightningModule):
         }]
 
     def training_step(self, batch, batch_idx):
-        output = self.model(**batch)
-        sentence_output = self.model(batch.input_ids)
-        # print(output)
-        # mask lm loss output.loss
-        self.log('train_loss', output.loss)
+        output = self.model(**batch,output_hidden_states=True)
+
+        self.log('train_loss_masklm', output.loss)
         # constrative loss
-        cons_loss = constrative_loss(sentence_output)
-        return output.loss + cons_loss
+        cons_loss = constrative_loss(output.hidden_states[-1])
+        self.log('train_loss_cons', cons_loss)
+        # print(cons_loss)
+        self.log('train_loss',output.loss+cons_loss)
+        return output.loss+cons_loss
 
     def comput_metrix(self, logits, labels):
-        ones = torch.ones_like(labels)
-        zero = torch.zeros_like(labels)
-        mask = torch.where(labels < 0, zero, ones)
-        mask = mask.view(size=(-1,)).float()
+        ones=torch.ones_like(labels)
+        zero=torch.zeros_like(labels)
+        mask=torch.where(labels<0,zero,ones)
+        mask=mask.view(size=(-1,)).float()
         # y_true=labels.view(size=(-1,)).float()
 
         y_pred = torch.argmax(logits, dim=-1)
         y_pred = y_pred.view(size=(-1,))
         y_true = labels.view(size=(-1,)).float()
         corr = torch.eq(y_pred, y_true)
-        corr = torch.multiply(corr.float(), mask)
+        corr=torch.multiply(corr.float(),mask)
         acc = torch.sum(corr.float()) / torch.sum(mask)
         return acc
 
@@ -228,7 +320,7 @@ class Bert(LightningModule):
         output = self.model(**batch)
         # print(output)
         acc = self.comput_metrix(output.logits, batch['labels'])
-        print('val_loss ', output.loss)
+        # print('val_loss ', output.loss)
         self.log('val_loss', output.loss)
         self.log('val_acc', acc)
         # pass
