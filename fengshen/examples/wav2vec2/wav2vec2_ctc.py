@@ -1,8 +1,10 @@
-from transformers import Wav2Vec2FeatureExtractor
+from transformers import (
+    AutoProcessor,
+)
 from transformers import Wav2Vec2Config
-from fengshen.models.wav2vec2.modeling_wav2vec import Wav2Vec2ForPreTraining
-
-import fengshen.data.wav2vec2.wav2vec2_dataset as ctc_datasets
+from fengshen.models.wav2vec2.modeling_wav2vec import Wav2Vec2ForCTC
+from datasets import load_metric
+import fengshen.data.wav2vec2.wav2vec2ctc_dataset as ctc_datasets
 from fengshen.data.universal_datamodule import UniversalDataModule
 # from transformers.models.hubert.modeling_hubert import _compute_mask_indices
 import argparse
@@ -16,12 +18,14 @@ import torch
 import os
 
 
-class Wav2vec2PretrainDataLoader():
+class Wav2vec2CTCDataLoader():
     def __init__(self, args, model):
         self.args = args
         self.load_datasets = {}
         self.wav2vec2_model = model.model
         self.feature_extractor = model.feature_extractor
+        self.tokenizer = model.tokenizer
+        self.processor = model.processor
 
     @property
     def datasets(self):
@@ -30,12 +34,15 @@ class Wav2vec2PretrainDataLoader():
     def load_dataset(self, split: str, **kwargs):
         data_path = self.args.data
         manifest_path = os.path.join(data_path, "{}.tsv".format(split))
+        label_path = os.path.join(data_path, "{}.wrd".format(split))
 
-        self.datasets[split] = ctc_datasets.Wav2vec2Dataset(
+        self.datasets[split] = ctc_datasets.CTCDataset(
             manifest_path=manifest_path,
+            lable_path=label_path,
             sample_rate=self.args.sample_rate,
-            model=self.wav2vec2_model,
+            processor=self.processor,
             args=self.args,
+            tokenizer=self.tokenizer,
             feature_extractor=self.feature_extractor,
             max_sample_size=self.args.max_sample_size,
             min_sample_size=self.args.min_sample_size,
@@ -45,13 +52,13 @@ class Wav2vec2PretrainDataLoader():
 
 
 def prepare_data(args, model):
-    loader = Wav2vec2PretrainDataLoader(args, model)
+    loader = Wav2vec2CTCDataLoader(args, model)
     loader.load_dataset('train')
     loader.load_dataset('valid')
     return loader
 
 
-class Wav2vec2Lightning(LightningModule):
+class CTCLightning(LightningModule):
     @staticmethod
     def add_module_specific_args(parent_parser):
         parser = parent_parser.add_argument_group('Wav2vec2 Lightning')
@@ -94,39 +101,70 @@ class Wav2vec2Lightning(LightningModule):
             default=1,
             help="modified the feature encoder's gradient"
         )
+
         parser.add_argument(
-            "--sample_way",
+            "--pretrained_model",
             type=str,
-            default="data",
-            help="decide the way to sample negatives"
+            default=None
         )
-        parser.add_argument(
-            "--num_negatives",
-            type=int,
-            default=100,
-            help="number of negative samples"
-        )
+
+        parser.add_argument("--unk_token", default=None)
+        parser.add_argument("--pad_token", default=None)
+        parser.add_argument("--word_delimiter_token", default=None)
+        parser.add_argument("--eval_metrics", default=["wer"], nargs='*')
+
         return parent_parser
 
     def __init__(self, args, ** kwargs) -> None:
         super().__init__()
         self.save_hyperparameters(args)
         self.args = args
-        self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(
-            args.model_path)
+
         config = Wav2Vec2Config.from_pretrained(args.model_path)
-        config.feature_grad_mult = args.feature_grad_mult
-        config.sample_way = args.sample_way
-        config.num_negatives = args.num_negatives
         self.config = config
-        self.model = Wav2Vec2ForPreTraining(config=config)
-        self.completed_steps = 0
+
+        # tokenizer_kwargs = {
+        #     "tokenizer_type": config.model_type if config.tokenizer_class is None else None,
+        # }
+        tokenizer_kwargs = dict()
+        if args.unk_token is not None:
+            tokenizer_kwargs["unk_token"] = args.unk_token
+        if args.pad_token is not None:
+            tokenizer_kwargs["pad_token"] = args.pad_token
+        if args.word_delimiter_token is not None:
+            tokenizer_kwargs["word_delimiter_token"] = args.word_delimiter_token
+        self.processor = AutoProcessor.from_pretrained(args.model_path, **tokenizer_kwargs)
+        self.feature_extractor = self.processor.feature_extractor
+        self.tokenizer = self.processor.tokenizer
+        config.update(
+            {
+                "pad_token_id": self.tokenizer.pad_token_id,
+                "vocab_size": len(self.tokenizer),
+            }
+        )
+        config.feature_grad_mult = args.feature_grad_mult
+        config.vocab_size = len(self.processor.tokenizer.get_vocab())
+        if args.pretrained_model:
+            self.model = Wav2Vec2ForCTC.from_pretrained(args.pretrained_model, config=config)
+        else:
+            self.model = Wav2Vec2ForCTC(config=config)
+
+        # self.model.freeze_feature_encoder()
         # used to update gumbel temperature
-        self.sub_steps = 0
+
+        # print(name)
+
+        self.eval_metrics = {metric: load_metric(metric) for metric in args.eval_metrics}
         # used for accumulate gradient
 
     def setup(self, stage) -> None:
         if stage == 'fit':
+            # for name, item in self.named_parameters():
+            #     name_split = name.split(".")
+            #     if name_split[0]!="model" or name_split[1]!="lm_head":
+            #         item.requires_grad = False
+            if self.args.pretrained_model:
+                self.model.freeze_feature_encoder()
             train_loader = self.trainer._data_connector._train_dataloader_source.dataloader()
 
             # Calculate total steps
@@ -152,6 +190,22 @@ class Wav2vec2Lightning(LightningModule):
         )
         return output
 
+    def compute_metrics(self, batch, pred):
+        pred_logits = pred.logits
+        pred_ids = torch.argmax(pred_logits, axis=-1)
+        label_ids = batch["labels"].clone()
+        label_ids[label_ids == -100] = self.tokenizer.pad_token_id
+
+        pred_str = self.tokenizer.batch_decode(pred_ids)
+        # we do not want to group tokens when computing the metrics
+        label_str = self.tokenizer.batch_decode(label_ids, group_tokens=False)
+        # pred_str = [" ".join(item) for item in pred_str]
+        # label_str = [" ".join(item) for item in label_str]
+
+        metrics = {k: v.compute(predictions=pred_str, references=label_str) for k, v in self.eval_metrics.items()}
+
+        return metrics
+
     def multiply_grads(self, params, c):
         """Multiplies grads by a constant *c*."""
         for p in params:
@@ -162,55 +216,35 @@ class Wav2vec2Lightning(LightningModule):
 
     def training_step(self, batch, batch_idx):
         output = self(**batch)
-        num_losses = batch["mask_time_indices"].sum()
-        if self.trainer.accumulate_grad_batches and (self.sub_steps % self.trainer.accumulate_grad_batches == 0):
-            gumbel_temperature = max(
-                self.args.max_gumbel_temperature *
-                self.args.gumbel_temperature_decay**self.completed_steps,
-                self.args.min_gumbel_temperature,
-            )
-            if hasattr(self.model, "module"):
-                self.model.module.set_gumbel_temperature(gumbel_temperature)
-            else:
-                self.model.set_gumbel_temperature(gumbel_temperature)
-            self.completed_steps += 1
-
-        self.sub_steps += 1
         logs = {
-            "train_loss": output.loss/num_losses,
-            'contrast_loss': output.contrastive_loss/num_losses,
-            'div_loss': output.diversity_loss/num_losses
+            "train_loss": output.loss,
         }
         self.log("train", logs)
         if self.trainer.accumulate_grad_batches:
             return {
-                "loss": output.loss/num_losses/self.trainer.accumulate_grad_batches,
+                "loss": output.loss/self.trainer.accumulate_grad_batches,
             }
         else:
             return {
-                "loss": output.loss/num_losses,
+                "loss": output.loss,
             }
 
     def validation_step(self, batch, batch_idx):
         # print([item for item in batch])
-        num_losses = batch["mask_time_indices"].sum()
         output = self(**batch)
-        logs = {
-            "train_loss": output.loss/num_losses,
-            'contrast_loss': output.contrastive_loss/num_losses,
-            'div_loss': output.diversity_loss/num_losses
-        }
-        self.log("validation", logs)
+        metrics = self.compute_metrics(batch, output)
+        self.log("evaluate", metrics)
+        self.log("valid", {
+            "valid_loss": output.loss,
+        })
         return {
-            "loss": output.loss/num_losses,
+            "loss": output.loss,
         }
 
     def on_save_checkpoint(self, checkpoint) -> None:
         # Save the current loop info in the mid of epoch
         # if you lightning <= 1.6.0  uncomment the line below
         # checkpoint['loops'] = self.trainer.checkpoint_connector._get_loops_state_dict()
-        checkpoint["sub_steps"] = self.sub_steps
-        checkpoint["completed_steps"] = self.completed_steps
         if self.trainer.global_rank == 0:
             self.model.save_pretrained(os.path.join(
                 self.trainer.checkpoint_callback.dirpath,
@@ -221,8 +255,6 @@ class Wav2vec2Lightning(LightningModule):
         if 'global_samples' in checkpoint:
             self.consumed_samples = checkpoint['global_samples']
         self.trainer.fit_loop.epoch_loop._batches_that_stepped = global_step_offset
-        self.completed_steps = checkpoint["completed_steps"]
-        self.sub_steps = checkpoint["sub_steps"]
 
 
 if __name__ == '__main__':
@@ -233,17 +265,15 @@ if __name__ == '__main__':
     args_parser = ctc_datasets.add_data_specific_args(args_parser)
     args_parser = UniversalDataModule.add_data_specific_args(args_parser)
     args_parser = Trainer.add_argparse_args(args_parser)
-    args_parser = Wav2vec2Lightning.add_module_specific_args(args_parser)
+    args_parser = CTCLightning.add_module_specific_args(args_parser)
     args_parser = UniversalCheckpoint.add_argparse_args(args_parser)
     args_parser.add_argument('--ckpt_path', type=str, )
     args = args_parser.parse_args()
 
-    module = Wav2vec2Lightning(args)
+    module = CTCLightning(args)
     data_loader = prepare_data(args, module)
     data_module = UniversalDataModule(
-        args=args, datasets=data_loader.datasets, tokenizer=None, collate_fn=None)
-
-    data_module.datasets = data_loader.datasets
+        args=args, tokenizer=None, datasets=data_loader.datasets, collate_fn=None)
 
     lr_monitor = LearningRateMonitor(logging_interval='step')
     logger = loggers.TensorBoardLogger(save_dir=os.path.join(
@@ -255,20 +285,9 @@ if __name__ == '__main__':
             not os.path.exists(args.ckpt_path):
         print('--------warning no checkpoint found--------, remove args')
         args.ckpt_path = None
-    # from pytorch_lightning.profiler import PyTorchProfiler
-    # schedule = torch.profiler.schedule(
-    #     wait=1,
-    #     warmup=2,
-    #     active=4,
-    #     repeat=1)
-    # os.makedirs("./run/{}".format(os.environ["SLURM_JOB_ID"]), exist_ok=True)
-    # profiler = PyTorchProfiler(
-    #     dirpath="./run/{}".format(os.environ["SLURM_JOB_ID"]),
-    #     filename="profile", schedule=schedule
-    # )
+
     trainer = Trainer.from_argparse_args(args,
                                          logger=logger,
-                                         #  profiler=profiler,
                                          callbacks=[
                                              lr_monitor,
                                              checkpoint_callback])

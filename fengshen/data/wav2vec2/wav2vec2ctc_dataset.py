@@ -3,21 +3,20 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import argparse
 import os
 import sys
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Union, Tuple
+from typing import Dict, List, Optional, Union
 
 import torch
 import logging
 from transformers import (
     Wav2Vec2FeatureExtractor,
-    Wav2Vec2ForPreTraining,
+    AutoFeatureExtractor,
+    AutoProcessor,
+    AutoTokenizer
 )
-from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices, _sample_negative_indices
 import numpy as np
-# from fairseq.data.audio import raw_audio_dataset
 
 logger = logging.getLogger(__name__)
 
@@ -36,47 +35,19 @@ def add_data_specific_args(parent_args):
     return parent_args
 
 
-def uniform_sample_negatives_indices(
-    features_shape: Tuple,
-    num_groups: int,
-    num_vars: int,
-    num_negatives: int,
-    mask_time_indices: Optional[np.ndarray] = None
-):
-    """
-    Sample `num_negatives` vectors from uniform distribution.
-    output: (B, T, num_negatives, num_codevector_groups)
-    (:, :, :, i) range in [i*num_codevectors_per_group, (i-1)*num_codevectors_per_group)
-    """
-    batch_size, sequence_length = features_shape
-    sampled_negative_indices = np.random.randint(
-        0,
-        num_vars,
-        size=(batch_size, sequence_length, num_negatives, num_groups),
-        dtype=np.int32
-    )
-    for i in range(num_groups):
-        sampled_negative_indices[:, :, :, i] += num_vars*i
-
-    return sampled_negative_indices
-
+# Copyright (c) Facebook, Inc. and its affiliates.
+#
+# This source code is licensed under the MIT license found in the
+# LICENSE file in the root directory of this source tree.
 
 @dataclass
-class DataCollatorForWav2Vec2Pretraining:
+class DataCollatorCTCWithPadding:
     """
-    Data collator that will dynamically pad the inputs received and prepare masked indices
-    for self-supervised pretraining.
-
+    Data collator that will dynamically pad the inputs received.
     Args:
-        model (:class:`~transformers.Wav2Vec2ForPreTraining`):
-            The Wav2Vec2 model used for pretraining. The data collator needs to have access
-            to config and ``_get_feat_extract_output_lengths`` function for correct padding.
-        feature_extractor (:class:`~transformers.Wav2Vec2FeatureExtractor`):
+        processor (:class:`~transformers.AutoProcessor`)
             The processor used for proccessing the data.
-        padding (:obj:`bool`,
-            :obj:`str` or :class:`~transformers.tokenization_utils_base.PaddingStrategy`, `optional`,
-            defaults to :obj:`True`
-        ):
+        padding (:obj:`bool`, :obj:`str` or :class:`~transformers.tokenization_utils_base.PaddingStrategy`, `optional`, defaults to :obj:`True`):
             Select a strategy to pad the returned sequences (according to the model's padding side and padding index)
             among:
             * :obj:`True` or :obj:`'longest'`: Pad to the longest sequence in the batch (or no padding if only a single
@@ -87,22 +58,25 @@ class DataCollatorForWav2Vec2Pretraining:
               different lengths).
         max_length (:obj:`int`, `optional`):
             Maximum length of the ``input_values`` of the returned list and optionally padding length (see above).
+        max_length_labels (:obj:`int`, `optional`):
+            Maximum length of the ``labels`` returned list and optionally padding length (see above).
         pad_to_multiple_of (:obj:`int`, `optional`):
             If set will pad the sequence to a multiple of the provided value.
             This is especially useful to enable the use of Tensor Cores on NVIDIA hardware with compute capability >=
             7.5 (Volta).
     """
 
-    model: Wav2Vec2ForPreTraining
-    args: argparse.Namespace
-    feature_extractor: Wav2Vec2FeatureExtractor
+    processor: AutoProcessor
+    tokenizer: AutoTokenizer
+    feature_extractor: AutoFeatureExtractor
+    args: object
     padding: Union[bool, str] = "longest"
     pad_to_multiple_of: Optional[int] = None
+    pad_to_multiple_of_labels: Optional[int] = None
 
     def __call__(self, features: List[Dict[str, Union[List[int], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
-        # reformat list to dict and set to pytorch format
-        # print(features)
-
+        # split inputs and labels since they have to be of different lenghts and need
+        # different padding methods
         for item in features:
             sample = item["audio"]
 
@@ -113,79 +87,49 @@ class DataCollatorForWav2Vec2Pretraining:
             item["input_values"] = inputs.input_values[0]
             item["input_length"] = len(inputs.input_values[0])
 
-        features = [{"input_values": item["input_values"]}
-                    for item in features]
+            # encode targets
 
-        batch = self.feature_extractor.pad(
-            features,
+            item["labels"] = self.tokenizer(item["text"]).input_ids
+
+        input_features = [{"input_values": feature["input_values"]} for feature in features]
+        label_features = [{"input_ids": feature["labels"]} for feature in features]
+
+        batch = self.processor.pad(
+            input_features,
             padding=self.padding,
             pad_to_multiple_of=self.pad_to_multiple_of,
             return_tensors="pt",
         )
 
-        device = batch["input_values"].device
-        batch_size = batch["input_values"].shape[0]
-
-        mask_indices_seq_length = self.model._get_feat_extract_output_lengths(
-            batch["input_values"].shape[-1])
-        # make sure masked sequence length is a Python scalar
-        mask_indices_seq_length = int(mask_indices_seq_length)
-
-        # make sure that no loss is computed on padded inputs
-        if batch.get("attention_mask") is not None:
-            # compute real output lengths according to convolution formula
-            batch["sub_attention_mask"] = self.model._get_feature_vector_attention_mask(
-                mask_indices_seq_length, batch["attention_mask"]
+        with self.processor.as_target_processor():
+            labels_batch = self.processor.pad(
+                label_features,
+                padding=self.padding,
+                pad_to_multiple_of=self.pad_to_multiple_of_labels,
+                return_tensors="pt",
             )
 
-        features_shape = (batch_size, mask_indices_seq_length)
+        # replace padding with -100 to ignore loss correctly
+        labels = labels_batch["input_ids"].masked_fill(labels_batch.attention_mask.ne(1), -100)
 
-        # sample randomly masked indices
-        mask_time_indices = _compute_mask_indices(
-            features_shape,
-            self.model.config.mask_time_prob,
-            self.model.config.mask_time_length,
-            attention_mask=batch.get("sub_attention_mask"),
-        )
-
-        # sample negative indices
-        if self.args.sample_way == "data":
-            sampled_negative_indices = _sample_negative_indices(
-                features_shape,
-                self.model.config.num_negatives,
-                mask_time_indices=mask_time_indices,
-            )
-        else:
-            sampled_negative_indices = uniform_sample_negatives_indices(
-                features_shape=features_shape,
-                num_groups=self.model.config.num_codevector_groups,
-                num_vars=self.model.config.num_codevectors_per_group,
-                num_negatives=self.model.config.num_negatives,
-                mask_time_indices=mask_time_indices,
-            )
-        batch["mask_time_indices"] = torch.tensor(
-            mask_time_indices, dtype=torch.long, device=device)
-        batch["sampled_negative_indices"] = torch.tensor(
-            sampled_negative_indices, dtype=torch.long, device=device)
+        batch["labels"] = labels
 
         return batch
 
-# Copyright (c) Facebook, Inc. and its affiliates.
-#
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
 
-
-class Wav2vec2Dataset(torch.utils.data.Dataset):
+class CTCDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         manifest_path,
         sample_rate,
-        model: Wav2Vec2ForPreTraining,
-        args: argparse.Namespace,
+        lable_path,
+        processor: AutoProcessor,
+        tokenizer: AutoTokenizer,
         feature_extractor: Wav2Vec2FeatureExtractor,
+        args,
         padding: Union[bool, str] = "longest",
         pad_to_multiple_of: Optional[int] = None,
+        pad_to_multiple_of_labels: Optional[int] = None,
         max_sample_size=None,
         min_sample_size=0,
         shuffle=True,
@@ -193,18 +137,21 @@ class Wav2vec2Dataset(torch.utils.data.Dataset):
         normalize=False,
     ):
         super().__init__()
-        self.collater_outside = DataCollatorForWav2Vec2Pretraining(
-            model=model,
-            args=args,
+        self.collater_outside = DataCollatorCTCWithPadding(
+            processor=processor,
+            tokenizer=tokenizer,
             feature_extractor=feature_extractor,
+            args=args,
             padding=padding,
-            pad_to_multiple_of=pad_to_multiple_of
+            pad_to_multiple_of=pad_to_multiple_of,
+            pad_to_multiple_of_labels=pad_to_multiple_of_labels
         )
         self.sample_rate = sample_rate
         self.sizes = []
         self.max_sample_size = (
             max_sample_size if max_sample_size is not None else sys.maxsize
         )
+        self.args = args
         self.min_sample_size = min_sample_size
         self.pad = pad
         self.shuffle = shuffle
@@ -215,17 +162,22 @@ class Wav2vec2Dataset(torch.utils.data.Dataset):
         sizes = []
         self.skipped_indices = set()
         with open(manifest_path, "r") as f:
-            self.root_dir = f.readline().strip()
-            for i, line in enumerate(f):
-                items = line.strip().split("\t")
-                assert len(items) == 2, "{}".format(line)
-                sz = int(items[1])
-                if min_sample_size is not None and sz < min_sample_size:
-                    skipped += 1
-                    self.skipped_indices.add(i)
-                    continue
-                self.fnames.append(items[0].encode())
-                sizes.append(sz)
+            with open(lable_path, "r") as g:
+                self.root_dir = f.readline().strip()
+                for i, (line, label) in enumerate(zip(f, g)):
+                    items = line.strip().split("\t")
+                    assert len(items) == 2, "{}".format(line)
+                    sz = int(items[1])
+                    if min_sample_size is not None and sz < min_sample_size:
+                        skipped += 1
+                        self.skipped_indices.add(i)
+                        continue
+                    self.fnames.append(items[0].encode())
+                    sizes.append(sz)
+                    label = label.strip("\n")
+                    # label = label.strip("\n").replace(" ", "")
+                    self.texts.append(label.encode())
+
         logger.info(f"loaded {len(self.fnames)}, skipped {skipped} samples")
 
         self.sizes = np.array(sizes, dtype=np.int64)
@@ -234,6 +186,7 @@ class Wav2vec2Dataset(torch.utils.data.Dataset):
             import pyarrow
 
             self.fnames = pyarrow.array(self.fnames)
+            self.texts = pyarrow.array(self.texts)
         except Exception:
             logger.debug(
                 "Could not create a pyarrow array. Please install pyarrow for better performance"
@@ -259,6 +212,9 @@ class Wav2vec2Dataset(torch.utils.data.Dataset):
         fn = self.fnames[index]
         fn = fn if isinstance(self.fnames, list) else fn.as_py()
         fn = fn.decode()
+        text = self.texts[index]
+        text = text if isinstance(self.texts, list) else text.as_py()
+        text = text.decode()
 
         path_or_fp = os.path.join(self.root_dir, fn)
 
@@ -275,6 +231,7 @@ class Wav2vec2Dataset(torch.utils.data.Dataset):
             },
             'id': fn,
             'speaker_id': int(fn_split[0]),
+            'text': text
         }
 
         # feats = self.postprocess(feats, curr_sample_rate)
