@@ -33,6 +33,8 @@ def add_data_specific_args(parent_args):
     parser.add_argument('--normalize', type=bool)
     parser.add_argument('--random_crop', type=bool)
     parser.add_argument('--single_target', type=bool, default=False)
+    parser.add_argument('--max_tokens', type=int, default=1400000)
+    parser.add_argument('--required_batch_size_multiple', type=int, default=8)
     return parent_args
 
 

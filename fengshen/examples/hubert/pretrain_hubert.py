@@ -1,6 +1,6 @@
 import fengshen.data.hubert.hubert_dataset as datasets
 from fengshen.data.universal_datamodule import UniversalDataModule
-from transformers import HubertConfig, HubertModel
+from fengshen.models.hubert.modeling_hubert import HubertModelForPretrain, HubertConfig
 # from transformers.models.hubert.modeling_hubert import _compute_mask_indices
 import argparse
 from fairseq.data import Dictionary
@@ -12,8 +12,10 @@ from pytorch_lightning import (
 from pytorch_lightning.callbacks import LearningRateMonitor
 import torch
 import os
-import torch.nn.functional as F
-import torch.nn as nn
+import math
+import numpy as np
+
+torch.set_printoptions(precision=2, profile="full")
 
 
 class LabelEncoder(object):
@@ -94,29 +96,29 @@ class HubertLightning(LightningModule):
         parser.add_argument('--pred_masked_weight', type=float, default=1.0)
         parser.add_argument('--logit_temp', type=float, default=1.0)
         parser.add_argument('--loss_weights', type=float, nargs='+')
-        # parser.add_argument('--mask_prob', type=float, default=0.65)
-        # parser.add_argument('--mask_length', type=int, default=10)
-        # parser.add_argument('--mask_selection', type=str, default='static',
-        #                     choice=["static", "uniform", "normal", "poisson"])
-        # parser.add_argument('--mask_other', type=float, default=0)
-        # parser.add_argument('--no_mask_overlap', type=bool, default=False)
-        # parser.add_argument('--mask_min_space', type=int, default=1)
+        parser.add_argument('--final_dim', type=int, default=0)
+        parser.add_argument('--pred_nomask_weight', type=float, default=0)
+        parser.add_argument('--skip_masked', type=bool, default=False)
+        parser.add_argument('--skip_nomask', type=bool, default=False)
+        parser.add_argument('--target_glu', type=bool, default=False)
         return parent_parser
 
     def __init__(self, args, loader, ** kwargs) -> None:
         super().__init__()
         self.save_hyperparameters(args)
         config = HubertConfig.from_pretrained(args.model_path)
-        self.config = config
-        self.model = HubertModel(config=config)
-        self.num_classes = [len(d) for d in loader.dictionaries]
-        self.label_embs_concat = nn.Parameter(
-            torch.FloatTensor(sum(self.num_classes), self.config.conv_dim[-1] // 2)
-        )
-        self.final_proj = nn.Linear(
-            self.config.hidden_size, self.config.conv_dim[-1] // 2 * len(loader.dictionaries)
-        )
-        nn.init.uniform_(self.label_embs_concat)
+        config.pred_masked_weight = args.pred_masked_weight
+        config.loss_weights = args.loss_weights
+        config.logit_temp = args.logit_temp
+        config.final_dim = args.final_dim
+        config.pred_nomask_weight = args.pred_nomask_weight
+        config.dictionaries = loader.dictionaries
+        feature_ds_rate = np.prod(config.conv_stride)
+        config.feat2tar_ratio = args.label_rate * feature_ds_rate / args.sample_rate
+        config.skip_masked = args.skip_masked
+        config.skip_nomask = args.skip_nomask
+        config.target_glu = args.target_glu
+        self.model = HubertModelForPretrain(config=config)
 
     def setup(self, stage) -> None:
         if stage == 'fit':
@@ -127,8 +129,8 @@ class HubertLightning(LightningModule):
                 world_size = self.trainer.world_size
                 tb_size = self.hparams.train_batchsize * max(1, world_size)
                 ab_size = self.trainer.accumulate_grad_batches
-                self.total_steps = (len(train_loader.dataset) *
-                                    self.trainer.max_epochs // tb_size) // ab_size
+                self.total_steps = (len(train_loader) *
+                                    self.trainer.max_epochs) // ab_size
             else:
                 self.total_steps = self.trainer.max_steps // self.trainer.accumulate_grad_batches
 
@@ -138,18 +140,6 @@ class HubertLightning(LightningModule):
         from fengshen.models.model_utils import configure_optimizers
         return configure_optimizers(self)
 
-    def compute_nce(self, x, pos, negs):
-        neg_is_pos = (pos == negs).all(-1)
-        pos = pos.unsqueeze(0)
-        targets = torch.cat([pos, negs], dim=0)
-
-        logits = torch.cosine_similarity(x.float(), targets.float(), dim=-1).type_as(x)
-        logits /= self.hparams.logit_temp
-        if neg_is_pos.any():
-            logits[1:][neg_is_pos] = float("-inf")
-        logits = logits.transpose(0, 1)  # (num_x, num_cls+1)
-        return logits
-
     def forward(self, **batch):
 
         target_list = batch['target_list']
@@ -158,64 +148,22 @@ class HubertLightning(LightningModule):
         output = self.model(input_values=input_values,
                             attention_mask=padding_mask,
                             target_list=target_list,
-                            mask_time_indices=None,
-                            return_dict=False)
-
-        def compute_pred(proj_x, target, label_embs):
-            # compute logits for the i-th label set
-            y = torch.index_select(label_embs, 0, target.long())
-            negs = label_embs.unsqueeze(1).expand(-1, proj_x.size(0), -1)
-            # proj_x: (S, D)
-            # y: (S, D)
-            # negs: (Neg, S, D)
-            return self.compute_nce(proj_x, y, negs)
-
-        label_embs_list = self.label_embs_concat.split(self.num_classes, 0)
-
-        x, extra_losses, target_list, mask_indices, padding_mask = output[
-            0], output[-4], output[-3], output[-2], output[-1]
-
-        masked_indices = torch.logical_and(~padding_mask, mask_indices)
-        proj_x_m = self.final_proj(x[masked_indices])
-        proj_x_m_list = proj_x_m.chunk(len(target_list), dim=-1)
-        logp_m_list = [
-            compute_pred(proj_x_m, t[masked_indices], label_embs_list[i])
-            for i, (proj_x_m, t) in enumerate(zip(proj_x_m_list, target_list))
-        ]
-
-        targ_m_list = [x.new_zeros(x.size(0), dtype=torch.long) for x in logp_m_list]
-
-        loss = 0.0
-        loss_m_list = []
-
-        for i, (logp_m, targ_m) in enumerate(zip(logp_m_list, targ_m_list)):
-            loss_m = F.cross_entropy(logp_m, targ_m)
-            loss_m_list.append(loss_m)
-            self.log(f"loss_m_{i}", loss_m.detach().item())
-
-        loss += self.hparams.pred_masked_weight * sum(loss_m_list)
-
-        loss_weights = self.hparams.loss_weights
-        if loss_weights is not None:
-            if torch.is_tensor(extra_losses):
-                extra_losses = [extra_losses]
-                names = ['extra']
-            if len(loss_weights) == 1 and len(extra_losses) != 1:
-                loss_weights = [loss_weights[0]] * len(extra_losses)
-            assert len(extra_losses) == len(
-                loss_weights
-            ), f"{len(extra_losses)}, {len(loss_weights)}"
-            for p, n, coef in zip(extra_losses, names, loss_weights):
-                if coef != 0 and p is not None:
-                    p = coef * p.float()
-                    loss += p
-                    self.log(f"loss_{n}", p.item())
-
-        return {'loss': loss}
+                            mask_time_indices=None)
+        return output
 
     def training_step(self, batch, batch_idx):
         output = self(**batch)
-        self.log('train_loss', output['loss'])
+        self.log('train_loss', output.loss / output.sample_size / math.log(2), sync_dist=True)
+        for k, v in output.loss_m_dict.items():
+            self.log(f'train_{k}', v / output.sample_size / math.log(2))
+        for k, v in output.loss_u_dict.items():
+            self.log(f'train_{k}', v / output.sample_size / math.log(2))
+        for k, v in output.loss_extra_dict.items():
+            self.log(f'train_{k}', v / output.sample_size / math.log(2))
+        self.log('train_batch_size', float(batch['net_input']['source'].shape[0]))
+        print(
+            f'{self.trainer.fit_loop.epoch_loop._batches_that_stepped} batch: {batch["net_input"]["source"].shape}')
+        # output.loss /= (output.sample_size * math.log(2))
         return output
 
     def comput_metrix(self, logits, labels):
@@ -228,7 +176,13 @@ class HubertLightning(LightningModule):
 
     def validation_step(self, batch, batch_idx):
         output = self(**batch)
-        # self.log('val_loss', output.loss, sync_dist=True)
+        self.log('val_loss', output.loss / output.sample_size / math.log(2), sync_dist=True)
+        for k, v in output.loss_m_dict.items():
+            self.log(f'val_{k}', v / output.sample_size / math.log(2), sync_dist=True)
+        for k, v in output.loss_u_dict.items():
+            self.log(f'val_{k}', v / output.sample_size / math.log(2), sync_dist=True)
+        for k, v in output.loss_extra_dict.items():
+            self.log(f'val_{k}', v / output.sample_size / math.log(2), sync_dist=True)
         # acc = self.comput_metrix(output.logits, batch['labels'])
         # self.log('val_acc', acc, sync_dist=True)
         return output
@@ -262,9 +216,9 @@ if __name__ == '__main__':
     args_parser.add_argument('--ckpt_path', type=str, )
     args = args_parser.parse_args()
 
-    data_module = UniversalDataModule(args=args, tokenizer=None, collate_fn=None)
     data_loader = perpare_data(args)
-    data_module.datasets = data_loader.datasets
+    data_module = UniversalDataModule(args=args, tokenizer=None,
+                                      collate_fn=None, datasets=data_loader.datasets)
     module = HubertLightning(args, loader=data_loader)
 
     lr_monitor = LearningRateMonitor(logging_interval='step')

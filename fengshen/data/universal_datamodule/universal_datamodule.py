@@ -1,6 +1,5 @@
 from pytorch_lightning import LightningDataModule
 from typing import Optional
-
 from torch.utils.data import DataLoader, DistributedSampler
 
 
@@ -31,7 +30,8 @@ class UniversalDataModule(LightningDataModule):
         parser.add_argument('--test_datasets_field', type=str, default='test')
         parser.add_argument('--sampler_type', type=str,
                             choices=['single',
-                                     'random'],
+                                     'random',
+                                     'fairseq'],
                             default='random')
         return parent_args
 
@@ -82,6 +82,37 @@ class UniversalDataModule(LightningDataModule):
                 data_parallel_rank=self.trainer.global_rank,
                 data_parallel_size=world_size,
             )
+        elif self.hparams.sampler_type == 'fairseq':
+            # 暂时引用fairseq的实现，等对其效果以后再自己实现我们的sampler
+            from fairseq.data.fairseq_dataset import FairseqDataset
+            from fairseq.data import data_utils
+            from fairseq.data.iterators import ShardedIterator
+            import numpy as np
+            assert isinstance(ds, FairseqDataset), "sampler type fairseq but dataset is not fairseq"
+            # 判断一下
+            fairseq_paras = ['max_tokens', 'required_batch_size_multiple']
+            for p in fairseq_paras:
+                assert hasattr(self.hparams, p), f"--{p} not found in args"
+            # get indices ordered by example size
+            with data_utils.numpy_seed(42):
+                indices = ds.ordered_indices()
+            batch_sampler = ds.batch_by_size(
+                indices,
+                max_tokens=self.hparams.max_tokens,
+                max_sentences=self.hparams.train_batchsize,
+                required_batch_size_multiple=self.hparams.required_batch_size_multiple,
+            )
+            with data_utils.numpy_seed(42):
+                np.random.shuffle(batch_sampler)
+            # 需要取一个当前的batch数，从ckpt重启时需要恢复batches的状态，去掉已经消费的batches
+            batch_sampler = batch_sampler[self.trainer.fit_loop.epoch_loop._batches_that_stepped *
+                                          self.trainer.world_size:]
+            batches = tuple(batch_sampler)
+            batches = list(
+                ShardedIterator(batches,  self.trainer.world_size,
+                                self.trainer.global_rank, fill_value=[])
+            )
+            return batches
         else:
             raise Exception('Unknown sampler type: {}'.format(self.hparams.sampler_type))
 
