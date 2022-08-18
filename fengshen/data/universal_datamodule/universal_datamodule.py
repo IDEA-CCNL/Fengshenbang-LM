@@ -88,7 +88,8 @@ class UniversalDataModule(LightningDataModule):
             from fairseq.data import data_utils
             from fairseq.data.iterators import ShardedIterator
             import numpy as np
-            assert isinstance(ds, FairseqDataset), "sampler type fairseq but dataset is not fairseq"
+            assert hasattr(
+                ds, 'batch_by_size'), "sampler type fairseq need attr batch_by_size not found"
             # 判断一下
             fairseq_paras = ['max_tokens', 'required_batch_size_multiple']
             for p in fairseq_paras:
