@@ -292,3 +292,31 @@ class Wav2vec2Dataset(torch.utils.data.Dataset):
         if self.pad:
             return self.sizes[index]
         return min(self.sizes[index], self.max_sample_size)
+
+    def batch_by_size(
+        self,
+        indices,
+        max_tokens=None,
+        max_sentences=None,
+        required_batch_size_multiple=1,
+    ):
+        """
+        Given an ordered set of indices, return batches according to
+        *max_tokens*, *max_sentences* and *required_batch_size_multiple*.
+        """
+        from fairseq.data import data_utils
+
+        try:
+            num_tokens_vec = self.num_tokens_vec(indices).astype("int64")
+        except NotImplementedError:
+            num_tokens_vec = None
+
+        return data_utils.batch_by_size(
+            indices,
+            num_tokens_fn=self.num_tokens,
+            num_tokens_vec=num_tokens_vec,
+            max_tokens=max_tokens,
+            max_sentences=max_sentences,
+            required_batch_size_multiple=required_batch_size_multiple,
+            fixed_shapes=fixed_shapes,
+        )
