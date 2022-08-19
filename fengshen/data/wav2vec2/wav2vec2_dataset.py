@@ -18,6 +18,7 @@ from transformers import (
 from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices, _sample_negative_indices
 import numpy as np
 # from fairseq.data.audio import raw_audio_dataset
+from fairseq.data import FairseqDataset
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,8 @@ def add_data_specific_args(parent_args):
     parser.add_argument('--sample_rate', type=float, default=16000)
     parser.add_argument('--min_sample_size', type=int)
     parser.add_argument('--max_sample_size', type=int)
+    parser.add_argument('--max_tokens', type=int, default=1400000)
+    parser.add_argument('--required_batch_size_multiple', type=int, default=8)
     parser.add_argument('--labels', type=str, nargs='+')
     parser.add_argument('--enable_padding', type=bool)
     parser.add_argument('--normalize', type=bool)
@@ -167,7 +170,12 @@ class DataCollatorForWav2Vec2Pretraining:
             mask_time_indices, dtype=torch.long, device=device)
         batch["sampled_negative_indices"] = torch.tensor(
             sampled_negative_indices, dtype=torch.long, device=device)
-
+        print("{}\n{}\n{}".format(
+            batch["input_values"].shape,
+            batch["attention_mask"].sum(-1),
+            batch["attention_mask"].sum()
+        )
+        )
         return batch
 
 # Copyright (c) Facebook, Inc. and its affiliates.
@@ -176,7 +184,7 @@ class DataCollatorForWav2Vec2Pretraining:
 # LICENSE file in the root directory of this source tree.
 
 
-class Wav2vec2Dataset(torch.utils.data.Dataset):
+class Wav2vec2Dataset(FairseqDataset):
     def __init__(
         self,
         manifest_path,
@@ -293,30 +301,21 @@ class Wav2vec2Dataset(torch.utils.data.Dataset):
             return self.sizes[index]
         return min(self.sizes[index], self.max_sample_size)
 
-    def batch_by_size(
-        self,
-        indices,
-        max_tokens=None,
-        max_sentences=None,
-        required_batch_size_multiple=1,
-    ):
-        """
-        Given an ordered set of indices, return batches according to
-        *max_tokens*, *max_sentences* and *required_batch_size_multiple*.
-        """
-        from fairseq.data import data_utils
+    def num_tokens(self, index):
+        return self.size(index)
 
-        try:
-            num_tokens_vec = self.num_tokens_vec(indices).astype("int64")
-        except NotImplementedError:
-            num_tokens_vec = None
+    def ordered_indices(self):
+        """Return an ordered list of indices. Batches will be constructed based
+        on this order."""
 
-        return data_utils.batch_by_size(
-            indices,
-            num_tokens_fn=self.num_tokens,
-            num_tokens_vec=num_tokens_vec,
-            max_tokens=max_tokens,
-            max_sentences=max_sentences,
-            required_batch_size_multiple=required_batch_size_multiple,
-            fixed_shapes=fixed_shapes,
-        )
+        if self.shuffle:
+            order = [np.random.permutation(len(self))]
+            order.append(
+                np.minimum(
+                    np.array(self.sizes),
+                    self.max_sample_size,
+                )
+            )
+            return np.lexsort(order)[::-1]
+        else:
+            return np.arange(len(self))
