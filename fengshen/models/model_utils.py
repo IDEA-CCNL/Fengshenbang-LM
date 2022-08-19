@@ -20,7 +20,7 @@ def add_module_args(parent_args):
 
 
 def configure_optimizers(pl_model: LightningModule):
-    no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
+    no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight', 'layer_norm.', 'layernorm.']
     optimizer_grouped_params = [
         {'params': [p for n, p in pl_model.named_parameters() if not any(
             nd in n for nd in no_decay)], 'weight_decay': pl_model.hparams.weight_decay},

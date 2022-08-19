@@ -3,6 +3,7 @@
 import numpy as np
 import torch
 import math
+import re
 
 from fengshen.data.megatron_dataloader.dataset_utils import (
     get_samples_mapping
@@ -109,6 +110,10 @@ class BartDataset(torch.utils.data.Dataset):
         tokens = [self.cls_id]
         for sent in sample:
             for t in sent:
+                token = self.vocab_id_to_token_dict[t]
+                if len(re.findall('##[\u4E00-\u9FA5]', token)) > 0:
+                    # 兼容erlangshen ##的方式做whole word mask
+                    t = self.tokenizer.convert_tokens_to_ids(token[2:])
                 tokens.append(t)
                 if t in self.seg_token_ids:
                     tokens.append(self.sep_id)

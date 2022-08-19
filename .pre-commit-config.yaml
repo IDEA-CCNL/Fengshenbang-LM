@@ -8,9 +8,9 @@ repos:
     rev: v1.4.4
     hooks:
     - id: autopep8
-      args: [-i, --global-config=.flake8, -v, --max-line-length=120]
+      args: [-i, --global-config=.flake8, -v, --max-line-length=300]
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v2.4.0
     hooks:
     - id: flake8
-      args: [--max-line-length=120]
+      args: [--max-line-length=300]
