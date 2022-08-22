@@ -23,13 +23,7 @@ export MASTER_PORT=$[RANDOM%10000+30000]
 cat <<EOT > $config_json
 {
     "zero_optimization": {
-        "stage": 2,
-        "allgather_partitions": true,
-        "allgather_bucket_size": 2e8,
-        "overlap_comm": true,
-        "reduce_scatter": true,
-        "reduce_bucket_size": 2e8,
-        "contiguous_gradients": true
+        "stage": 2
     },
     "fp16": {
         "enabled": true,

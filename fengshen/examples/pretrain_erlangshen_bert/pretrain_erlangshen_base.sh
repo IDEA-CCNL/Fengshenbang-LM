@@ -7,13 +7,12 @@
 #SBATCH -o %x-%j.log # output and error log file names (%x for job id)
 #SBATCH -x dgx050
 
-
+# pwd=Fengshenbang-LM/fengshen/examples/pretrain_erlangshen
 ROOT_DIR=../../workspace
 export TORCH_EXTENSIONS_DIR=${ROOT_DIR}/torch_extendsions
 
 MODEL_NAME=erlangshen-base
 MODEL_ROOT_DIR=$ROOT_DIR/${MODEL_NAME}
-
 if [ ! -d ${MODEL_ROOT_DIR} ];then
   mkdir ${MODEL_ROOT_DIR}
 fi
@@ -21,11 +20,11 @@ fi
 NNODES=1
 GPUS_PER_NODE=1
 
-CONFIG_JSON="$MODEL_ROOT_DIR/${MODEL_NAME}.ds_config.json"
-
 MICRO_BATCH_SIZE=8
-ZERO_STAGE=1
 
+# 如果你不用Deepspeed的话 下面的一段话都可以删掉 Begin
+CONFIG_JSON="$MODEL_ROOT_DIR/${MODEL_NAME}.ds_config.json"
+ZERO_STAGE=1
 # Deepspeed figures out GAS dynamically from dynamic GBS via set_train_batch_size()
 cat <<EOT > $CONFIG_JSON
 {
@@ -33,27 +32,25 @@ cat <<EOT > $CONFIG_JSON
         "stage": ${ZERO_STAGE}
     },
     "fp16": {
-        "enabled": true,
-        "loss_scale": 0,
-        "loss_scale_window": 1000,
-        "initial_scale_power": 16,
-        "hysteresis": 2,
-        "min_loss_scale": 1
+        "enabled": true
     },
-    "gradient_clipping": 1,
     "train_micro_batch_size_per_gpu": $MICRO_BATCH_SIZE
 }
 EOT
-
 export PL_DEEPSPEED_CONFIG_PATH=$CONFIG_JSON
+### End
 
 DATA_ARGS="\
-        --num_workers 20 \
+        --dataloader_workers 2 \
         --train_batchsize $MICRO_BATCH_SIZE  \
         --val_batchsize $MICRO_BATCH_SIZE \
         --test_batchsize $MICRO_BATCH_SIZE  \
         --datasets_name IDEA-CCNL/PretrainCorpusDemo \
         "
+# 如果你有一批数据，可以参照IDEA-CCNL/PretrainCorpusDemo的格式处理，通过参数传入
+# --train_file train.json
+# --val_file val.json
+# --test_file test.json
 
 MODEL_ARGS="\
         --model_path $MODEL_ROOT_DIR/pretrain \
