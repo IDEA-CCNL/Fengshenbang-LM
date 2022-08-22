@@ -17,6 +17,7 @@
 
 
 import torch
+import numpy as np
 
 
 class PretrainingSampler:
@@ -123,3 +124,36 @@ class PretrainingRandomSampler:
 
     def set_epoch(self, epoch):
         self.epoch = epoch
+
+
+class BatchRandomSampler():
+    '''
+    根据传入的Batch序列做sample
+    '''
+
+    def __init__(self, batch, batch_offset,
+                 data_parallel_rank, data_parallel_size, epoch):
+        # Keep a copy of input params for later use.
+        self.data_parallel_rank = data_parallel_rank
+        self.data_parallel_size = data_parallel_size
+        self.batch = batch
+        self.batch_offset = batch_offset
+        self.epoch = epoch
+        # Sanity checks.
+        assert self.batch_offset <= len(self.batch), \
+            'batch_offset is larger than len(batch)'
+
+    def __len__(self):
+        return len(self.batch) // self.data_parallel_size
+
+    def __iter__(self):
+        g = torch.Generator()
+        g.manual_seed(self.epoch)
+        random_idx = torch.randperm(len(self.batch), generator=g).tolist()
+        print(random_idx)
+        for i in range(0, len(self.batch[self.batch_offset:])):
+            yield self.batch[self.batch_offset + random_idx[i + self.data_parallel_rank]]
+
+    def set_epoch(self, epoch):
+        self.epoch = epoch
+        self.batch_offset = 0

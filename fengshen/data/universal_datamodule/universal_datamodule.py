@@ -1,3 +1,4 @@
+import numpy
 from pytorch_lightning import LightningDataModule
 from typing import Optional
 from torch.utils.data import DataLoader, DistributedSampler
@@ -60,6 +61,7 @@ class UniversalDataModule(LightningDataModule):
     def get_custom_sampler(self, ds):
         from .universal_sampler import PretrainingRandomSampler
         from .universal_sampler import PretrainingSampler
+        from .universal_sampler import BatchRandomSampler
         world_size = self.trainer.world_size
         consumed_samples = get_consume_samples(self)
         # use the user default sampler
@@ -97,23 +99,22 @@ class UniversalDataModule(LightningDataModule):
             # get indices ordered by example size
             with data_utils.numpy_seed(42):
                 indices = ds.ordered_indices()
-            batch_sampler = ds.batch_by_size(
+            batches = ds.batch_by_size(
                 indices,
                 max_tokens=self.hparams.max_tokens,
                 max_sentences=self.hparams.train_batchsize,
                 required_batch_size_multiple=self.hparams.required_batch_size_multiple,
             )
-            with data_utils.numpy_seed(42):
-                np.random.shuffle(batch_sampler)
             # 需要取一个当前的batch数，从ckpt重启时需要恢复batches的状态，去掉已经消费的batches
-            batch_sampler = batch_sampler[self.trainer.fit_loop.epoch_loop._batches_that_stepped *
-                                          self.trainer.world_size:]
-            batches = tuple(batch_sampler)
-            batches = list(
-                ShardedIterator(batches,  self.trainer.world_size,
-                                self.trainer.global_rank, fill_value=[])
-            )
-            return batches
+            # 当前过的总batch数 除以 数据集长度取余
+            offset = (self.trainer.fit_loop.epoch_loop._batches_that_stepped *
+                      self.trainer.world_size) % len(batches)
+
+            sampler = BatchRandomSampler(batches, offset, 
+                                         data_parallel_rank=self.trainer.global_rank,
+                                         data_parallel_size=world_size,
+                                         epoch=self.trainer.current_epoch,)
+            return sampler
         else:
             raise Exception('Unknown sampler type: {}'.format(self.hparams.sampler_type))
 
