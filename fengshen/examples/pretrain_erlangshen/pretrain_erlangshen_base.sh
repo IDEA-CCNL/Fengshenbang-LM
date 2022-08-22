@@ -8,16 +8,20 @@
 #SBATCH -x dgx050
 
 
-ROOT_DIR=/cognitive_comp/gaoxinyu/experiment
+ROOT_DIR=../../workspace
 export TORCH_EXTENSIONS_DIR=${ROOT_DIR}/torch_extendsions
-
-NNODES=1
-GPUS_PER_NODE=1
 
 MODEL_NAME=erlangshen-base
 MODEL_ROOT_DIR=$ROOT_DIR/${MODEL_NAME}
 
-CONFIG_JSON="./config/${MODEL_NAME}.ds_config.json"
+if [ ! -d ${MODEL_ROOT_DIR} ];then
+  mkdir ${MODEL_ROOT_DIR}
+fi
+
+NNODES=1
+GPUS_PER_NODE=1
+
+CONFIG_JSON="$MODEL_ROOT_DIR/${MODEL_NAME}.ds_config.json"
 
 MICRO_BATCH_SIZE=8
 ZERO_STAGE=1
@@ -57,6 +61,7 @@ MODEL_ARGS="\
 
 MODEL_CHECKPOINT_ARGS="\
         --every_n_train_steps 1 \
+        --save_last \
         --save_ckpt_path ${MODEL_ROOT_DIR}/ckpt \
         --load_ckpt_path ${MODEL_ROOT_DIR}/ckpt/last.ckpt \
         "
@@ -79,4 +84,4 @@ export options=" \
         $TRAINER_ARGS \
         "
 
-srun -N $NNODES --gres=gpu:$GPUS_PER_NODE --ntasks-per-node=$GPUS_PER_NODE --cpus-per-task=20 python3 pretrain_erlangshen.py $options
+python3 pretrain_erlangshen.py $options
