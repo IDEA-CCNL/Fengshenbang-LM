@@ -150,7 +150,6 @@ class BatchRandomSampler():
         g = torch.Generator()
         g.manual_seed(self.epoch)
         random_idx = torch.randperm(len(self.batch), generator=g).tolist()
-        print(random_idx)
         for i in range(0, len(self.batch[self.batch_offset:])):
             yield self.batch[self.batch_offset + random_idx[i + self.data_parallel_rank]]
 
