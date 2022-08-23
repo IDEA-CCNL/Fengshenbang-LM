@@ -6,7 +6,6 @@ from transformers import (
 )
 from pytorch_lightning import (
     LightningModule,
-    loggers,
     Trainer,
 )
 from pytorch_lightning.callbacks import (
@@ -42,8 +41,9 @@ class ErLangShenCollator:
     tokenizer: None  # 分词
     max_seq_length: 512
     masked_lm_prob: 0.15
-
+    content_key: str = 'text'
     # 一些预处理操作
+
     def setup(self):
         from fengshen.data.data_utils.sentence_split import ChineseSentenceSplitter
         self.sentence_split = ChineseSentenceSplitter()
@@ -58,7 +58,7 @@ class ErLangShenCollator:
         '''
         model_inputs = []
         for s in samples:
-            sentences = self.sentence_split.tokenize(s['text'])
+            sentences = self.sentence_split.tokenize(s[self.content_key])
             # Divide sample into two segments (A and B).
             tokenized_sentences = [self.tokenizer.convert_tokens_to_ids(
                 self.tokenizer.tokenize(sent)) for sent in sentences]
@@ -73,6 +73,8 @@ class ErLangShenCollator:
                 tokens_b = []
                 is_next_random = False
             # max_seq_length - 3因为还需要拼上[CLS] [SEP] [SEP]
+            if len(tokens_a) == 0:
+                continue
             _ = truncate_segments(tokens_a, tokens_b, len(tokens_a),
                                   len(tokens_b), self.max_seq_length-3, self.np_rng)
             # Build tokens and toketypes.
@@ -126,6 +128,7 @@ class ErLangShenBert(LightningModule):
         parser = parent_parser.add_argument_group('Erlangshen Bert')
         parser.add_argument('--masked_lm_prob', type=float, default=0.15)
         parser.add_argument('--max_seq_length', type=int, default=512)
+        parser.add_argument('--sample_content_key', type=str, default='text')
         return parent_parser
 
     def __init__(self, args, tokenizer, **kwargs) -> None:
@@ -190,7 +193,8 @@ if __name__ == '__main__':
     collate_fn = ErLangShenCollator(
         tokenizer=tokenizer,
         max_seq_length=args.max_seq_length,
-        masked_lm_prob=args.masked_lm_prob
+        masked_lm_prob=args.masked_lm_prob,
+        content_key=args.sample_content_key,
     )
     collate_fn.setup()
     data_module = UniversalDataModule(tokenizer=tokenizer, args=args, collate_fn=collate_fn)
@@ -200,9 +204,6 @@ if __name__ == '__main__':
     print('model load complete')
 
     lr_monitor = LearningRateMonitor(logging_interval='step')
-    logger = loggers.TensorBoardLogger(save_dir=os.path.join(
-        args.default_root_dir, 'logs/'),
-        name=os.path.basename(os.path.dirname(args.model_path)))
     checkpoint_callback = UniversalCheckpoint(args).callbacks
 
     # 做兼容，如果目录不存在的话把这个参数去掉，不然会报错
@@ -212,7 +213,6 @@ if __name__ == '__main__':
         args.load_ckpt_path = None
 
     trainer = Trainer.from_argparse_args(args,
-                                         logger=logger,
                                          callbacks=[
                                              lr_monitor,
                                              checkpoint_callback])

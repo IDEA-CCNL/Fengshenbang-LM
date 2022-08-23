@@ -20,7 +20,7 @@ fi
 NNODES=1
 GPUS_PER_NODE=1
 
-MICRO_BATCH_SIZE=8
+MICRO_BATCH_SIZE=64
 
 # 如果你不用Deepspeed的话 下面的一段话都可以删掉 Begin
 CONFIG_JSON="$MODEL_ROOT_DIR/${MODEL_NAME}.ds_config.json"
@@ -34,6 +34,7 @@ cat <<EOT > $CONFIG_JSON
     "fp16": {
         "enabled": true
     },
+    "gradient_clipping": 1,
     "train_micro_batch_size_per_gpu": $MICRO_BATCH_SIZE
 }
 EOT
@@ -54,17 +55,19 @@ DATA_ARGS="\
 
 MODEL_ARGS="\
         --model_path $MODEL_ROOT_DIR/pretrain \
+        --learning_rate 1e-4 \
+        --weight_decay 1e-1 \
+        --warmup_ratio 0.01 \
         "
 
 MODEL_CHECKPOINT_ARGS="\
-        --every_n_train_steps 1 \
         --save_last \
         --save_ckpt_path ${MODEL_ROOT_DIR}/ckpt \
         --load_ckpt_path ${MODEL_ROOT_DIR}/ckpt/last.ckpt \
         "
 
 TRAINER_ARGS="\
-        --max_epoch 10 \
+        --max_epoch 1 \
         --gpus $GPUS_PER_NODE \
         --num_nodes $NNODES \
         --strategy deepspeed_stage_${ZERO_STAGE} \
