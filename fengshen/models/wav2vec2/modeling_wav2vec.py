@@ -1380,6 +1380,7 @@ class Wav2Vec2Model(Wav2Vec2PreTrainedModel):
             with torch.no_grad():
                 extract_features = self.feature_extractor(input_values)
 
+        feature_pen = extract_features.float().pow(2).mean()
         extract_features = extract_features.transpose(1, 2)
 
         if attention_mask is not None:
@@ -1408,14 +1409,25 @@ class Wav2Vec2Model(Wav2Vec2PreTrainedModel):
             hidden_states = self.adapter(hidden_states)
 
         if not return_dict:
-            return (hidden_states, extract_features) + encoder_outputs[1:]
+            if self.config.feature_pen > 0:
+                return (hidden_states, extract_features) + encoder_outputs[1:], feature_pen
+            else:
+                return (hidden_states, extract_features) + encoder_outputs[1:]
 
-        return Wav2Vec2BaseModelOutput(
-            last_hidden_state=hidden_states,
-            extract_features=extract_features,
-            hidden_states=encoder_outputs.hidden_states,
-            attentions=encoder_outputs.attentions,
-        )
+        if self.config.feature_pen > 0:
+            return Wav2Vec2BaseModelOutput(
+                last_hidden_state=hidden_states,
+                extract_features=extract_features,
+                hidden_states=encoder_outputs.hidden_states,
+                attentions=encoder_outputs.attentions,
+            ), feature_pen
+        else:
+            return Wav2Vec2BaseModelOutput(
+                last_hidden_state=hidden_states,
+                extract_features=extract_features,
+                hidden_states=encoder_outputs.hidden_states,
+                attentions=encoder_outputs.attentions,
+            )
 
 
 @add_start_docstrings("""Wav2Vec2 Model with a quantizer and `VQ` head on top.""", WAV_2_VEC_2_START_DOCSTRING)
@@ -1547,14 +1559,24 @@ class Wav2Vec2ForPreTraining(Wav2Vec2PreTrainedModel):
         if mask_time_indices is not None:
             mask_time_indices = mask_time_indices.to(torch.bool)
 
-        outputs = self.wav2vec2(
-            input_values,
-            attention_mask=attention_mask,
-            output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
-            mask_time_indices=mask_time_indices,
-            return_dict=return_dict,
-        )
+        if self.config.feature_pen > 0:
+            outputs, feature_pen = self.wav2vec2(
+                input_values,
+                attention_mask=attention_mask,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                mask_time_indices=mask_time_indices,
+                return_dict=return_dict,
+            )
+        else:
+            outputs = self.wav2vec2(
+                input_values,
+                attention_mask=attention_mask,
+                output_attentions=output_attentions,
+                output_hidden_states=output_hidden_states,
+                mask_time_indices=mask_time_indices,
+                return_dict=return_dict,
+            )
 
         # 1. project all transformed features (including masked) to final vq dim
         transformer_features = self.project_hid(outputs[0])
@@ -1633,11 +1655,15 @@ class Wav2Vec2ForPreTraining(Wav2Vec2PreTrainedModel):
             # 7. compute diversity loss: \mathbf{L}_d
             num_codevectors = self.config.num_codevectors_per_group * \
                 self.config.num_codevector_groups
+            sample_size = mask_time_indices.sum()
             diversity_loss = ((num_codevectors - codevector_perplexity) /
-                              num_codevectors) * mask_time_indices.sum()
+                              num_codevectors) * sample_size
 
             # 8. \mathbf{L} = \mathbf{L}_m + \alpha * \mathbf{L}_d
-            loss = contrastive_loss + self.config.diversity_loss_weight * diversity_loss
+            if self.config.feature_pen > 0:
+                loss = contrastive_loss + self.config.diversity_loss_weight * diversity_loss + self.config.feature_pen * feature_pen * sample_size
+            else:
+                loss = contrastive_loss + self.config.diversity_loss_weight * diversity_loss
 
         if not return_dict:
             if loss is not None:
