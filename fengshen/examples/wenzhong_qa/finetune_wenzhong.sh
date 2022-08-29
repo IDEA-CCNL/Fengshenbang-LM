@@ -10,15 +10,17 @@
 set -x -e
 
 export MASTER_PORT=$[RANDOM%10000+50000]
-export TORCH_EXTENSIONS_DIR=/cognitive_comp/gaoxinyu/torch_extendsions
+export TORCH_EXTENSIONS_DIR=/cognitive_comp/ganruyi/torch_extendsions
+export CUDA_VISIBLE_DEVICES='1'
 
 echo "START TIME: $(date)"
 MICRO_BATCH_SIZE=1
-ROOT_DIR=/cognitive_comp/gaoxinyu/FS/fengshen/fengshen
+ROOT_DIR=/cognitive_comp/ganruyi/experiments/tmp
 
 ZERO_STAGE=3
 
-config_json="$ROOT_DIR/ds_config.$SLURM_JOBID.json"
+# config_json="$ROOT_DIR/ds_config.$SLURM_JOBID.json"
+config_json="ds_config.json"
 #config_json="$ROOT_DIR/ds_config.wzw.json"
 # Deepspeed figures out GAS dynamically from dynamic GBS via set_train_batch_size()
 cat <<EOT > $config_json
@@ -29,10 +31,6 @@ cat <<EOT > $config_json
     "zero_optimization":{
         "stage": $ZERO_STAGE,
         "offload_optimizer":{
-          "device":"cpu",
-          "pin_memory":true
-        },
-        "offload_param":{
           "device":"cpu",
           "pin_memory":true
         },
@@ -99,14 +97,14 @@ DATA_ARGS="
 "
 
 MODEL_ARGS="
-    --pretrained_model_path /cognitive_comp/gaoxinyu/hf_model/wenzhong \
+    --pretrained_model_path IDEA-CCNL/Wenzhong2.0-GPT2-3.5B-chinese \
     --output_save_path $ROOT_DIR/predict.json \
     --learning_rate 1e-4 \
     --weight_decay 0.1 \
     --warmup 0.01 \
 "
 
-SCRIPTS_PATH=/cognitive_comp/gaoxinyu/FS/fengshen/finetune_wenzhong.py
+SCRIPTS_PATH=/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/examples/wenzhong_qa/finetune_wenzhong.py
 
 export CMD=" \
     $SCRIPTS_PATH \
@@ -122,5 +120,5 @@ SINGULARITY_PATH=/cognitive_comp/gaoxinyu/docker/pytorch21_06_py3_docker_image_v
 # to debug - add echo (it exits and prints what it would have launched)
 #run_cmd="$PY_LAUNCHER $CMD"
 
-clear; srun --jobid $SLURM_JOBID singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c 'python $CMD'
-# bash -c 'python $CMD'
+# clear; srun --jobid $SLURM_JOBID singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c 'python $CMD'
+/home/ganruyi/anaconda3/bin/python3.8 $CMD

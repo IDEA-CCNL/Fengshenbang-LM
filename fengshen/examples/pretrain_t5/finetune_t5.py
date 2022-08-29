@@ -1,14 +1,13 @@
 import time
 from builtins import print
-import sys
 import os
-import torch
 import argparse
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer, loggers
-from transformers import MT5ForConditionalGeneration
+from transformers import BertTokenizer, MT5ForConditionalGeneration, MT5Tokenizer
 from pytorch_lightning.callbacks import LearningRateMonitor
-# os.environ["CUDA_VISIBLE_DEVICES"] = '3'
+from fengshen.data.t5_dataloader.t5_datasets import TaskT5DataModel
+from fengshen.utils.universal_checkpoint import UniversalCheckpoint
 
 
 class MT5FinetuneModel(pl.LightningModule):
@@ -17,6 +16,7 @@ class MT5FinetuneModel(pl.LightningModule):
     def add_model_specific_args(parent_args):
         parser = parent_args.add_argument_group('BaseModel')
         parser.add_argument('--keep_tokens_path', default=None, type=str)
+        parser.add_argument('--max_dec_length', default=3, type=int)
         return parent_args
 
     def __init__(self, args):
@@ -25,6 +25,10 @@ class MT5FinetuneModel(pl.LightningModule):
         self.model = MT5ForConditionalGeneration.from_pretrained(
             args.pretrained_model_path
         )
+        if args.tokenizer_type == 't5_tokenizer':
+            self.tokenizer = MT5Tokenizer.from_pretrained(args.pretrained_model_path)
+        else:
+            self.tokenizer = BertTokenizer.from_pretrained(args.pretrained_model_path, add_special_tokens=False)
 
     def setup(self, stage) -> None:
         if stage == 'fit':
@@ -51,9 +55,7 @@ class MT5FinetuneModel(pl.LightningModule):
             input_ids=batch['input_ids'],
             attention_mask=batch['attention_mask'],
             labels=batch['labels'])
-        acc = self.comput_metrix(output.logits, batch['labels'])
         self.log('train_loss', output.loss, sync_dist=True)
-        self.log('train_acc', acc, sync_dist=True)
         return output.loss
 
     def validation_step(self, batch, batch_idx):
@@ -62,25 +64,27 @@ class MT5FinetuneModel(pl.LightningModule):
             input_ids=batch['input_ids'],
             attention_mask=batch['attention_mask'],
             labels=batch['labels'])
-        acc = self.comput_metrix(output.logits, batch['labels'])
+        # acc = self.comput_metrix(output.logits, batch['labels'])
         cond_output = self.model.generate(
             input_ids=batch['input_ids'],
             attention_mask=batch['attention_mask'],
-            force_words_ids=batch['force_words_ids'],
-            num_beams=2,
+            max_length=self.hparams.max_dec_length,
+            # force_words_ids=batch['force_words_ids'],
+            # num_beams=2,
         )
-        cond_acc = self.comput_metrix(cond_output, batch['labels'])
+        preds = self.tokenizer.batch_decode(cond_output, clean_up_tokenization_spaces=True, skip_special_tokens=True)
+        labels = self.tokenizer.batch_decode(batch['labels'], clean_up_tokenization_spaces=True, skip_special_tokens=True)
+        from sklearn.metrics import accuracy_score, f1_score
+        import numpy as np
+        print('preds:', preds, '\nlabels:', labels)
+        acc = accuracy_score(labels, preds)
+        f1 = f1_score(preds, labels, average='weighted', labels=np.unique(preds))
         self.log('val_loss', output.loss, sync_dist=True)
         self.log('val_acc', acc, sync_dist=True)
-        self.log('cond_acc', cond_acc, sync_dist=True)
+        self.log('val_f1', f1, sync_dist=True)
 
-    def comput_metrix(self, logits, labels):
-        y_pred = torch.argmax(logits, dim=-1)
-        y_pred = y_pred.view(size=(-1,))
-        y_true = labels.view(size=(-1,)).float()
-        corr = torch.eq(y_pred, y_true)
-        acc = torch.sum(corr.float())/y_true.shape[0]
-        return acc
+    def on_validation_epoch_end(self) -> None:
+        return super().on_validation_epoch_end()
 
     def on_save_checkpoint(self, checkpoint) -> None:
         # Save the current loop info in the mid of epoch
@@ -112,9 +116,7 @@ def main():
         '--new_vocab_path', default=None, type=str)
     total_parser.add_argument('--max_seq_length', default=1024, type=int)
     total_parser.add_argument('--ckpt_path', default=None, type=str)
-    sys.path.append('../../../')
-    from fengshen.data.t5_dataloader.t5_datasets import TaskT5DataModel
-    from fengshen.utils.universal_checkpoint import UniversalCheckpoint
+
     # * Args for data preprocessing
     total_parser = TaskT5DataModel.add_data_specific_args(total_parser)
     # * Args for training

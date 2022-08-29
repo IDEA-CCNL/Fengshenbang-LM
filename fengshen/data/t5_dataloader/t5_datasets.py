@@ -439,10 +439,13 @@ class TaskT5Dataset(Dataset):
     def __init__(self, data_path, args):
         super().__init__()
         self.max_length = args.max_seq_length
+        self.max_dec_length = args.max_dec_length
         if args.tokenizer_type == 't5_tokenizer':
             self.tokenizer = MT5Tokenizer.from_pretrained(args.pretrained_model_path)
         else:
-            self.tokenizer = BertTokenizer.from_pretrained(args.pretrained_model_path)
+            self.tokenizer = BertTokenizer.from_pretrained(
+                args.pretrained_model_path)
+        self.config = MT5Config.from_pretrained(args.pretrained_model_path)
         self.data = self.load_data(data_path)
 
     def __len__(self):
@@ -464,42 +467,21 @@ class TaskT5Dataset(Dataset):
             text = item['question'] + '，'.join(item['choice'])+'。' + f"""{item["texta"]}""" + f"""{item["textb"]}"""
         else:
             text = f"""{item["question"]}""" + "，".join(item["choice"]) + "。" + f"""{item["texta"]}"""
-        label = item['answer']
-        encode_dict = self.tokenizer.encode_plus(text, max_length=self.max_length, padding='max_length',
-                                                 truncation=True, return_tensors='pt')
-        decode_dict = self.tokenizer.encode_plus(label, max_length=16, padding='max_length',
+        label = item['answer']+self.tokenizer.eos_token
+        encode_dict = self.tokenizer.encode_plus(text, max_length=self.max_length, padding='longest',
+                                                 truncation=True, add_special_tokens=False, return_tensors='pt')
+        decode_dict = self.tokenizer.encode_plus(label, max_length=self.max_dec_length, add_special_tokens=False, padding='longest',
                                                  truncation=True)
-
-        answer_token = []
-        max_label_len = 0
-        choice_encode = []  # 用来确定模型生成的最大长度
-        for a in item['choice']:
-            answer_encode = self.tokenizer.encode(a)
-            choice_encode.append(answer_encode)
-            if len(answer_encode) > max_label_len:
-                max_label_len = len(answer_encode)
-            for an in answer_encode:
-                if an not in answer_token:
-                    answer_token.append(an)
-
-        # bad_words_ids = [[i] for i in range(self.tokenizer.vocab_size) if i not in answer_token] #不生成这些token
-
-        # while len(bad_words_ids)<self.tokenizer.vocab_size:
-        #     bad_words_ids.append(bad_words_ids[0])
-
-        # bad_words_ids = [[423],[67],[878]]
-
         encode_sent = encode_dict['input_ids'].squeeze()
         attention_mask = encode_dict['attention_mask'].squeeze()
         target = decode_dict['input_ids']
+
         labels = torch.tensor(target)
         labels[target == self.tokenizer.pad_token_id] = -100
-
         return {
-            "input_ids": torch.tensor(encode_sent).long(),
-            "attention_mask": torch.tensor(attention_mask).float(),
+            "input_ids": encode_sent,
+            "attention_mask": attention_mask,
             "labels": torch.tensor(target).long(),
-            "force_words_ids": answer_token,
         }
 
 
@@ -527,6 +509,39 @@ class TaskT5DataModel(pl.LightningDataModule):
         self.train_dataset = TaskT5Dataset(args.train_data_path, args)
         self.valid_dataset = TaskT5Dataset(args.valid_data_path, args)
 
+    def collate_fn(self, batch):
+        '''
+        Aggregate a batch data.
+        '''
+        batch_data = {}
+        for key in batch[0]:
+            batch_data[key] = [example[key] for example in batch]
+        input_ids = batch_data['input_ids']
+        attention_mask = batch_data['attention_mask']
+        labels = batch_data["labels"]
+
+        input_ids = torch.nn.utils.rnn.pad_sequence(input_ids,
+                                                    batch_first=True,
+                                                    padding_value=0)
+
+        new_attention_mask = torch.nn.utils.rnn.pad_sequence(attention_mask,
+                                                             batch_first=True,
+                                                             padding_value=0)
+
+        labels = torch.nn.utils.rnn.pad_sequence(labels,
+                                                 batch_first=True,
+                                                 padding_value=-100)
+
+        batch_data = {
+            "input_ids": input_ids,
+            "attention_mask": new_attention_mask,
+            "labels": labels,
+        }
+
+        # print(batch)
+
+        return batch_data
+
     def train_dataloader(self):
         from fengshen.data.universal_datamodule.universal_sampler import PretrainingSampler
         from fengshen.data.universal_datamodule.universal_datamodule import get_consume_samples
@@ -546,7 +561,8 @@ class TaskT5DataModel(pl.LightningDataModule):
             self.train_dataset,
             batch_sampler=batch_sampler,
             pin_memory=True,
-            num_workers=self.hparams.dataloader_num_workers
+            num_workers=self.hparams.dataloader_num_workers,
+            collate_fn=self.collate_fn,
         )
 
     def val_dataloader(self):
@@ -558,5 +574,6 @@ class TaskT5DataModel(pl.LightningDataModule):
             shuffle=False,
             batch_size=self.hparams.valid_batchsize,
             pin_memory=True,
-            num_workers=self.hparams.dataloader_num_workers
+            num_workers=self.hparams.dataloader_num_workers,
+            collate_fn=self.collate_fn,
         )
