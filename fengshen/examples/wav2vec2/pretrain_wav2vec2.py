@@ -1,8 +1,8 @@
 from transformers import Wav2Vec2FeatureExtractor
-from transformers import Wav2Vec2Config
+from fengshen.models.wav2vec2.configuration_wav2vec2 import Wav2Vec2Config
 from fengshen.models.wav2vec2.modeling_wav2vec import Wav2Vec2ForPreTraining
 
-import fengshen.data.wav2vec2.wav2vec2_dataset as ctc_datasets
+import fengshen.data.wav2vec2.wav2vec2_dataset as wv2_datasets
 from fengshen.data.universal_datamodule import UniversalDataModule
 # from transformers.models.hubert.modeling_hubert import _compute_mask_indices
 import argparse
@@ -14,6 +14,7 @@ from pytorch_lightning import (
 from pytorch_lightning.callbacks import LearningRateMonitor
 import torch
 import os
+import math
 
 
 class Wav2vec2PretrainDataLoader():
@@ -31,16 +32,16 @@ class Wav2vec2PretrainDataLoader():
         data_path = self.args.data
         manifest_path = os.path.join(data_path, "{}.tsv".format(split))
 
-        self.datasets[split] = ctc_datasets.Wav2vec2Dataset(
+        self.datasets[split] = wv2_datasets.Wav2vec2Dataset(
             manifest_path=manifest_path,
             sample_rate=self.args.sample_rate,
             model=self.wav2vec2_model,
-            args=self.args,
             feature_extractor=self.feature_extractor,
             max_sample_size=self.args.max_sample_size,
             min_sample_size=self.args.min_sample_size,
             pad=self.args.labels is not None or self.args.enable_padding,
             normalize=self.args.normalize,
+            max_tokens=args.max_tokens
         )
 
 
@@ -88,24 +89,6 @@ class Wav2vec2Lightning(LightningModule):
                 " >= 7.5 (Volta)."
             ),
         )
-        parser.add_argument(
-            "--feature_grad_mult",
-            type=float,
-            default=1,
-            help="modified the feature encoder's gradient"
-        )
-        parser.add_argument(
-            "--sample_way",
-            type=str,
-            default="data",
-            help="decide the way to sample negatives"
-        )
-        parser.add_argument(
-            "--num_negatives",
-            type=int,
-            default=100,
-            help="number of negative samples"
-        )
         return parent_parser
 
     def __init__(self, args, ** kwargs) -> None:
@@ -115,9 +98,6 @@ class Wav2vec2Lightning(LightningModule):
         self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(
             args.model_path)
         config = Wav2Vec2Config.from_pretrained(args.model_path)
-        config.feature_grad_mult = args.feature_grad_mult
-        config.sample_way = args.sample_way
-        config.num_negatives = args.num_negatives
         self.config = config
         self.model = Wav2Vec2ForPreTraining(config=config)
         self.completed_steps = 0
@@ -160,6 +140,15 @@ class Wav2vec2Lightning(LightningModule):
                     c = c.to(p.grad.device)
                 p.grad.data.mul_(c)
 
+    def compute_metrix(self, logits, mask_time_indices):
+        mask_time_indices = mask_time_indices.transpose(0, 1).flatten()
+        max = (logits.argmax(-1) == 0) & mask_time_indices
+        min = logits.argmin(-1) == 0 & mask_time_indices
+        count = float(mask_time_indices.sum())
+        both = max & min
+        corr = max.long().sum().item() - both.long().sum().item()
+        return corr/count
+
     def training_step(self, batch, batch_idx):
         output = self(**batch)
         num_losses = batch["mask_time_indices"].sum()
@@ -177,30 +166,30 @@ class Wav2vec2Lightning(LightningModule):
 
         self.sub_steps += 1
         logs = {
-            "train_loss": output.loss/num_losses,
-            'contrast_loss': output.contrastive_loss/num_losses,
-            'div_loss': output.diversity_loss/num_losses
+            "loss": output.loss/num_losses/math.log(2),
+            'contrast_loss': output.contrastive_loss/num_losses/math.log(2),
+            'div_loss': self.config.diversity_loss_weight * output.diversity_loss/num_losses/math.log(2)
         }
-        self.log("train", logs)
-        if self.trainer.accumulate_grad_batches:
-            return {
-                "loss": output.loss/num_losses/self.trainer.accumulate_grad_batches,
-            }
-        else:
-            return {
-                "loss": output.loss/num_losses,
-            }
+        for k in logs:
+            self.log(f'train_{k}', logs[k])
+
+        return {
+            "loss": output.loss,
+        }
 
     def validation_step(self, batch, batch_idx):
         # print([item for item in batch])
         num_losses = batch["mask_time_indices"].sum()
-        output = self(**batch)
+        output = self(return_logits=True, **batch)
+        acc = self.compute_metrix(output.logits, batch["mask_time_indices"])
         logs = {
-            "train_loss": output.loss/num_losses,
-            'contrast_loss': output.contrastive_loss/num_losses,
-            'div_loss': output.diversity_loss/num_losses
+            "loss": output.loss/num_losses/math.log(2),
+            'contrast_loss': output.contrastive_loss/num_losses/math.log(2),
+            'div_loss': self.config.diversity_loss_weight * output.diversity_loss/num_losses/math.log(2)
         }
-        self.log("validation", logs)
+        for k in logs:
+            self.log(f'val_{k}', logs[k], sync_dist=True)
+        self.log("acc", acc, sync_dist=True)
         return {
             "loss": output.loss/num_losses,
         }
@@ -230,7 +219,7 @@ if __name__ == '__main__':
     from fengshen.utils import UniversalCheckpoint
     from fengshen.models.model_utils import add_module_args
     args_parser = add_module_args(args_parser)
-    args_parser = ctc_datasets.add_data_specific_args(args_parser)
+    args_parser = wv2_datasets.add_data_specific_args(args_parser)
     args_parser = UniversalDataModule.add_data_specific_args(args_parser)
     args_parser = Trainer.add_argparse_args(args_parser)
     args_parser = Wav2vec2Lightning.add_module_specific_args(args_parser)
@@ -239,6 +228,7 @@ if __name__ == '__main__':
     args = args_parser.parse_args()
 
     module = Wav2vec2Lightning(args)
+    args.sample_way = module.config.sample_way
     data_loader = prepare_data(args, module)
     data_module = UniversalDataModule(
         args=args, datasets=data_loader.datasets, tokenizer=None, collate_fn=None)

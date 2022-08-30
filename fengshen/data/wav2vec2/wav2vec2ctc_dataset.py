@@ -17,6 +17,7 @@ from transformers import (
     AutoTokenizer
 )
 import numpy as np
+from fairseq.data import FairseqDataset
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,8 @@ def add_data_specific_args(parent_args):
     parser.add_argument('--sample_rate', type=float, default=16000)
     parser.add_argument('--min_sample_size', type=int)
     parser.add_argument('--max_sample_size', type=int)
+    parser.add_argument('--max_tokens', type=int, default=1400000)
+    parser.add_argument('--required_batch_size_multiple', type=int, default=8)
     parser.add_argument('--labels', type=str, nargs='+')
     parser.add_argument('--enable_padding', type=bool)
     parser.add_argument('--normalize', type=bool)
@@ -69,7 +72,7 @@ class DataCollatorCTCWithPadding:
     processor: AutoProcessor
     tokenizer: AutoTokenizer
     feature_extractor: AutoFeatureExtractor
-    args: object
+    max_sample_size: int
     padding: Union[bool, str] = "longest"
     pad_to_multiple_of: Optional[int] = None
     pad_to_multiple_of_labels: Optional[int] = None
@@ -82,7 +85,7 @@ class DataCollatorCTCWithPadding:
 
             inputs = self.feature_extractor(
                 sample["array"], sampling_rate=sample["sampling_rate"],
-                max_length=self.args.max_sample_size, truncation=True
+                max_length=self.max_sample_size, truncation=True
             )
             item["input_values"] = inputs.input_values[0]
             item["input_length"] = len(inputs.input_values[0])
@@ -117,7 +120,7 @@ class DataCollatorCTCWithPadding:
         return batch
 
 
-class CTCDataset(torch.utils.data.Dataset):
+class CTCDataset(FairseqDataset):
     def __init__(
         self,
         manifest_path,
@@ -126,7 +129,6 @@ class CTCDataset(torch.utils.data.Dataset):
         processor: AutoProcessor,
         tokenizer: AutoTokenizer,
         feature_extractor: Wav2Vec2FeatureExtractor,
-        args,
         padding: Union[bool, str] = "longest",
         pad_to_multiple_of: Optional[int] = None,
         pad_to_multiple_of_labels: Optional[int] = None,
@@ -135,13 +137,14 @@ class CTCDataset(torch.utils.data.Dataset):
         shuffle=True,
         pad=False,
         normalize=False,
+        max_tokens=1400000,
     ):
         super().__init__()
         self.collater_outside = DataCollatorCTCWithPadding(
             processor=processor,
             tokenizer=tokenizer,
             feature_extractor=feature_extractor,
-            args=args,
+            max_sample_size=max_sample_size,
             padding=padding,
             pad_to_multiple_of=pad_to_multiple_of,
             pad_to_multiple_of_labels=pad_to_multiple_of_labels
@@ -151,7 +154,6 @@ class CTCDataset(torch.utils.data.Dataset):
         self.max_sample_size = (
             max_sample_size if max_sample_size is not None else sys.maxsize
         )
-        self.args = args
         self.min_sample_size = min_sample_size
         self.pad = pad
         self.shuffle = shuffle
@@ -161,6 +163,8 @@ class CTCDataset(torch.utils.data.Dataset):
         self.texts = []
         sizes = []
         self.skipped_indices = set()
+        self.sample_upper_bound = max_tokens//2
+        # necessary for fairseq fixed token size sampler
         with open(manifest_path, "r") as f:
             with open(lable_path, "r") as g:
                 self.root_dir = f.readline().strip()
@@ -169,6 +173,11 @@ class CTCDataset(torch.utils.data.Dataset):
                     assert len(items) == 2, "{}".format(line)
                     sz = int(items[1])
                     if min_sample_size is not None and sz < min_sample_size:
+                        skipped += 1
+                        self.skipped_indices.add(i)
+                        continue
+
+                    if sz > self.sample_upper_bound:
                         skipped += 1
                         self.skipped_indices.add(i)
                         continue
@@ -219,10 +228,7 @@ class CTCDataset(torch.utils.data.Dataset):
         path_or_fp = os.path.join(self.root_dir, fn)
 
         wav, curr_sample_rate = sf.read(path_or_fp, dtype="float32")
-    # feats = torch.from_numpy(wav).float()
-        fn_split = os.path.splitext(os.path.basename(fn))[0].split('-')
         result = {
-            'chapter_id': int(fn_split[1]),
             'file': path_or_fp,
             'audio': {
                 'path': path_or_fp,
@@ -230,7 +236,6 @@ class CTCDataset(torch.utils.data.Dataset):
                 'sampling_rate': curr_sample_rate
             },
             'id': fn,
-            'speaker_id': int(fn_split[0]),
             'text': text
         }
 
@@ -249,3 +254,22 @@ class CTCDataset(torch.utils.data.Dataset):
         if self.pad:
             return self.sizes[index]
         return min(self.sizes[index], self.max_sample_size)
+
+    def num_tokens(self, index):
+        return self.size(index)
+
+    def ordered_indices(self):
+        """Return an ordered list of indices. Batches will be constructed based
+        on this order."""
+
+        if self.shuffle:
+            order = [np.random.permutation(len(self))]
+            order.append(
+                np.minimum(
+                    np.array(self.sizes),
+                    self.max_sample_size,
+                )
+            )
+            return np.lexsort(order)[::-1]
+        else:
+            return np.arange(len(self))

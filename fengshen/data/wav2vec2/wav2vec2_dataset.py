@@ -3,7 +3,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import argparse
 import os
 import sys
 from dataclasses import dataclass
@@ -13,9 +12,8 @@ import torch
 import logging
 from transformers import (
     Wav2Vec2FeatureExtractor,
-    Wav2Vec2ForPreTraining,
 )
-from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices, _sample_negative_indices
+from transformers.models.wav2vec2.modeling_wav2vec2 import _compute_mask_indices, _sample_negative_indices, Wav2Vec2ForPreTraining
 import numpy as np
 # from fairseq.data.audio import raw_audio_dataset
 from fairseq.data import FairseqDataset
@@ -97,10 +95,11 @@ class DataCollatorForWav2Vec2Pretraining:
     """
 
     model: Wav2Vec2ForPreTraining
-    args: argparse.Namespace
     feature_extractor: Wav2Vec2FeatureExtractor
+    max_sample_size: int
     padding: Union[bool, str] = "longest"
     pad_to_multiple_of: Optional[int] = None
+    negative_sample_way: str = "data"
 
     def __call__(self, features: List[Dict[str, Union[List[int], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
         # reformat list to dict and set to pytorch format
@@ -111,7 +110,7 @@ class DataCollatorForWav2Vec2Pretraining:
 
             inputs = self.feature_extractor(
                 sample["array"], sampling_rate=sample["sampling_rate"],
-                max_length=self.args.max_sample_size, truncation=True
+                max_length=self.max_sample_size, truncation=True
             )
             item["input_values"] = inputs.input_values[0]
             item["input_length"] = len(inputs.input_values[0])
@@ -152,7 +151,7 @@ class DataCollatorForWav2Vec2Pretraining:
         )
 
         # sample negative indices
-        if self.args.sample_way == "data":
+        if self.negative_sample_way == "data":
             sampled_negative_indices = _sample_negative_indices(
                 features_shape,
                 self.model.config.num_negatives,
@@ -166,16 +165,12 @@ class DataCollatorForWav2Vec2Pretraining:
                 num_negatives=self.model.config.num_negatives,
                 mask_time_indices=mask_time_indices,
             )
-        batch["mask_time_indices"] = torch.tensor(
-            mask_time_indices, dtype=torch.long, device=device)
+
         batch["sampled_negative_indices"] = torch.tensor(
             sampled_negative_indices, dtype=torch.long, device=device)
-        print("{}\n{}\n{}".format(
-            batch["input_values"].shape,
-            batch["attention_mask"].sum(-1),
-            batch["attention_mask"].sum()
-        )
-        )
+        batch["mask_time_indices"] = torch.tensor(
+            mask_time_indices, dtype=torch.long, device=device)
+
         return batch
 
 # Copyright (c) Facebook, Inc. and its affiliates.
@@ -190,7 +185,6 @@ class Wav2vec2Dataset(FairseqDataset):
         manifest_path,
         sample_rate,
         model: Wav2Vec2ForPreTraining,
-        args: argparse.Namespace,
         feature_extractor: Wav2Vec2FeatureExtractor,
         padding: Union[bool, str] = "longest",
         pad_to_multiple_of: Optional[int] = None,
@@ -199,14 +193,17 @@ class Wav2vec2Dataset(FairseqDataset):
         shuffle=True,
         pad=False,
         normalize=False,
+        max_tokens=1400000,
+        negative_sample_way="data"
     ):
         super().__init__()
         self.collater_outside = DataCollatorForWav2Vec2Pretraining(
             model=model,
-            args=args,
             feature_extractor=feature_extractor,
+            max_sample_size=max_sample_size,
             padding=padding,
-            pad_to_multiple_of=pad_to_multiple_of
+            pad_to_multiple_of=pad_to_multiple_of,
+            negative_sample_way=negative_sample_way
         )
         self.sample_rate = sample_rate
         self.sizes = []
@@ -222,6 +219,9 @@ class Wav2vec2Dataset(FairseqDataset):
         self.texts = []
         sizes = []
         self.skipped_indices = set()
+
+        self.sample_upper_bound = max_tokens//2
+        # necessary for fairseq fixed token size sampler
         with open(manifest_path, "r") as f:
             self.root_dir = f.readline().strip()
             for i, line in enumerate(f):
@@ -229,6 +229,10 @@ class Wav2vec2Dataset(FairseqDataset):
                 assert len(items) == 2, "{}".format(line)
                 sz = int(items[1])
                 if min_sample_size is not None and sz < min_sample_size:
+                    skipped += 1
+                    self.skipped_indices.add(i)
+                    continue
+                if sz > self.sample_upper_bound:
                     skipped += 1
                     self.skipped_indices.add(i)
                     continue
@@ -271,10 +275,7 @@ class Wav2vec2Dataset(FairseqDataset):
         path_or_fp = os.path.join(self.root_dir, fn)
 
         wav, curr_sample_rate = sf.read(path_or_fp, dtype="float32")
-    # feats = torch.from_numpy(wav).float()
-        fn_split = os.path.splitext(os.path.basename(fn))[0].split('-')
         result = {
-            'chapter_id': int(fn_split[1]),
             'file': path_or_fp,
             'audio': {
                 'path': path_or_fp,
@@ -282,7 +283,6 @@ class Wav2vec2Dataset(FairseqDataset):
                 'sampling_rate': curr_sample_rate
             },
             'id': fn,
-            'speaker_id': int(fn_split[0]),
         }
 
         # feats = self.postprocess(feats, curr_sample_rate)

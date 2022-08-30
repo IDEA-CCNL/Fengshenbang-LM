@@ -1,8 +1,6 @@
 from transformers import (
     AutoProcessor,
 )
-from transformers import Wav2Vec2Config
-from fengshen.models.wav2vec2.modeling_wav2vec import Wav2Vec2ForCTC
 from datasets import load_metric
 import fengshen.data.wav2vec2.wav2vec2ctc_dataset as ctc_datasets
 from fengshen.data.universal_datamodule import UniversalDataModule
@@ -19,13 +17,12 @@ import os
 
 
 class Wav2vec2CTCDataLoader():
-    def __init__(self, args, model):
+    def __init__(self, args, processor):
         self.args = args
         self.load_datasets = {}
-        self.wav2vec2_model = model.model
-        self.feature_extractor = model.feature_extractor
-        self.tokenizer = model.tokenizer
-        self.processor = model.processor
+        self.feature_extractor = processor.feature_extractor
+        self.tokenizer = processor.tokenizer
+        self.processor = processor
 
     @property
     def datasets(self):
@@ -41,18 +38,18 @@ class Wav2vec2CTCDataLoader():
             lable_path=label_path,
             sample_rate=self.args.sample_rate,
             processor=self.processor,
-            args=self.args,
             tokenizer=self.tokenizer,
             feature_extractor=self.feature_extractor,
             max_sample_size=self.args.max_sample_size,
             min_sample_size=self.args.min_sample_size,
             pad=self.args.labels is not None or self.args.enable_padding,
             normalize=self.args.normalize,
+            max_tokens=args.max_tokens
         )
 
 
-def prepare_data(args, model):
-    loader = Wav2vec2CTCDataLoader(args, model)
+def prepare_data(args):
+    loader = Wav2vec2CTCDataLoader(args)
     loader.load_dataset('train')
     loader.load_dataset('valid')
     return loader
@@ -68,22 +65,7 @@ class CTCLightning(LightningModule):
             default="audio",
             help="Column in the dataset that contains speech file path. Defaults to 'audio'",
         )
-        parser.add_argument(
-            "--max_gumbel_temperature",
-            type=float,
-            default=2.0,
-            help="Maximum temperature for gumbel softmax.",
-        )
-        parser.add_argument(
-            "--min_gumbel_temperature",
-            type=float,
-            default=0.5,
-            help="Minimum temperature for gumbel softmax.",
-        )
-        parser.add_argument(
-            "--gumbel_temperature_decay", type=float, default=0.999995,
-            help="Decay of gumbel temperature during training."
-        )
+
         parser.add_argument(
             "--pad_to_multiple_of",
             type=int,
@@ -95,12 +77,6 @@ class CTCLightning(LightningModule):
                 " >= 7.5 (Volta)."
             ),
         )
-        parser.add_argument(
-            "--feature_grad_mult",
-            type=float,
-            default=1,
-            help="modified the feature encoder's gradient"
-        )
 
         parser.add_argument(
             "--pretrained_model",
@@ -109,6 +85,7 @@ class CTCLightning(LightningModule):
         )
 
         parser.add_argument("--unk_token", default=None)
+        parser.add_argument("--architecture")
         parser.add_argument("--pad_token", default=None)
         parser.add_argument("--word_delimiter_token", default=None)
         parser.add_argument("--eval_metrics", default=["wer"], nargs='*')
@@ -119,8 +96,14 @@ class CTCLightning(LightningModule):
         super().__init__()
         self.save_hyperparameters(args)
         self.args = args
+        if args.architecture == "wav2vec2":
+            from fengshen.models.wav2vec2.configuration_wav2vec2 import Wav2Vec2Config
+            from fengshen.models.wav2vec2.modeling_wav2vec import Wav2Vec2ForCTC
+            config = Wav2Vec2Config.from_pretrained(args.model_path)
+        elif args.architecture == "hubert":
+            from transformers import HubertConfig, HubertForCTC
+            config = HubertConfig.from_pretrained(args.model_path)
 
-        config = Wav2Vec2Config.from_pretrained(args.model_path)
         self.config = config
 
         # tokenizer_kwargs = {
@@ -142,12 +125,18 @@ class CTCLightning(LightningModule):
                 "vocab_size": len(self.tokenizer),
             }
         )
-        config.feature_grad_mult = args.feature_grad_mult
         config.vocab_size = len(self.processor.tokenizer.get_vocab())
-        if args.pretrained_model:
-            self.model = Wav2Vec2ForCTC.from_pretrained(args.pretrained_model, config=config)
-        else:
-            self.model = Wav2Vec2ForCTC(config=config)
+
+        if args.architecture == "wav2vec2":
+            if args.pretrained_model:
+                self.model = Wav2Vec2ForCTC.from_pretrained(args.pretrained_model, config=config)
+            else:
+                self.model = Wav2Vec2ForCTC(config=config)
+        elif args.architecture == "hubert":
+            if args.pretrained_model:
+                self.model = HubertForCTC.from_pretrained(args.pretrained_model, config=config)
+            else:
+                self.model = HubertForCTC(config=config)
 
         # self.model.freeze_feature_encoder()
         # used to update gumbel temperature
@@ -217,7 +206,7 @@ class CTCLightning(LightningModule):
     def training_step(self, batch, batch_idx):
         output = self(**batch)
         logs = {
-            "train_loss": output.loss,
+            "train_loss": output.loss/batch["input_values"].shape[0],
         }
         self.log("train", logs)
         if self.trainer.accumulate_grad_batches:
@@ -230,12 +219,11 @@ class CTCLightning(LightningModule):
             }
 
     def validation_step(self, batch, batch_idx):
-        # print([item for item in batch])
         output = self(**batch)
         metrics = self.compute_metrics(batch, output)
         self.log("evaluate", metrics)
         self.log("valid", {
-            "valid_loss": output.loss,
+            "valid_loss": output.loss/batch["input_values"].shape[0],
         })
         return {
             "loss": output.loss,
@@ -271,7 +259,7 @@ if __name__ == '__main__':
     args = args_parser.parse_args()
 
     module = CTCLightning(args)
-    data_loader = prepare_data(args, module)
+    data_loader = prepare_data(args, module.processor)
     data_module = UniversalDataModule(
         args=args, tokenizer=None, datasets=data_loader.datasets, collate_fn=None)
 

@@ -1,20 +1,22 @@
 #!/bin/bash
-#SBATCH --job-name=wav2vec2-base-wenet # create a short name for your job
+#SBATCH --job-name=libri-base-ctc # create a short name for your job
 #SBATCH --nodes=1 # node count
-#SBATCH --ntasks-per-node=8 # number of tasks to run per node
+#SBATCH --ntasks-per-node=4 # number of tasks to run per node
 #SBATCH --cpus-per-task=30 # cpu-cores per task (>1 if multi-threaded tasks)
-#SBATCH --gres=gpu:8 # number of gpus per node
-#SBATCH -o %x-%j.log # output and error log file names (%x for job id)
-#SBATCH -x dgx050,dgx048,dgx025
+#SBATCH --gres=gpu:4 # number of gpus per node
+#SBATCH -o ./run/%x-%j.log # output and error log file names (%x for job id)
+#SBATCH -x dgx050
 
-MODEL_NAME=wav2vec2-base-wenet
-config_json="$MODEL_NAME.ds_config.json"
+MODEL_NAME=wav2vec2-libir-base-ctc
+config_json="./output/$MODEL_NAME.ds_config.json"
 
-export MASTER_PORT=20992
+export MASTER_PORT=20999
+MICRO_BATCH_SIZE=8
 ZERO_STAGE=1
 HOME_PATH=/cognitive_comp/zhuojianheng/experiment
-MODEL_PATH=/cognitive_comp/zhuojianheng/pretrained_model/wav2vec2-base-pretrain-libri
-DATA_DIR=/cognitive_comp/zhuojianheng/data/wenet/L
+MODEL_PATH=/cognitive_comp/zhuojianheng/pretrained_model/wav2vec2-base-ctc-libri
+DATA_DIR=/cognitive_comp/zhuojianheng/data/libri_tsv/train-clean-100
+
 
 export TORCH_EXTENSIONS_DIR=/cognitive_comp/zhuojianheng/torch_extendsions
 
@@ -46,6 +48,7 @@ cat <<EOT > $config_json
     },
     "steps_per_print": 100,
     "gradient_clipping": 1,
+    "train_micro_batch_size_per_gpu": $MICRO_BATCH_SIZE,
     "zero_allow_untested_optimizer": false
 }
 EOT
@@ -53,32 +56,36 @@ EOT
 export PL_DEEPSPEED_CONFIG_PATH=$config_json
 
 DATA_ARGS="\
-        --dataloader_workers 32 \
+        --dataloader_workers 2 \
+        --train_batchsize $MICRO_BATCH_SIZE \
         --val_batchsize 16 \
         --test_batchsize 16  \
         --val_datasets_field valid \
         --test_datasets_field valid \
         --sampler_type random \
         --data ${DATA_DIR} \
-        --max_sample_size 150000 \
-        --min_sample_size 10000 \
+        --max_sample_size 25000000 \
+        --min_sample_size 0 \
         --normalize False \
         --enable_padding True \
         "
 
 MODEL_ARGS="\
         --model_path ${MODEL_PATH} \
-        --learning_rate 5e-4 \
+        --learning_rate 3e-5 \
         --weight_decay 1e-2 \
-        --warmup_steps 32000 \
+        --warmup_ratio 0.1 \
         --adam_beta1 0.9 \
         --adam_beta2 0.98 \
-        --adam_epsilon 1e-6 \
+        --adam_epsilon 1e-8 \
+        --eval_metrics wer cer \
         --sampler_type fairseq \
         --required_batch_size_multiple 1 \
-        --max_tokens 1400000
+        --max_tokens 3200000
         "
 
+        # --pred_masked_weight 1.0 \
+        # --loss_weights 10 \
 MODEL_CHECKPOINT_ARGS="\
         --monitor train_loss \
         --save_top_k 0 \
@@ -94,18 +101,18 @@ MODEL_CHECKPOINT_ARGS="\
 # deepspeed_stage_${ZERO_STAGE} \
 TRAINER_ARGS="\
         --gradient_clip_val 1.0 \
-        --gpus 8 \
+        --gpus 4 \
         --num_nodes 1 \
         --strategy deepspeed_stage_${ZERO_STAGE} \
         --log_every_n_steps 100 \
-        --val_check_interval 5000 \
+        --val_check_interval 50 \
 	    --limit_val_batches 10 \
-        --accumulate_grad_batches 8 \
+        --accumulate_grad_batches 2 \
         --precision 16 \
         --ckpt_path ${HOME_PATH}/fengshen-${MODEL_NAME}/ckpt/last.ckpt \
         --default_root_dir ${HOME_PATH}/fengshen-${MODEL_NAME}/ \
         --replace_sampler_ddp false \
-        --max_steps 400000
+        --max_steps 80000
         "
 
 
@@ -116,6 +123,8 @@ export options=" \
         $TRAINER_ARGS \
         "
 
-export SCRIPT_PATH=pretrain_wav2vec2.py
+CODE_HOME=/cognitive_comp/zhuojianheng/work/git/Fengshenbang-LM/fengshen/examples/wav2vec2
+export SCRIPT_PATH=${CODE_HOME}/wav2vec2_ctc.py
+# python3 $SCRIPT_PATH $options
 srun python3 $SCRIPT_PATH $options
 # eval python3 -m debugpy --listen localhost:5876 --wait-for-client $SCRIPT_PATH $options
