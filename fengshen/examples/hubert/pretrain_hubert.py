@@ -106,19 +106,38 @@ class HubertLightning(LightningModule):
     def __init__(self, args, loader, ** kwargs) -> None:
         super().__init__()
         self.save_hyperparameters(args)
-        config = HubertConfig.from_pretrained(args.model_path)
-        config.pred_masked_weight = args.pred_masked_weight
-        config.loss_weights = args.loss_weights
+        # config = HubertConfig.from_pretrained(args.model_path)
+        # config.pred_masked_weight = args.pred_masked_weight
+        # config.loss_weights = args.loss_weights
+        # config.logit_temp = args.logit_temp
+        # config.final_dim = args.final_dim
+        # config.pred_nomask_weight = args.pred_nomask_weight
+        # config.dictionaries = loader.dictionaries
+        # feature_ds_rate = np.prod(config.conv_stride)
+        # config.feat2tar_ratio = args.label_rate * feature_ds_rate / args.sample_rate
+        # config.skip_masked = args.skip_masked
+        # config.skip_nomask = args.skip_nomask
+        # config.target_glu = args.target_glu
+        # self.model = HubertModelForPretrain(config=config)
+        from fairseq.criterions.hubert_criterion import HubertCriterion
+        from fairseq.models.hubert import HubertModel, HubertConfig
+        from fairseq.tasks.hubert_pretraining import HubertPretrainingConfig
+        self.criterion = HubertCriterion(task=None,
+                                         pred_masked_weight=args.pred_masked_weight,
+                                         pred_nomask_weight=args.pred_nomask_weight,
+                                         loss_weights=args.loss_weights)
+        config = HubertConfig()
         config.logit_temp = args.logit_temp
         config.final_dim = args.final_dim
-        config.pred_nomask_weight = args.pred_nomask_weight
-        config.dictionaries = loader.dictionaries
-        feature_ds_rate = np.prod(config.conv_stride)
-        config.feat2tar_ratio = args.label_rate * feature_ds_rate / args.sample_rate
         config.skip_masked = args.skip_masked
         config.skip_nomask = args.skip_nomask
         config.target_glu = args.target_glu
-        self.model = HubertModelForPretrain(config=config)
+        config.label_rate = args.label_rate
+        config.feature_grad_mult = 0.1
+        config.fp16 = True
+        task_config = HubertPretrainingConfig()
+        task_config.sample_rate = args.sample_rate
+        self.model = HubertModel(config, task_config, loader.dictionaries)
 
     def setup(self, stage) -> None:
         if stage == 'fit':
@@ -142,29 +161,29 @@ class HubertLightning(LightningModule):
 
     def forward(self, **batch):
 
-        target_list = batch['target_list']
-        padding_mask = batch['net_input']['padding_mask']
-        input_values = batch['net_input']['source']
-        output = self.model(input_values=input_values,
-                            attention_mask=padding_mask,
-                            target_list=target_list,
-                            mask_time_indices=None)
-        return output
+        # target_list = batch['target_list']
+        # padding_mask = batch['net_input']['padding_mask']
+        # input_values = batch['net_input']['source']
+        # output = self.model(input_values=input_values,
+        #                     attention_mask=padding_mask,
+        #                     target_list=target_list,
+        #                     mask_time_indices=None)
+        return self.criterion.forward(self.model, batch)
 
     def training_step(self, batch, batch_idx):
-        output = self(**batch)
-        self.log('train_loss', output.loss / output.sample_size / math.log(2), sync_dist=True)
-        for k, v in output.loss_m_dict.items():
-            self.log(f'train_{k}', v / output.sample_size / math.log(2))
-        for k, v in output.loss_u_dict.items():
-            self.log(f'train_{k}', v / output.sample_size / math.log(2))
-        for k, v in output.loss_extra_dict.items():
-            self.log(f'train_{k}', v / output.sample_size / math.log(2))
-        self.log('train_batch_size', float(batch['net_input']['source'].shape[0]))
-        print(
-            f'{self.trainer.fit_loop.epoch_loop._batches_that_stepped} batch: {batch["net_input"]["source"].shape}')
+        loss, sample_size, logging_output = self(**batch)
+        # self.log('train_loss', output.loss / output.sample_size / math.log(2), sync_dist=True)
+        # for k, v in output.loss_m_dict.items():
+        #     self.log(f'train_{k}', v / output.sample_size / math.log(2))
+        # for k, v in output.loss_u_dict.items():
+        #     self.log(f'train_{k}', v / output.sample_size / math.log(2))
+        # for k, v in output.loss_extra_dict.items():
+        #     self.log(f'train_{k}', v / output.sample_size / math.log(2))
+        # self.log('train_batch_size', float(batch['net_input']['source'].shape[0]))
         # output.loss /= (output.sample_size * math.log(2))
-        return output
+        for k, v in logging_output.items():
+            self.log(f'train_{k}', v / sample_size / math.log(2))
+        return loss
 
     def comput_metrix(self, logits, labels):
         y_pred = torch.argmax(logits, dim=-1)
@@ -175,26 +194,20 @@ class HubertLightning(LightningModule):
         return acc
 
     def validation_step(self, batch, batch_idx):
-        output = self(**batch)
-        self.log('val_loss', output.loss / output.sample_size / math.log(2), sync_dist=True)
-        for k, v in output.loss_m_dict.items():
-            self.log(f'val_{k}', v / output.sample_size / math.log(2), sync_dist=True)
-        for k, v in output.loss_u_dict.items():
-            self.log(f'val_{k}', v / output.sample_size / math.log(2), sync_dist=True)
-        for k, v in output.loss_extra_dict.items():
-            self.log(f'val_{k}', v / output.sample_size / math.log(2), sync_dist=True)
+        # output = self(**batch)
+        loss, sample_size, logging_output = self(**batch)
+        # self.log('val_loss', output.loss / output.sample_size / math.log(2), sync_dist=True)
+        # for k, v in output.loss_m_dict.items():
+        #     self.log(f'val_{k}', v / output.sample_size / math.log(2), sync_dist=True)
+        # for k, v in output.loss_u_dict.items():
+        #     self.log(f'val_{k}', v / output.sample_size / math.log(2), sync_dist=True)
+        # for k, v in output.loss_extra_dict.items():
+        #     self.log(f'val_{k}', v / output.sample_size / math.log(2), sync_dist=True)
         # acc = self.comput_metrix(output.logits, batch['labels'])
         # self.log('val_acc', acc, sync_dist=True)
-        return output
-
-    def on_save_checkpoint(self, checkpoint) -> None:
-        # Save the current loop info in the mid of epoch
-        # if you lightning <= 1.6.0  uncomment the line below
-        # checkpoint['loops'] = self.trainer.checkpoint_connector._get_loops_state_dict()
-        if self.trainer.global_rank == 0:
-            self.model.save_pretrained(os.path.join(
-                self.trainer.checkpoint_callback.dirpath,
-                'hf_pretrained_epoch{}_step{}'.format(self.trainer.current_epoch, self.trainer.global_step)))
+        for k, v in logging_output.items():
+            self.log(f'val_{k}', v / sample_size / math.log(2))
+        return loss
 
     def on_load_checkpoint(self, checkpoint) -> None:
         global_step_offset = checkpoint["global_step"]

@@ -140,7 +140,7 @@ class BatchRandomSampler():
         self.batch_offset = batch_offset
         self.epoch = epoch
         # Sanity checks.
-        assert self.batch_offset <= len(self.batch), \
+        assert self.batch_offset < len(self.batch), \
             'batch_offset is larger than len(batch)'
 
     def __len__(self):
@@ -149,8 +149,11 @@ class BatchRandomSampler():
     def __iter__(self):
         g = torch.Generator()
         g.manual_seed(self.epoch)
-        random_idx = torch.randperm(len(self.batch), generator=g).tolist()
-        print(random_idx)
+        # 需要能被数据并行数整除
+        remain_batch = len(self.batch) % self.data_parallel_size
+        total_batches = len(self.batch) - remain_batch
+        assert total_batches % self.data_parallel_size == 0
+        random_idx = torch.randperm(total_batches, generator=g).tolist()
         for i in range(0, len(self.batch[self.batch_offset:])):
             yield self.batch[self.batch_offset + random_idx[i + self.data_parallel_rank]]
 

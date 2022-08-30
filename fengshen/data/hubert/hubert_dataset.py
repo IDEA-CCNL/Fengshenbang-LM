@@ -213,9 +213,12 @@ class HubertDataset(FairseqDataset):
         return [self.get_label(index, i) for i in range(self.num_labels)]
 
     def __getitem__(self, index):
-        wav = self.get_audio(index)
-        labels = self.get_labels(index)
-        return {"id": index, "source": wav, "label_list": labels}
+        try:
+            wav = self.get_audio(index)
+            labels = self.get_labels(index)
+            return {"id": index, "source": wav, "label_list": labels}
+        except:
+            return {"id": index, "source": None}
 
     def __len__(self):
         return len(self.sizes)
