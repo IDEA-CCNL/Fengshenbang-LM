@@ -1,23 +1,24 @@
 #!/bin/bash
-#SBATCH --job-name=libri-base-ctc # create a short name for your job
+#SBATCH --job-name=test-ctc # create a short name for your job
 #SBATCH --nodes=1 # node count
-#SBATCH --ntasks-per-node=4 # number of tasks to run per node
+#SBATCH --ntasks-per-node=1 # number of tasks to run per node
 #SBATCH --cpus-per-task=30 # cpu-cores per task (>1 if multi-threaded tasks)
-#SBATCH --gres=gpu:4 # number of gpus per node
-#SBATCH -o ./run/%x-%j.log # output and error log file names (%x for job id)
+#SBATCH --gres=gpu:1 # number of gpus per node
+#SBATCH -o ./output/%x-%j.log # output and error log file names (%x for job id)
 #SBATCH -x dgx050
 
-MODEL_NAME=wav2vec2-libir-base-ctc
 config_json="./output/$MODEL_NAME.ds_config.json"
 
-export MASTER_PORT=20999
+export MASTER_PORT=25999
 MICRO_BATCH_SIZE=8
 ZERO_STAGE=1
-HOME_PATH=/cognitive_comp/zhuojianheng/experiment
+HOME_PATH=/cognitive_comp/zhuojianheng/experiment/
 MODEL_PATH=/cognitive_comp/zhuojianheng/pretrained_model/wav2vec2-base-ctc-libri
 DATA_DIR=/cognitive_comp/zhuojianheng/data/libri_tsv/train-clean-100
 
-
+CHECK_POINT_NAME=hf_pretrained_epoch60_step40687
+MODEL_NAME=$CHECK_POINT_NAME
+PRETRAINED_PATH=/cognitive_comp/zhuojianheng/experiment/fengshen-wav2vec2-base-libri/ckpt/${CHECK_POINT_NAME}
 export TORCH_EXTENSIONS_DIR=/cognitive_comp/zhuojianheng/torch_extendsions
 
 
@@ -75,6 +76,7 @@ MODEL_ARGS="\
         --learning_rate 3e-5 \
         --weight_decay 1e-2 \
         --warmup_ratio 0.1 \
+        --scheduler_type constant_with_warmup \
         --adam_beta1 0.9 \
         --adam_beta2 0.98 \
         --adam_epsilon 1e-8 \
@@ -82,6 +84,8 @@ MODEL_ARGS="\
         --sampler_type fairseq \
         --required_batch_size_multiple 1 \
         --max_tokens 3200000
+        --pretrained_model $PRETRAINED_PATH
+        --architecture wav2vec2
         "
 
         # --pred_masked_weight 1.0 \
@@ -101,18 +105,18 @@ MODEL_CHECKPOINT_ARGS="\
 # deepspeed_stage_${ZERO_STAGE} \
 TRAINER_ARGS="\
         --gradient_clip_val 1.0 \
-        --gpus 4 \
+        --gpus 1 \
         --num_nodes 1 \
         --strategy deepspeed_stage_${ZERO_STAGE} \
         --log_every_n_steps 100 \
         --val_check_interval 50 \
 	    --limit_val_batches 10 \
-        --accumulate_grad_batches 2 \
+        --accumulate_grad_batches 8 \
         --precision 16 \
         --ckpt_path ${HOME_PATH}/fengshen-${MODEL_NAME}/ckpt/last.ckpt \
         --default_root_dir ${HOME_PATH}/fengshen-${MODEL_NAME}/ \
         --replace_sampler_ddp false \
-        --max_steps 80000
+        --max_steps 4000
         "
 
 
@@ -124,7 +128,7 @@ export options=" \
         "
 
 CODE_HOME=/cognitive_comp/zhuojianheng/work/git/Fengshenbang-LM/fengshen/examples/wav2vec2
-export SCRIPT_PATH=${CODE_HOME}/wav2vec2_ctc.py
+export SCRIPT_PATH=${CODE_HOME}/ctc_finetune.py
 # python3 $SCRIPT_PATH $options
 srun python3 $SCRIPT_PATH $options
 # eval python3 -m debugpy --listen localhost:5876 --wait-for-client $SCRIPT_PATH $options

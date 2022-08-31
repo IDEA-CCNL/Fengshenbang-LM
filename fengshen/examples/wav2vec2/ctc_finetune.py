@@ -48,8 +48,8 @@ class Wav2vec2CTCDataLoader():
         )
 
 
-def prepare_data(args):
-    loader = Wav2vec2CTCDataLoader(args)
+def prepare_data(args, processor):
+    loader = Wav2vec2CTCDataLoader(args, processor)
     loader.load_dataset('train')
     loader.load_dataset('valid')
     return loader
