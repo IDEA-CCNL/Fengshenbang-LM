@@ -129,7 +129,7 @@ class UniversalDataModule(LightningDataModule):
         )
 
     def test_dataloader(self):
-        ds = self.datasets[self.hparams.test_datasets_field],
+        ds = self.datasets[self.hparams.test_datasets_field]
 
         collate_fn = self.collate_fn
         if collate_fn is None and hasattr(ds, 'collater'):
