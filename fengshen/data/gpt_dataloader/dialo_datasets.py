@@ -1,10 +1,31 @@
+
 from fengshen.data.fs_datasets.load import load_dataset, list_datasets
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, DistributedSampler
 from torch.utils.data.dataset import ConcatDataset
-import torch
 from typing import Optional
-from dataclasses import dataclass
+
+
+def get_consume_dataset(name,subname=None):
+    if name is not "dial":# not dial dataset
+        return load_dataset(name)
+
+    if subname is not "balance":#other single dataset
+        return load_dataset(name,subname)
+
+    if subname is "balance":
+        concat_list = list_datasets(name)
+        concat_list.remove("allmerge") # do not include all merge data
+    else:
+        concat_list = subname.split('-')
+
+    datasets = [load_dataset(name, ds) for ds in concat_list]
+    concat_dataset = {
+        "train":ConcatDataset([ds["train"] for ds in datasets]),
+        "test":ConcatDataset([ds["test"] for ds in datasets]),
+        "dev":ConcatDataset([ds["dev"] for ds in datasets])
+    }
+    return concat_dataset
 
 def get_consume_samples(data_model: LightningDataModule) -> int:
     if hasattr(data_model.trainer.lightning_module, 'consumed_samples'):
@@ -26,7 +47,8 @@ class DusincDataModule(LightningDataModule):
         parser.add_argument('--train_batchsize', default=32, type=int)
         parser.add_argument('--val_batchsize', default=32, type=int)
         parser.add_argument('--test_batchsize', default=32, type=int)
-        parser.add_argument('--datasets_name', type=str)
+        parser.add_argument('--datasets_name', default='dial',type=str)
+        parser.add_argument('--datasets_subname', default=None,type=str)
         parser.add_argument('--train_datasets_field', type=str, default='train')
         parser.add_argument('--val_datasets_field', type=str, default='validation')
         parser.add_argument('--test_datasets_field', type=str, default='test')
@@ -46,9 +68,7 @@ class DusincDataModule(LightningDataModule):
         super().__init__()
         print('---------begin to load datasets {}'.format(args.datasets_name), flush=True)
         from ..fs_datasets import load_dataset
-        self.datasets = load_dataset(
-            args.datasets_name
-        )
+        self.datasets = get_consume_dataset(args.datasets_name,args.datasets_subname)
         self.tokenizer = tokenizer
         self.collate_fn = collate_fn
         self.save_hyperparameters(args)
@@ -128,23 +148,7 @@ class DusincDataModule(LightningDataModule):
         )
 
 
-def get_consume_dataset(name,subname):
-    if name is not "dial":
-        return load_dataset(name)
 
-    if subname is not "balance":
-        return load_dataset(name,subname)
-
-    avail_dataset = list_datasets(name)
-    avail_dataset.remove("allmerge") # do not include all merge data
-
-    datasets = [load_dataset(name, ds) for ds in avail_dataset]
-    concat_dataset = {
-        "train":ConcatDataset([ds["train"] for ds in datasets]),
-        "test":ConcatDataset([ds["test"] for ds in datasets]),
-        "dev":ConcatDataset([ds["dev"] for ds in datasets])
-    }
-    return concat_dataset
 class MixingDataModule(LightningDataModule):
     @ staticmethod
     def add_data_specific_args(parent_args):
@@ -162,7 +166,8 @@ class MixingDataModule(LightningDataModule):
         parser.add_argument('--sampler_type', type=str,
                             choices=['single',
                                      'random',
-                                     'mixing'],
+                                     'mixing',
+                                     'mixing_balance'],
                             default='random')
         return parent_args
 
@@ -189,7 +194,7 @@ class MixingDataModule(LightningDataModule):
         world_size = self.trainer.world_size
         consumed_samples = get_consume_samples(self)
         # use the user default sampler
-        if self.hparams.sampler_type == 'random':
+        if self.hparams.sampler_type == 'random' or 'mixing':
             return PretrainingRandomSampler(
                 total_samples=len(self.datasets[self.hparams.train_datasets_field]),
                 # consumed_samples cal by global steps
@@ -208,7 +213,7 @@ class MixingDataModule(LightningDataModule):
                 data_parallel_rank=self.trainer.global_rank,
                 data_parallel_size=world_size,
             )
-        elif self.hparams.sampler_type == 'mixing':
+        elif self.hparams.sampler_type == 'mixing_balance':
             return PropMixingRandomSampler(
                 total_samples=len(self.datasets[self.hparams.train_datasets_field]),
                 # consumed_samples cal by global steps
@@ -280,128 +285,3 @@ def padding_to_maxlength(ids, max_length, pad_id):
     len_diff = max_length - len(ids)
     return ids + [pad_id] * len_diff, [1] * cur_len + [0] * len_diff
     
-@dataclass
-class DialoCollator:
-    tokenizer: None
-    max_seq_length: int = 512 
-    max_kno_length: int = 256
-    max_src_length: int = 128
-    max_tgt_length: int = 128
-
-    @ staticmethod
-    def add_data_specific_args(parent_args):
-        parser = parent_args.add_argument_group('Wenzhong Text Filling Collator')
-        parser.add_argument('--max_seq_length', default=512, type=int) #总序列最长多长
-        parser.add_argument('--max_src_length', default=256, type=int) #总序列最长多长
-        parser.add_argument('--max_kno_length', default=128, type=int) #知识最长多长
-        parser.add_argument('--max_tgt_length', default=128, type=int) #回复最长多长
-        return parent_args
-
-    def __init__(self, tokenizer, args):
-        self.tokenizer = tokenizer
-        self.args = args
-        self.max_seq_length = args.max_seq_length
-        
-    def generate_sample(self, x):
-        # tokenize sentence
-        x = self.tokenizer.bos_token + x + self.tokenizer.eos_token
-        input_dicts = self.tokenizer.encode_plus(
-            x,
-            max_length=self.max_seq_length, 
-            padding="max_length",
-            truncation=True, 
-            return_tensors='pt'
-        )
-        
-        input_ids = input_dicts["input_ids"]
-        attn_mask = input_dicts["attention_mask"]
-        labels = input_ids
-
-        return [input_ids, labels, attn_mask]
-
-    def __call__(self, samples):
-        for s in samples:
-            s["knowledge"] = s["kno"]
-
-        input_ids, labels, attn_mask = [],[],[]
-        for s in samples:
-            # 需要补充 bos , eos, 所以最长长度需要-2
-            s["knowledge"] = truncate_sequence(s["knowledge"],self.args.max_kno_length-2)
-            s["src"] = truncate_sequence(s["src"],self.args.max_src_length-2)
-            s["tgt"] = truncate_sequence(s["tgt"],self.args.max_tgt_length-1)
-
-            x_trunc = f'knowledge: {s["knowledge"]} context: {s["src"]} response:{s["tgt"]}' #prompt
-         
-            g = self.generate_sample(x_trunc)
-            
-            input_ids.append(g[0])
-            labels.append(g[1])
-            attn_mask.append(g[2])
-
-        return {
-            'input_ids': torch.cat(input_ids),
-            'attention_mask': torch.cat(attn_mask),
-            'labels': torch.cat(labels),
-            "knowledge": s["knowledge"],
-            "question":s["src"]
-        }
-
-@dataclass
-class QueryCollator:
-    tokenizer: None
-    max_seq_length: int = 512 
-    max_src_length: int = 496
-    max_tgt_length: int = 16
-
-    @ staticmethod
-    def add_data_specific_args(parent_args):
-        parser = parent_args.add_argument_group('Bart Text Filling Collator')
-        parser.add_argument('--max_seq_length', default=512, type=int) #总序列最长多长
-        parser.add_argument('--max_src_length', default=496, type=int) #总序列最长多长
-        parser.add_argument('--max_tgt_length', default=16, type=int) #回复最长多长
-        return parent_args
-
-    def __init__(self, tokenizer, args):
-        self.tokenizer = tokenizer
-        self.args = args
-        self.max_seq_length = args.max_seq_length
-        
-    def generate_sample(self, x):
-        # tokenize sentence
-        x = self.tokenizer.bos_token + x + self.tokenizer.eos_token
-        input_dicts = self.tokenizer.encode_plus(
-            x,
-            max_length=self.max_seq_length, 
-            padding="max_length",
-            truncation=True, 
-            return_tensors='pt'
-        )
-        
-        input_ids = input_dicts["input_ids"]
-        attn_mask = input_dicts["attention_mask"]
-        labels = input_ids
-
-        return [input_ids, labels, attn_mask]
-
-    def __call__(self, samples):
-        input_ids, labels, attn_mask = [],[],[]
-        for s in samples:
-            # 需要补充 bos , eos, 所以最长长度需要-2
-            s["src"] = truncate_sequence(s["src"],self.args.max_src_length-2)
-            s["tgt"] = truncate_sequence(s["tgt"],self.args.max_tgt_length-1)
-
-            x_trunc = f'context: {s["src"]} query:{s["tgt"]}' #prompt
-         
-            g = self.generate_sample(x_trunc)
-            
-            input_ids.append(g[0])
-            labels.append(g[1])
-            attn_mask.append(g[2])
-
-        return {
-            'input_ids': torch.cat(input_ids),
-            'attention_mask': torch.cat(attn_mask),
-            'labels': torch.cat(labels),
-            "query": s["tgt"],
-            "question":s["src"]
-        }

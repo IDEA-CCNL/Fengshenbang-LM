@@ -13,10 +13,160 @@ import argparse
 import torch, logging, traceback
 import sys
 sys.path.append('../../')
-sys.path.append('/home/yangqi/Fengshenbang-LM/')
-from fengshen.data.gpt_dataloader import DusincDataModule, MixingDataModule, DialoCollator, QueryCollator
+sys.path.append('/cognitive_comp/yangqi/project/Fengshenbang-LM/')
+from fengshen.data.gpt_dataloader import DusincDataModule, MixingDataModule
+# DialoCollator, QueryCollator
 from fengshen.utils import UniversalCheckpoint
-os.environ["CUDA_VISIBLE_DEVICES"] = "5"
+from dataclasses import dataclass
+# os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+
+
+# rewarite from pretrain_bart Text Filling Collator
+# x = src + kno +  tgt
+def truncate_sequence(document:str, max_num_tokens:int,reverse=False):
+    total_length = len(document)
+    if total_length <= max_num_tokens:
+        return document
+    else: 
+        if reverse:
+            return document[-1*max_num_tokens:]
+        else:
+            return document[:max_num_tokens]
+
+def padding_to_maxlength(ids, max_length, pad_id):
+    cur_len = len(ids)
+    len_diff = max_length - len(ids)
+    return ids + [pad_id] * len_diff, [1] * cur_len + [0] * len_diff
+    
+
+
+
+@dataclass
+class DialoCollator:
+    tokenizer: None
+    max_seq_length: int = 512 
+    max_kno_length: int = 256
+    max_src_length: int = 128
+    max_tgt_length: int = 128
+
+    @ staticmethod
+    def add_data_specific_args(parent_args):
+        parser = parent_args.add_argument_group('Wenzhong Text Filling Collator')
+        parser.add_argument('--max_seq_length', default=512, type=int) #总序列最长多长
+        parser.add_argument('--max_src_length', default=256, type=int) #总序列最长多长
+        parser.add_argument('--max_kno_length', default=128, type=int) #知识最长多长
+        parser.add_argument('--max_tgt_length', default=128, type=int) #回复最长多长
+        return parent_args
+
+    def __init__(self, tokenizer, args):
+        self.tokenizer = tokenizer
+        self.args = args
+        self.max_seq_length = args.max_seq_length
+        
+    def generate_sample(self, x):
+        # tokenize sentence
+        x = self.tokenizer.bos_token + x + self.tokenizer.eos_token
+        input_dicts = self.tokenizer.encode_plus(
+            x,
+            max_length=self.max_seq_length, 
+            padding="max_length",
+            truncation=True, 
+            return_tensors='pt'
+        )
+        
+        input_ids = input_dicts["input_ids"]
+        attn_mask = input_dicts["attention_mask"]
+        labels = input_ids
+
+        return [input_ids, labels, attn_mask]
+
+    def __call__(self, samples):
+        for s in samples:
+            s["knowledge"] = s["kno"]
+
+        input_ids, labels, attn_mask = [],[],[]
+        for s in samples:
+            # 需要补充 bos , eos, 所以最长长度需要-2
+            s["knowledge"] = truncate_sequence(s["knowledge"],self.args.max_kno_length-2)
+            s["src"] = truncate_sequence(s["src"],self.args.max_src_length-2)
+            s["tgt"] = truncate_sequence(s["tgt"],self.args.max_tgt_length-1)
+
+            x_trunc = f'knowledge: {s["knowledge"]} context: {s["src"]} response:{s["tgt"]}' #prompt
+         
+            g = self.generate_sample(x_trunc)
+            
+            input_ids.append(g[0])
+            labels.append(g[1])
+            attn_mask.append(g[2])
+
+        return {
+            'input_ids': torch.cat(input_ids),
+            'attention_mask': torch.cat(attn_mask),
+            'labels': torch.cat(labels),
+            "knowledge": s["knowledge"],
+            "question":s["src"]
+        }
+
+@dataclass
+class QueryCollator:
+    tokenizer: None
+    max_seq_length: int = 512 
+    max_src_length: int = 496
+    max_tgt_length: int = 16
+
+    @ staticmethod
+    def add_data_specific_args(parent_args):
+        parser = parent_args.add_argument_group('Bart Text Filling Collator')
+        parser.add_argument('--max_seq_length', default=512, type=int) #总序列最长多长
+        parser.add_argument('--max_src_length', default=496, type=int) #总序列最长多长
+        parser.add_argument('--max_tgt_length', default=16, type=int) #回复最长多长
+        return parent_args
+
+    def __init__(self, tokenizer, args):
+        self.tokenizer = tokenizer
+        self.args = args
+        self.max_seq_length = args.max_seq_length
+        
+    def generate_sample(self, x):
+        # tokenize sentence
+        x = self.tokenizer.bos_token + x + self.tokenizer.eos_token
+        input_dicts = self.tokenizer.encode_plus(
+            x,
+            max_length=self.max_seq_length, 
+            padding="max_length",
+            truncation=True, 
+            return_tensors='pt'
+        )
+        
+        input_ids = input_dicts["input_ids"]
+        attn_mask = input_dicts["attention_mask"]
+        labels = input_ids
+
+        return [input_ids, labels, attn_mask]
+
+    def __call__(self, samples):
+        input_ids, labels, attn_mask = [],[],[]
+        for s in samples:
+            # 需要补充 bos , eos, 所以最长长度需要-2
+            s["src"] = truncate_sequence(s["src"],self.args.max_src_length-2)
+            s["tgt"] = truncate_sequence(s["tgt"],self.args.max_tgt_length-1)
+
+            x_trunc = f'context: {s["src"]} query:{s["tgt"]}' #prompt
+         
+            g = self.generate_sample(x_trunc)
+            
+            input_ids.append(g[0])
+            labels.append(g[1])
+            attn_mask.append(g[2])
+
+        return {
+            'input_ids': torch.cat(input_ids),
+            'attention_mask': torch.cat(attn_mask),
+            'labels': torch.cat(labels),
+            "query": s["tgt"],
+            "question":s["src"]
+        }
+
 
 
 class GPT2Finetuner(LightningModule):
@@ -47,6 +197,21 @@ class GPT2Finetuner(LightningModule):
     def configure_optimizers(self):
         raise NotImplementedError
 
+    def comput_loss(self,lm_logits,labels,mask_prefix=True):
+        # Shift so that tokens < n predict n
+        # mask length
+        if mask_prefix: # if only compute the loss of response
+            mask_length = self.hparams.max_kno_length + self.hparams.max_src_length
+        else:
+            mask_length = 1
+        shift_logits = lm_logits[..., :-1*mask_length, :].contiguous()
+        shift_labels = labels[..., mask_length:].contiguous()
+        # Flatten the tokens
+        from torch.nn import CrossEntropyLoss
+        loss_fct = CrossEntropyLoss()
+        loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
+        return loss
+
     def training_step(self, batch, batch_idx):
         # generate & __call__ diff: https://huggingface.co/docs/transformers/v4.19.4/en/internal/generation_utils#transformers.generation_utils.GreedySearchDecoderOnlyOutput
         output = self.model(input_ids=batch['input_ids'],
@@ -54,6 +219,7 @@ class GPT2Finetuner(LightningModule):
                             labels=batch['labels'])
         # output doc https://huggingface.co/docs/transformers/main_classes/output1
         # GPT models https://huggingface.co/docs/transformers/model_doc/gpt2#transformers.GPT2LMHeadModel.forward.returns
+        # loss = self.comput_loss(output.logits, batch['labels'],mask_prefix=False)
         self.log('train_loss', output.loss, sync_dist=True)
         return output.loss
 

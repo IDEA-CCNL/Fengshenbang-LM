@@ -7,7 +7,7 @@
 #SBATCH -o %x-%j.log # output and error log file names (%x for job id)
 #SBATCH -x dgx049
 
-MODEL_NAME=Wenzhong-GPT2-110M
+MODEL_NAME=Wenzhong-GPT2-3.5B
 
 config_json="/cognitive_comp/yangqi/logs/wenzhong_dialo/$MODEL_NAME.ds_config.json"
 export MASTER_PORT=$[RANDOM%10000+40000]
@@ -111,7 +111,7 @@ export options=" \
         $TRAINER_ARGS \
         "
 # test
-export SCRIPT_PATH=/home/yangqi/code/Fengshenbang-LM/fengshen/examples/wenzhong_dialo/finetune_wenzhong_dialogue.py
+export SCRIPT_PATH=/cognitive_comp/yangqi/project/Fengshenbang-LM/fengshen/examples/wenzhong_dialo/finetune_wenzhong_dialogue.py
 
 
 # .02 debug mode

@@ -9,7 +9,6 @@ sys.path.append("../../../")
 from fengshen.utils import chinese_char_tokenize #内部分词
 from fengshen.metric.eval_utils import load_metric_fn
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "5"
 
 class TestModule:
     def __init__(self, args):
