@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
+sys.path.append('../../../')
+
 from typing import List
+from mosestokenizer import MosesDetokenizer
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning import Trainer, loggers, LightningModule
 from fengshen.data.universal_datamodule import UniversalDataModule
@@ -17,10 +21,10 @@ import torch
 import argparse
 import json
 import pandas as pd
-import sys
-sys.path.append('../../../')
 
-# import sentencepiece
+
+# import sentencepiecos.environ["CUDA_VISIBLE_DEVICES"] = '5'e
+# os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
 
 logger = logging.getLogger(__name__)
@@ -107,11 +111,13 @@ class DataCollator:
         self.model = model
 
     def __call__(self, batch_samples):
-        # logger.debug("samples: ", samples)
+        # logger.debug("samples: ", batch_samples)
+        # print("samples: ", batch_samples)
         batch_inputs, batch_targets = [], []
         for sample in batch_samples:
-            batch_inputs.append(sample["src"])
-            batch_targets.append(sample["tgt"])
+            if len(sample["src"]) != 0:
+                batch_inputs.append(sample["src"])
+                batch_targets.append(sample["tgt"])
         batch_data = self.tokenizer(
             batch_inputs,
             padding=True,
@@ -124,13 +130,13 @@ class DataCollator:
                 batch_targets,
                 padding=True,
                 max_length=self.max_dec_length,
-                truncation=True,
+                truncation=False,
                 return_tensors="pt"
             )["input_ids"]
             # batch_data['decoder_input_ids'] = self.model.prepare_decoder_input_ids_from_labels(labels)
-            # end_token_index = torch.where(labels == self.tokenizer.eos_token_id)[1]
-            # for idx, end_idx in enumerate(end_token_index):
-            #     labels[idx][end_idx+1:] = -100
+            end_token_index = torch.where(labels == self.tokenizer.eos_token_id)[1]
+            for idx, end_idx in enumerate(end_token_index):
+                labels[idx][end_idx+1:] = -100
             batch_data['labels'] = labels
 
         batch_data['src'] = [sample['src'] for sample in batch_samples]
@@ -159,6 +165,7 @@ class FinetuneTranslation(LightningModule):
         self.blue_metric = BLEU()
         self.sufficient_stats: List[List[int]] = []
         self.label_smoothing = self.args.label_smoothing
+        self.mose_decode = MosesDetokenizer()
 
         if self.args.label_smoothing != 0:
             self.loss_fn = label_smoothed_nll_loss
@@ -275,8 +282,8 @@ class FinetuneTranslation(LightningModule):
 
         def postprocess_text(preds, labels):
             # preds = [pred.strip() for pred in preds]
-            preds = list(map(lambda x: x.strip(), preds))
-            labels = list(map(lambda x: x.strip(), labels))
+            preds = list(map(lambda x: self.mose_decode(x.strip().split()), preds))
+            labels = list(map(lambda x: self.mose_decode(x.strip().split()), labels))
             # labels = [[label.strip()] for label in labels]
 
             return preds, labels
@@ -363,6 +370,24 @@ class FinetuneTranslation(LightningModule):
                 json_data = json.dumps(tmp_result, ensure_ascii=False)
                 f.write(json_data + '\n')
 
+    def predict_step(self, batch, batch_idx):
+        # print(batch)
+        texts = batch['src']
+        # output summary and metrics
+        generated_ids = self.model.generate(
+            input_ids=batch['input_ids'],
+            attention_mask=batch['attention_mask'],
+            max_length=self.hparams.max_dec_length
+        )
+        preds = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+
+        labels = torch.where(batch['labels'] != -100, batch['labels'],
+                             self.tokenizer.pad_token_id)
+        labels = self.tokenizer.batch_decode(
+            labels, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+
+        self.save_prediction_to_file(preds, texts, labels, "deltalm_predict.json")
+
 
 def configure_logger(logging_lever=logging.INFO):
     logging.basicConfig(
@@ -426,7 +451,8 @@ def main():
 
     else:
         trainer = Trainer.from_argparse_args(args)
-        trainer.validate(model, data_model)
+        # trainer.validate(model, data_model)
+        trainer.predict(model, data_model)
 
 
 if __name__ == '__main__':

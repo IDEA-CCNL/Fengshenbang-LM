@@ -25,7 +25,7 @@ echo "START TIME: $(date)"
 # MODEL_NAME=opus_mt_de_en_test_other
 MODEL_NAME=deltalm_base_de_en_smoothing
 MICRO_BATCH_SIZE=16
-ROOT_DIR=/cognitive_comp/dongxiaoqun/finetune/${MODEL_NAME}
+ROOT_DIR=/home/dongxiaoqun/finetune/${MODEL_NAME}
 
 if [ ! -d ${ROOT_DIR} ];then
   mkdir ${ROOT_DIR}
@@ -75,13 +75,13 @@ cat <<EOT > $config_json
 EOT
 
 export PL_DEEPSPEED_CONFIG_PATH=$config_json
-export TORCH_EXTENSIONS_DIR=/cognitive_comp/dongxiaoqun/torch_extendsions
+export TORCH_EXTENSIONS_DIR=/home/dongxiaoqun/torch_extendsions
 # export MASTER_PORT=$[RANDOM%10000+50000]
 # 
 
 TRAINER_ARGS="
     --max_epochs 50 \
-    --gpus 1 \
+    --gpus 8 \
     --num_nodes 1 \
     --strategy deepspeed_stage_${ZERO_STAGE} \
     --default_root_dir $ROOT_DIR \
@@ -96,6 +96,7 @@ TRAINER_ARGS="
     --warmup_steps 4000 \
     --learning_rate 1e-7 \
     --scheduler_type inverse_sqrt \
+    --do_eval_only \
 "
 
 
@@ -110,16 +111,17 @@ DATA_ARGS="
     --max_dec_length 512 \
 "
 
-mode_path="/cognitive_comp/dongxiaoqun/pretrained_model/deltalm/"
+# mode_path="/home/dongxiaoqun/pretrained_model/deltalm/"
 # mode_path="Helsinki-NLP/opus-mt-zh-en"
 # mode_path="facebook/mbart-large-50"
+mode_path="/home/dongxiaoqun/finetune/deltalm_de_en/finetuned_epoch48_step245392"
 
 MODEL_ARGS="
     --model_path  $mode_path \
     --output_save_path $output_save_path \
 "
 
-SCRIPTS_PATH=/cognitive_comp/dongxiaoqun/project/idea-ccnl/Fengshenbang-LM/fengshen/examples/translate/finetune_deltalm.py
+SCRIPTS_PATH=finetune_deltalm.py
 
 export CMD=" \
     $SCRIPTS_PATH \
@@ -132,14 +134,14 @@ echo $CMD
 
 ls -l `which sh`
 
-source activate 
-conda activate torchnew
+# source activate 
+# conda activate fengshen
 nvcc -V
 which python3
 # pip list | grep torch
-# export CUDA_HOME=/cognitive_comp/dongxiaoqun/software/anaconda3/envs/torchnew/
-# export PATH=$PATH:/cognitive_comp/dongxiaoqun/software/anaconda3/envs/dgx/
+# export CUDA_HOME=/home/dongxiaoqun/software/anaconda3/envs/torchnew/
+# export PATH=$PATH:/home/dongxiaoqun/software/anaconda3/envs/dgx/
 # srun --nodes=1 --ntasks-per-node=1 --gres=gpu:1 --cpus-per-task=30 -o ${MODEL_NAME}-%J.log --jobid=228110 bash -c 'python3 $CMD'
-srun --nodes=1 --ntasks-per-node=1 --gres=gpu:2 --cpus-per-task=30 -o ${MODEL_NAME}-%J.log --jobid=228299 bash -c 'python3 $CMD'
+#srun --nodes=1 --ntasks-per-node=1 --gres=gpu:2 --cpus-per-task=30 -o ${MODEL_NAME}-%J.log --jobid=228299 bash -c 'python3 $CMD'
 
-# python $CMD 
+python3 $CMD 
