@@ -1,4 +1,5 @@
 # Byte-compiled / optimized / DLL files
+*torch_extendsions/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -131,4 +132,8 @@ dmypy.json
 # Log
 *.log
 *.err
-*.json
+*logs/
+*ds_config.json
+
+# ckpt
+*ckpt/
