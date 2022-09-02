@@ -120,7 +120,7 @@ class DataCollator:
                 batch_targets.append(sample["tgt"])
         batch_data = self.tokenizer(
             batch_inputs,
-            padding=True,
+            padding='max_length',
             max_length=self.max_enc_length,
             truncation=True,
             return_tensors="pt"
@@ -128,7 +128,7 @@ class DataCollator:
         with self.tokenizer.as_target_tokenizer():
             labels = self.tokenizer(
                 batch_targets,
-                padding=True,
+                padding='max_length',
                 max_length=self.max_dec_length,
                 truncation=False,
                 return_tensors="pt"
@@ -386,7 +386,7 @@ class FinetuneTranslation(LightningModule):
         labels = self.tokenizer.batch_decode(
             labels, skip_special_tokens=True, clean_up_tokenization_spaces=True)
 
-        self.save_prediction_to_file(preds, texts, labels, "deltalm_predict.json")
+        self.save_prediction_to_file(preds, texts, labels, self.hparams.output_save_path)
 
 
 def configure_logger(logging_lever=logging.INFO):
@@ -410,7 +410,7 @@ def main():
                              default='facebook/mbart',
                              type=str)
     args_parser.add_argument('--output_save_path',
-                             default='./predict.json',
+                             default='predict.json',
                              type=str)
     args_parser.add_argument('--max_enc_length', default=512, type=int)
     args_parser.add_argument('--max_dec_length', default=512, type=int)
