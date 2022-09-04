@@ -117,7 +117,7 @@ class Wav2vec2Lightning(LightningModule):
                 self.total_steps = (len(train_loader.dataset) *
                                     self.trainer.max_epochs // tb_size) // ab_size
             else:
-                self.total_steps = self.trainer.max_steps // self.trainer.accumulate_grad_batches
+                self.total_steps = self.trainer.max_steps
 
             print('Total steps: {}' .format(self.total_steps))
 
