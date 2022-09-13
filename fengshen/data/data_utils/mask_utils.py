@@ -14,25 +14,6 @@ def is_start_piece(piece):
     # append it to the previous set of word indexes.
     return not piece.startswith("##")
 
-'''
-modified from Megatron-LM
-    Args:
-        tokens: 输入
-        vocab_id_list: 词表token_id_list
-        vocab_id_to_token_dict： token_id到token字典
-        masked_lm_prob：mask概率
-        cls_id、sep_id、mask_id：特殊token
-        max_predictions_per_seq：最大mask个数
-        np_rng：mask随机数
-        max_ngrams：最大词长度
-        do_whole_word_mask：是否做全词掩码
-        favor_longer_ngram：优先用长的词
-        do_permutation：是否打乱
-        geometric_dist：用np_rng.geometric做随机
-        masking_style：mask类型
-        zh_tokenizer：WWM的分词器，比如用jieba.lcut做分词之类的
-'''
-
 
 def create_masked_lm_predictions(tokens,
                                  vocab_id_list, vocab_id_to_token_dict,
@@ -49,14 +30,31 @@ def create_masked_lm_predictions(tokens,
                                  zh_tokenizer=None):
     """Creates the predictions for the masked LM objective.
     Note: Tokens here are vocab ids and not text tokens."""
-
+    '''
+    modified from Megatron-LM
+    Args:
+        tokens: 输入
+        vocab_id_list: 词表token_id_list
+        vocab_id_to_token_dict： token_id到token字典
+        masked_lm_prob：mask概率
+        cls_id、sep_id、mask_id：特殊token
+        max_predictions_per_seq：最大mask个数
+        np_rng：mask随机数
+        max_ngrams：最大词长度
+        do_whole_word_mask：是否做全词掩码
+        favor_longer_ngram：优先用长的词
+        do_permutation：是否打乱
+        geometric_dist：用np_rng.geometric做随机
+        masking_style：mask类型
+        zh_tokenizer：WWM的分词器，比如用jieba.lcut做分词之类的
+    '''
     cand_indexes = []
     # Note(mingdachen): We create a list for recording if the piece is
     # the starting piece of current token, where 1 means true, so that
     # on-the-fly whole word masking is possible.
     token_boundary = [0] * len(tokens)
     # 如果没有指定中文分词器，那就直接按##算
-    if zh_tokenizer == None:
+    if zh_tokenizer is None:
         for (i, token) in enumerate(tokens):
             if token == cls_id or token == sep_id:
                 token_boundary[i] = 1
