@@ -36,9 +36,11 @@ DSET_TYPE_ICT = 'ict'
 DSET_TYPE_T5 = 't5'
 DSET_TYPE_BERT_CN_WWM = 'bert_cn_wwm'
 DSET_TYPE_BART = 'bart'
+DSET_TYPE_COCOLM = 'coco_lm'
 
 DSET_TYPES = [DSET_TYPE_BERT, DSET_TYPE_ICT,
-              DSET_TYPE_T5, DSET_TYPE_BERT_CN_WWM, DSET_TYPE_BART]
+              DSET_TYPE_T5, DSET_TYPE_BERT_CN_WWM,
+              DSET_TYPE_BART, DSET_TYPE_COCOLM]
 
 
 def get_datasets_weights_and_num_samples(data_prefix,
@@ -189,7 +191,8 @@ def create_masked_lm_predictions(tokens,
                                  favor_longer_ngram=False,
                                  do_permutation=False,
                                  geometric_dist=False,
-                                 masking_style="bert"):
+                                 masking_style="bert",
+                                 zh_tokenizer=None):
     """Creates the predictions for the masked LM objective.
     Note: Tokens here are vocab ids and not text tokens."""
 
@@ -199,23 +202,73 @@ def create_masked_lm_predictions(tokens,
     # on-the-fly whole word masking is possible.
     token_boundary = [0] * len(tokens)
 
-    for (i, token) in enumerate(tokens):
-        if token == cls_id or token == sep_id:
-            token_boundary[i] = 1
-            continue
+    # 如果没有指定中文分词器，那就直接按##算
+    if zh_tokenizer is None:
+        for (i, token) in enumerate(tokens):
+            if token == cls_id or token == sep_id:
+                token_boundary[i] = 1
+                continue
         # Whole Word Masking means that if we mask all of the wordpieces
         # corresponding to an original word.
         #
         # Note that Whole Word Masking does *not* change the training code
         # at all -- we still predict each WordPiece independently, softmaxed
         # over the entire vocabulary.
-        if (do_whole_word_mask and len(cand_indexes) >= 1 and not
-                is_start_piece(vocab_id_to_token_dict[token])):
-            cand_indexes[-1].append(i)
-        else:
-            cand_indexes.append([i])
-            if is_start_piece(vocab_id_to_token_dict[token]):
+            if (do_whole_word_mask and len(cand_indexes) >= 1 and
+                    not is_start_piece(vocab_id_to_token_dict[token])):
+                cand_indexes[-1].append(i)
+            else:
+                cand_indexes.append([i])
+                if is_start_piece(vocab_id_to_token_dict[token]):
+                    token_boundary[i] = 1
+    else:
+        # 如果指定了中文分词器，那就先用分词器分词，然后再进行判断
+        # 获取去掉CLS SEP的原始文本
+        raw_tokens = []
+        for t in tokens:
+            if t != cls_id and t != sep_id:
+                raw_tokens.append(t)
+        raw_tokens = [vocab_id_to_token_dict[i] for i in raw_tokens]
+        # 分词然后获取每次字开头的最长词的长度
+        word_list = set(zh_tokenizer(''.join(raw_tokens), HMM=True))
+        word_length_dict = {}
+        for w in word_list:
+            if len(w) < 1:
+                continue
+            if w[0] not in word_length_dict:
+                word_length_dict[w[0]] = len(w)
+            elif word_length_dict[w[0]] < len(w):
+                word_length_dict[w[0]] = len(w)
+        i = 0
+        # 从词表里面检索
+        while i < len(tokens):
+            token_id = tokens[i]
+            token = vocab_id_to_token_dict[token_id]
+            if len(token) == 0 or token_id == cls_id or token_id == sep_id:
                 token_boundary[i] = 1
+                i += 1
+                continue
+            word_max_length = 1
+            if token[0] in word_length_dict:
+                word_max_length = word_length_dict[token[0]]
+            j = 0
+            word = ''
+            word_end = i+1
+            # 兼容以前##的形式，如果后面的词是##开头的，那么直接把后面的拼到前面当作一个词
+            old_style = False
+            while word_end < len(tokens) and vocab_id_to_token_dict[tokens[word_end]].startswith('##'):
+                old_style = True
+                word_end += 1
+            if not old_style:
+                while j < word_max_length and i+j < len(tokens):
+                    cur_token = tokens[i+j]
+                    word += vocab_id_to_token_dict[cur_token]
+                    j += 1
+                    if word in word_list:
+                        word_end = i+j
+            cand_indexes.append([p for p in range(i, word_end)])
+            token_boundary[i] = 1
+            i = word_end
 
     output_tokens = list(tokens)
     # add by ganruyi
@@ -318,8 +371,7 @@ def create_masked_lm_predictions(tokens,
                         masked_token = tokens[index]
                     # 10% of the time, replace with random word
                     else:
-                        masked_token = vocab_id_list[np_rng.randint(
-                            0, len(vocab_id_list))]
+                        masked_token = vocab_id_list[np_rng.randint(0, len(vocab_id_list))]
             elif masking_style == 'bert-cn-wwm':
                 # 80% of the time, replace with [MASK]
                 if np_rng.random() < 0.8:
@@ -457,7 +509,8 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                     skip_warmup, binary_head=False,
                                     max_seq_length_dec=None,
                                     dataset_type='standard_bert',
-                                    zh_tokenizer=None):
+                                    zh_tokenizer=None,
+                                    span=None):
 
     if len(data_prefix) == 1:
         return _build_train_valid_test_datasets(data_prefix[0],
@@ -470,7 +523,8 @@ def build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                                 max_seq_length_dec,
                                                 tokenizer,
                                                 dataset_type=dataset_type,
-                                                zh_tokenizer=zh_tokenizer)
+                                                zh_tokenizer=zh_tokenizer,
+                                                span=span)
     # Blending dataset.
     # Parse the values.
     output = get_datasets_weights_and_num_samples(data_prefix,
@@ -517,7 +571,9 @@ def _build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                                      skip_warmup, binary_head,
                                      max_seq_length_dec,
                                      tokenizer,
-                                     dataset_type='standard_bert', zh_tokenizer=None):
+                                     dataset_type='standard_bert',
+                                     zh_tokenizer=None,
+                                     span=None):
 
     if dataset_type not in DSET_TYPES:
         raise ValueError("Invalid dataset_type: ", dataset_type)
@@ -553,6 +609,7 @@ def _build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
     def build_dataset(index, name):
         from fengshen.data.megatron_dataloader.bert_dataset import BertDataset
         from fengshen.data.megatron_dataloader.bart_dataset import BartDataset
+        from fengshen.data.megatron_dataloader.cocolm_dataset import COCOLMDataset
         dataset = None
         if splits[index + 1] > splits[index]:
             # Get the pointer to the original doc-idx so we can set it later.
@@ -593,7 +650,16 @@ def _build_train_valid_test_datasets(data_prefix, data_impl, splits_string,
                     zh_tokenizer=zh_tokenizer,
                     **kwargs
                 )
-
+            elif dataset_type == DSET_TYPE_COCOLM:
+                dataset = COCOLMDataset(
+                    indexed_dataset=indexed_dataset,
+                    masked_lm_prob=masked_lm_prob,
+                    short_seq_prob=short_seq_prob,
+                    tokenizer=tokenizer,
+                    masking_style='bert',
+                    span=span,
+                    **kwargs
+                )
             else:
                 raise NotImplementedError(
                     "Dataset type not fully implemented.")

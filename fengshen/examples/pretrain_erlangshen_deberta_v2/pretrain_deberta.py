@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from transformers import (
-    MegatronBertConfig,
-    MegatronBertForPreTraining,
+    DebertaV2Config,
+    DebertaV2ForMaskedLM,
     AutoTokenizer,
 )
 from pytorch_lightning import (
@@ -15,9 +15,7 @@ import argparse
 import torch
 import os
 import numpy as np
-import time
 from fengshen.data.universal_datamodule import UniversalDataModule
-from fengshen.data.data_utils.sop_utils import get_a_and_b_segments
 from fengshen.data.data_utils.truncate_utils import truncate_segments
 from fengshen.data.data_utils.token_type_utils import create_tokens_and_tokentypes
 from fengshen.data.data_utils.mask_utils import create_masked_lm_predictions
@@ -37,7 +35,7 @@ class ErLangShenCollator:
     '''
     由input处理成samples，也就是最终模型的输入
     其中主要处理逻辑在__call__里
-    包含Mask和Sop任务
+    包含Mask任务，使用Whole Word Mask
     '''
     tokenizer: None  # 分词
     max_seq_length: 512
@@ -46,12 +44,12 @@ class ErLangShenCollator:
     # 一些预处理操作
 
     def setup(self):
-        from fengshen.data.data_utils.sentence_split import ChineseSentenceSplitter
-        self.sentence_split = ChineseSentenceSplitter()
-        self.np_rng = np.random.RandomState(seed=((int(time.time()) % 2**32)))
+        self.np_rng = np.random.RandomState(seed=42)
         inv_vocab = {v: k for k, v in self.tokenizer.vocab.items()}
         self.vocab_id_list = list(inv_vocab.keys())
         self.vocab_id_to_token_dict = inv_vocab
+        import jieba_fast
+        self.zh_tokenizer = jieba_fast.lcut
 
     def __call__(self, samples):
         '''
@@ -59,27 +57,19 @@ class ErLangShenCollator:
         '''
         model_inputs = []
         for s in samples:
-            sentences = self.sentence_split.tokenize(s[self.content_key])
-            # Divide sample into two segments (A and B).
-            tokenized_sentences = [self.tokenizer.convert_tokens_to_ids(
-                self.tokenizer.tokenize(sent)) for sent in sentences]
+            tokenized_sentences = self.tokenizer.convert_tokens_to_ids(
+                self.tokenizer.tokenize(s[self.content_key]))
             if len(tokenized_sentences) == 0:
                 print('find empty sentence')
                 continue
-            if len(tokenized_sentences) > 1:
-                tokens_a, tokens_b, is_next_random = get_a_and_b_segments(tokenized_sentences,
-                                                                          self.np_rng)
-            else:
-                tokens_a = tokenized_sentences[0]
-                tokens_b = []
-                is_next_random = False
+            tokens_a = tokenized_sentences
             # max_seq_length - 3因为还需要拼上[CLS] [SEP] [SEP]
             if len(tokens_a) == 0:
                 continue
-            _ = truncate_segments(tokens_a, tokens_b, len(tokens_a),
-                                  len(tokens_b), self.max_seq_length-3, self.np_rng)
+            _ = truncate_segments(tokens_a, [], len(tokens_a),
+                                  0, self.max_seq_length-3, self.np_rng)
             # Build tokens and toketypes.
-            tokens, tokentypes = create_tokens_and_tokentypes(tokens_a, tokens_b,
+            tokens, tokentypes = create_tokens_and_tokentypes(tokens_a, [],
                                                               self.tokenizer.cls_token_id, self.tokenizer.sep_token_id)
             # Masking.
             max_predictions_per_seq = self.masked_lm_prob * len(tokens)
@@ -87,7 +77,8 @@ class ErLangShenCollator:
                 tokens, self.vocab_id_list, self.vocab_id_to_token_dict, self.masked_lm_prob,
                 self.tokenizer.cls_token_id, self.tokenizer.sep_token_id, self.tokenizer.mask_token_id,
                 max_predictions_per_seq, self.np_rng,
-                masking_style='bert')
+                masking_style='bert',
+                zh_tokenizer=self.zh_tokenizer)
 
             # Some checks.
             num_tokens = len(tokens)
@@ -117,7 +108,6 @@ class ErLangShenCollator:
                     'attention_mask': padding_mask_np,
                     'token_type_ids': tokentypes_np,
                     'labels': labels_np,
-                    'next_sentence_label': int(is_next_random)
                 }
             )
         return default_collate(model_inputs)
@@ -135,10 +125,10 @@ class ErLangShenBert(LightningModule):
     def __init__(self, args, tokenizer, **kwargs) -> None:
         super().__init__()
         self.save_hyperparameters(args)
-        config = MegatronBertConfig.from_pretrained(args.model_path)
+        config = DebertaV2Config.from_pretrained(args.model_path)
         self.config = config
         self.tokenizer = tokenizer
-        self.model = MegatronBertForPreTraining(config)
+        self.model = DebertaV2ForMaskedLM(config)
 
     def setup(self, stage) -> None:
         if stage == 'fit':
@@ -180,7 +170,7 @@ class ErLangShenBert(LightningModule):
         self.log('train_loss', output.loss, sync_dist=True)
         label_idx = batch['labels'] != -100
         acc = self.comput_metrix(
-            output.prediction_logits[label_idx].view(-1, output.prediction_logits.size(-1)), batch['labels'][label_idx])
+            output.logits[label_idx].view(-1, output.logits.size(-1)), batch['labels'][label_idx])
         self.log('train_acc', acc, sync_dist=True)
         return output.loss
 

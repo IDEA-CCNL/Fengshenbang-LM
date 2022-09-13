@@ -137,3 +137,6 @@ dmypy.json
 
 # ckpt
 *ckpt/
+
+# test files
+*predict.py
