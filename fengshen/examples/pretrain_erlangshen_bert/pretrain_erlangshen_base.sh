@@ -11,7 +11,7 @@
 ROOT_DIR=../../workspace
 export TORCH_EXTENSIONS_DIR=${ROOT_DIR}/torch_extendsions
 
-MODEL_NAME=erlangshen-base
+MODEL_NAME=erlangshen-bert-base
 MODEL_ROOT_DIR=$ROOT_DIR/${MODEL_NAME}
 if [ ! -d ${MODEL_ROOT_DIR} ];then
   mkdir ${MODEL_ROOT_DIR}
@@ -20,7 +20,7 @@ fi
 NNODES=1
 GPUS_PER_NODE=1
 
-MICRO_BATCH_SIZE=64
+MICRO_BATCH_SIZE=32
 
 # 如果你不用Deepspeed的话 下面的一段话都可以删掉 Begin
 CONFIG_JSON="$MODEL_ROOT_DIR/${MODEL_NAME}.ds_config.json"
@@ -34,7 +34,7 @@ cat <<EOT > $CONFIG_JSON
     "fp16": {
         "enabled": true
     },
-    "gradient_clipping": 1,
+    "gradient_clipping": 2,
     "train_micro_batch_size_per_gpu": $MICRO_BATCH_SIZE
 }
 EOT

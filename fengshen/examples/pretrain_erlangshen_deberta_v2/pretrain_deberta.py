@@ -31,7 +31,7 @@ SHOW_DATA = False
 
 
 @dataclass
-class ErLangShenCollator:
+class DeBERTaV2Collator:
     '''
     由input处理成samples，也就是最终模型的输入
     其中主要处理逻辑在__call__里
@@ -113,7 +113,7 @@ class ErLangShenCollator:
         return default_collate(model_inputs)
 
 
-class ErLangShenBert(LightningModule):
+class ErlangshenDeBERTaV2(LightningModule):
     @staticmethod
     def add_module_specific_args(parent_parser):
         parser = parent_parser.add_argument_group('Erlangshen Bert')
@@ -192,12 +192,12 @@ if __name__ == '__main__':
     args_parser = add_module_args(args_parser)
     args_parser = UniversalDataModule.add_data_specific_args(args_parser)
     args_parser = Trainer.add_argparse_args(args_parser)
-    args_parser = ErLangShenBert.add_module_specific_args(args_parser)
+    args_parser = ErlangshenDeBERTaV2.add_module_specific_args(args_parser)
     args_parser = UniversalCheckpoint.add_argparse_args(args_parser)
     args = args_parser.parse_args()
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_path)
-    collate_fn = ErLangShenCollator(
+    collate_fn = DeBERTaV2Collator(
         tokenizer=tokenizer,
         max_seq_length=args.max_seq_length,
         masked_lm_prob=args.masked_lm_prob,
@@ -207,7 +207,7 @@ if __name__ == '__main__':
     data_module = UniversalDataModule(tokenizer=tokenizer, args=args, collate_fn=collate_fn)
     print('data load complete')
 
-    model = ErLangShenBert(args, tokenizer=tokenizer)
+    model = ErlangshenDeBERTaV2(args, tokenizer=tokenizer)
     print('model load complete')
 
     lr_monitor = LearningRateMonitor(logging_interval='step')
