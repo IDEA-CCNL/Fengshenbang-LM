@@ -231,7 +231,7 @@ def get_entity_bioes(seq, id2label, middle_prefix='I-'):
     return chunks
 
 
-def get_entities(seq, id2label, markup='bio', middle_prefix='I-'):
+def get_entities(seq, id2label, markup='bioes', middle_prefix='I-'):
     '''
     :param seq:
     :param id2label:

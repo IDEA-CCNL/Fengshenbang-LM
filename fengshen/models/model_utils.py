@@ -19,7 +19,7 @@ def add_module_args(parent_args):
     return parent_args
 
 
-def configure_optimizers(pl_model: LightningModule):
+def configure_optimizers(pl_model: LightningModule, use_moe=False):
     no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight', 'layer_norm.', 'layernorm.']
     optimizer_grouped_params = [
         {'params': [p for n, p in pl_model.named_parameters() if not any(
@@ -27,6 +27,20 @@ def configure_optimizers(pl_model: LightningModule):
         {'params': [p for n, p in pl_model.named_parameters() if any(
             nd in n for nd in no_decay)], 'weight_decay': 0.0}
     ]
+    # add moe
+    if use_moe:
+        def create_moe_param_groups(model):
+            from deepspeed.moe.utils import split_params_into_different_moe_groups_for_optimizer
+
+            parameters = {
+                'params': [p for p in model.parameters()],
+                'name': 'parameters'
+            }
+
+            return split_params_into_different_moe_groups_for_optimizer(parameters)
+
+        optimizer_grouped_params = create_moe_param_groups(pl_model)
+
     # Configure optimizer.
     if isinstance(pl_model.trainer.strategy, DeepSpeedStrategy):
         if 'offload_optimizer' in pl_model.trainer.training_type_plugin.config['zero_optimization']:

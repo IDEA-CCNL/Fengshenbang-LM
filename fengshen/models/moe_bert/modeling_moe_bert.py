@@ -451,44 +451,44 @@ class BertIntermediate(nn.Module):
 
 
 class BertFFN(nn.Module):
-    def __init__(self, intermediate, output):
+    def __init__(self, config):
         super().__init__()
-        self.intermediate = intermediate
-        self.output = output
+        self.intermediate = BertIntermediate(config)
+        self.dense_4h_to_h = nn.Linear(config.intermediate_size, config.hidden_size)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         hidden_states = self.intermediate(hidden_states)
-        hidden_states = self.output(hidden_states)
+        hidden_states = self.dense_4h_to_h(hidden_states)
         return hidden_states
 
 
 class MOEBertIntermediate(nn.Module):
-    def __init__(self, config, ffn):
+    def __init__(self, config):
         super().__init__()
         self.moe_layer_list = []
         config.num_experts = 2
         config.ep_world_size = 1
         config.mlp_type = 'standard'
         config.top_k = 1
-        config.min_capacity = 0
+        config.min_capacity = 4
         config.noisy_gate_policy = None
-        for n_e in config.num_experts:
-            # create moe layers based on the number of experts
-            self.moe_layer_list.append(
-                MoE(
-                    hidden_size=config.hidden_size,
-                    expert=ffn,
-                    num_experts=n_e,
-                    ep_size=config.ep_world_size,
-                    use_residual=config.mlp_type == 'residual',
-                    k=config.top_k,
-                    min_capacity=config.min_capacity,
-                    noisy_gate_policy=config.noisy_gate_policy))
-        self.moe_layer_list = nn.ModuleList(self.moe_layer_list)
+
+        ffn = BertFFN(config)
+        self.moe_mlp = MoE(
+            hidden_size=config.hidden_size,
+            expert=ffn,
+            num_experts=config.num_experts,
+            ep_size=config.ep_world_size,
+            use_residual=config.mlp_type == 'residual',
+            k=config.top_k,
+            min_capacity=config.min_capacity,
+            noisy_gate_policy=config.noisy_gate_policy)
+        self.post_laynorm = LayerNormDropout(config)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        for layer in self.moe_layer_list:
-            hidden_states, _, _ = layer(hidden_states)
+        ffn_states, moe_loss, _ = self.moe_mlp(hidden_states)
+        hidden_states = self.post_laynorm(ffn_states, hidden_states)
+        # print('moe_loss:', moe_loss.item())
         return hidden_states
 
 
@@ -506,6 +506,18 @@ class BertOutput(nn.Module):
         return hidden_states
 
 
+class LayerNormDropout(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.LayerNorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+
+    def forward(self, hidden_states: torch.Tensor, input_tensor: torch.Tensor) -> torch.Tensor:
+        hidden_states = self.dropout(hidden_states)
+        hidden_states = self.LayerNorm(hidden_states + input_tensor)
+        return hidden_states
+
+
 class BertLayer(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -518,10 +530,11 @@ class BertLayer(nn.Module):
             if not self.is_decoder:
                 raise ValueError(f"{self} should be used as a decoder model if cross attention is added")
             self.crossattention = BertAttention(config, position_embedding_type="absolute")
-        self.intermediate = BertIntermediate(config)
-        self.output = BertOutput(config)
-        self.ffn = BertFFN(self.intermediate, self.output)
-        self.moe = MOEBertIntermediate(config, self.ffn)
+        # self.intermediate = BertIntermediate(config)
+        # self.output = BertOutput(config)
+        # self.ffn = BertFFN(self.intermediate, self.output)
+        # self.ffn = BertFFN(self.intermediate, self.output)
+        self.moe = MOEBertIntermediate(config)
 
     def forward(
         self,
