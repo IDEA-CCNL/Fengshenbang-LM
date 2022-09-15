@@ -10,7 +10,7 @@ set -x -e
 
 MODEL_NAME=Randeng-BART-139M
 RUN_NAME=bart_test
-ROOT_DIR=/cognitive_comp/yangqi/logs/$RUN_NAME
+ROOT_DIR=/cognitive_comp/yangqi/logs/bart/$RUN_NAME
 
 config_json="$ROOT_DIR/$MODEL_NAME.ds_config.json"
 export MASTER_PORT=$[RANDOM%10000+40000]
@@ -64,7 +64,7 @@ export TORCH_EXTENSIONS_DIR=/cognitive_comp/yangqi/torch_extensions
 
 DATA_ARGS=" \
         --datasets_name qag \
-        --datasets_subname webqa \
+        --datasets_subname squadzh1 \
         --sampler_type random \
         --tokenizer_type bart \
         --num_workers 8 \
@@ -93,20 +93,22 @@ MODEL_CHECKPOINT_ARGS="\
         --save_top_k 3 \
         --mode min \
         --save_last \
-        --every_n_train_steps 1000 \
-        --dirpath $ROOT_DIR/ckpt/ \
+        --every_n_train_steps 10000 \
+        --dirpath $ROOT_DIR/$RUN_NAME/ckpt/ \
         --filename model-{step:02d}-{train_loss:.4f} \
         "
+
 TRAINER_ARGS="\
         --gradient_clip_val 1.0 \
-        --max_epochs 10 \
+        --max_epochs 3 \
         --gpus 1 \
         --num_nodes 1 \
         --strategy deepspeed_stage_1 \
-        --log_every_n_steps 100 \
+        --log_every_n_steps 1000 \
         --val_check_interval 0.1 \
         --accumulate_grad_batches 1 \
         --default_root_dir $ROOT_DIR \
+        --tensorboard_dir $ROOT_DIR/$RUN_NAME
         "
 #     --resume_from_checkpoint None\
 
@@ -121,7 +123,7 @@ export SCRIPT_PATH=/cognitive_comp/yangqi/project/Fengshenbang-LM/fengshen/examp
 
 
 # .02 debug mode
-CUDA_LAUNCH_BLOCKING=3 CUDA_VISIBLE_DEVICES=7 python3 ${SCRIPT_PATH} $options > $ROOT_DIR/test.log
+CUDA_LAUNCH_BLOCKING=3 CUDA_VISIBLE_DEVICES=5 python3 ${SCRIPT_PATH} $options > $ROOT_DIR/test.log
 
 # slurm cluster mode
 # SINGULARITY_PATH=/cognitive_comp/gaoxinyu/docker/pytorch21_06_py3_docker_image_v2.sif

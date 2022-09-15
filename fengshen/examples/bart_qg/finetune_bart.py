@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from lib2to3.pgen2 import token
 import time
 import sys
 import os    
@@ -15,6 +16,7 @@ sys.path.append('../../../')
 from fengshen.data.t5_dataloader.dialo_datasets import DialoT5DataModule
 from fengshen.data.t5_dataloader.t5_datasets import TaskT5DataModel
 from fengshen.utils.universal_checkpoint import UniversalCheckpoint
+from fengshen.data.universal_datamodule import UniversalDataModule
 
 def truncate_sequence(document:str, max_num_tokens:int,reverse=False):
     total_length = len(document)
@@ -108,6 +110,7 @@ class DialoT5Collator:
 class QGT5Collator:
     @ staticmethod
     def add_data_specific_args(parent_args):
+        # the hyperparameters should be determined according to the max length of context in dataset
         parser = parent_args.add_argument_group('BART DIalo Collator')
         parser.add_argument('--max_seq_length', default=512, type=int) 
         parser.add_argument('--max_src_length', default=16, type=int) 
@@ -119,15 +122,9 @@ class QGT5Collator:
         self.args = args
         self.tokenizer = tokenizer
         self.max_seq_length = args.max_seq_length
+        self.print_example = True
         
     def encode(self, x, y):
-        """
-        参考 RGX https://github.com/luohongyin/RGX/blob/main/ques_gen_ft.py
-        Input:
-        input_ids: input_ids (text + answer)
-        attn_mask: input attn mask
-        labels:   decoder_ids (question)
-        """
         # tokenize sentence
         x = self.tokenizer.bos_token + x + self.tokenizer.eos_token
         y = y + self.tokenizer.eos_token
@@ -149,23 +146,35 @@ class QGT5Collator:
         return encoder_input, decoder_output
 
     def __call__(self, samples):
+        """
+        参考 RGX https://github.com/luohongyin/RGX/blob/main/ques_gen_ft.py
+        处理 Add Mask answer span, concat masked context and answer
+        Input:
+        input_ids: input_ids (text + answer)
+        attn_mask: input attn mask
+        labels:   decoder_ids (question)
+        """
         input_ids,  attn_mask, decoder_input_ids, decoder_attn_mask = [],[],[],[]
         for s in samples:
-            context = truncate_sequence(s["context"],self.args.max_kno_length-1)
-            question = truncate_sequence(s["question"],self.args.max_src_length-1) 
-            answer = truncate_sequence(s["answer"],self.args.max_tgt_length-1)
-
-            x_trunc = f'{context}{answer}' #prompt
+            ans_bos, ans_eos = s["ans_span"]
+            context = s["context"][:ans_bos] + self.tokenizer.mask_token + s["context"][ans_eos:]
+            context = truncate_sequence(context,self.args.max_kno_length-1)
+            answer = truncate_sequence(s["answer"],self.args.max_src_length-1) #src and tgt is reversed in qg
+            question = truncate_sequence(s["question"],self.args.max_tgt_length-1) 
+            
+            x_trunc = f'{context} </s> {answer}' #prompt
             y_trunc = f'{question}'
             encoder_input, decoder_output = self.encode(x_trunc,y_trunc)
-            
+
+            if self.print_example:
+                print(x_trunc)
+                print(y_trunc)
+                self.print_example = False
+
             input_ids.append(encoder_input["input_ids"])
             attn_mask.append(encoder_input["attention_mask"])
             decoder_input_ids.append(decoder_output["input_ids"])
-            
-            # TODO 是否需要 decoder attn mask 
-            # 参考 BART Summary task_datasets
-            #decoder_attn_mask.append(decoder_input[1])
+        
 
         return {
             'input_ids': torch.cat(input_ids),
@@ -215,10 +224,8 @@ class BARTFinetuneModel(pl.LightningModule):
         output = self.model(
             input_ids=batch['input_ids'],
             attention_mask=batch['attention_mask'],
-            labels=batch['labels'])
-        #acc = self.comput_metrix(output.logits, batch['labels'])
+            labels=batch['labels'])    
         self.log('train_loss', output.loss, sync_dist=True)
-        #self.log('train_acc', acc, sync_dist=True)
         return output.loss
 
     def validation_step(self, batch, batch_idx):
@@ -227,7 +234,8 @@ class BARTFinetuneModel(pl.LightningModule):
             input_ids=batch['input_ids'],
             attention_mask=batch['attention_mask'],
             labels=batch['labels'])
-        acc = self.comput_metrix(output.logits, batch['labels'])
+        acc = self.compute_acc(output.logits, batch['labels'])
+        # ppl = self.compute_ppl(output.loss, batch['labels'], batch['attention_mask'])
         # cond_output = self.model.generate(
         #     input_ids=batch['input_ids'],
         #     attention_mask=batch['attention_mask'],
@@ -236,11 +244,18 @@ class BARTFinetuneModel(pl.LightningModule):
         # )
         # The size of tensor a (8) must match the size of tensor b (1024) at non-singleton dimension 0
         # cond_acc = self.comput_metrix(cond_output, batch['labels'])
+        # self.log('cond_acc', cond_acc, sync_dist=True)
         self.log('val_loss', output.loss, sync_dist=True)
         self.log('val_acc', acc, sync_dist=True)
-        # self.log('cond_acc', cond_acc, sync_dist=True)
+        # self.log('val_ppl', ppl, sync_dist=True)
 
-    def comput_metrix(self, logits, labels):
+    def compute_ppl(self, loss, labels, attn_mask):
+        shift_attn_mask = attn_mask[:, 1:].contiguous()
+        meanloss = loss.sum(1) / shift_attn_mask.sum(1)
+        ppl = torch.exp(meanloss).numpy().tolist()
+        return ppl
+
+    def compute_acc(self, logits, labels):
         y_pred = torch.argmax(logits, dim=-1)
         y_pred = y_pred.view(size=(-1,))
         y_true = labels.view(size=(-1,)).float()
@@ -252,17 +267,17 @@ class BARTFinetuneModel(pl.LightningModule):
         # Save the current loop info in the mid of epoch
         # if you lightning <= 1.6.0  uncomment the line below
         # checkpoint['loops'] = self.trainer.checkpoint_connector._get_loops_state_dict()
-        if self.trainer.global_rank == 0 and self.trainer.global_step % self.hparams.every_n_train_steps == 0:
+        if self.trainer._accelerator_connector.cluster_environment.global_rank() == 0:
+        # if self.trainer.global_rank == 0 and self.trainer.global_step % self.hparams.every_n_train_steps == 0:
             self.model.save_pretrained(os.path.join(
                 self.trainer.checkpoint_callback.dirpath,
-                'hf_pretrained_epoch{}_step{}'.format(self.trainer.current_epoch, self.trainer.global_step)))
+                'hf_pretrained_epoch{}_step{}'.format(checkpoint['epoch'], checkpoint['global_step'])))
 
     def on_load_checkpoint(self, checkpoint) -> None:
         global_step_offset = checkpoint["global_step"]
         if 'global_samples' in checkpoint:
             self.consumed_samples = checkpoint['global_samples']
         self.trainer.fit_loop.epoch_loop._batches_that_stepped = global_step_offset
-
 
 def get_time_str():
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -277,12 +292,13 @@ def main():
     total_parser = argparse.ArgumentParser("Finetune BART for QG")
     total_parser.add_argument('--do_eval_only', action='store_true', default=False)
     total_parser.add_argument('--tokenizer_type', type=str, default="bart")
+    total_parser.add_argument('--tensorboard_dir', type=str, default="bart")
     total_parser.add_argument('--deepspeed')
 
     # Args for data preprocessing
     # total_parser = TaskT5DataModel.add_data_specific_args(total_parser)
     total_parser = DialoT5DataModule.add_data_specific_args(total_parser)
-    total_parser = DialoT5Collator.add_data_specific_args(total_parser)
+    total_parser = QGT5Collator.add_data_specific_args(total_parser)
 
     # Args for training
     total_parser = Trainer.add_argparse_args(total_parser)
@@ -303,8 +319,9 @@ def main():
     tokenizer = get_tokenizer(args.tokenizer_type, args.model_path)
     collator = QGT5Collator(tokenizer=tokenizer,args=args)
     #collator = DialoT5Collator(tokenizer=tokenizer,args=args)
+    #data_model = UniversalDataModule(tokenizer=tokenizer,args=args,collate_fn=collator)
     data_model = DialoT5DataModule(collate_fn=collator,tokenizer=tokenizer, args=args)
-    logging.info('Load Dialo T5 Data')
+    logging.info('Load QGT5 QA Data')
     
     if args.deepspeed is not None:
         os.environ['PL_DEEPSPEED_CONFIG_PATH'] = args.deepspeed
@@ -314,8 +331,7 @@ def main():
         model = BARTFinetuneModel(tokenizer,args)
         checkpoint_callback = UniversalCheckpoint(args).callbacks
         lr_monitor = LearningRateMonitor(logging_interval='step')
-        logger = loggers.TensorBoardLogger(save_dir=os.path.join(
-            args.default_root_dir, 'logs/'))
+        logger = loggers.TensorBoardLogger(save_dir=args.tensorboard_dir, name="tf_log")
         trainer = Trainer.from_argparse_args(args,
                                              logger=logger,
                                              callbacks=[checkpoint_callback, lr_monitor]
