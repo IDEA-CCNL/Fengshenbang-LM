@@ -142,8 +142,9 @@ class Wav2vec2Lightning(LightningModule):
 
     def compute_metrix(self, logits, mask_time_indices):
         mask_time_indices = mask_time_indices.transpose(0, 1).flatten()
+        mask_time_indices = mask_time_indices.to(torch.bool)
         max = (logits.argmax(-1) == 0) & mask_time_indices
-        min = logits.argmin(-1) == 0 & mask_time_indices
+        min = (logits.argmin(-1) == 0) & mask_time_indices
         count = float(mask_time_indices.sum())
         both = max & min
         corr = max.long().sum().item() - both.long().sum().item()
