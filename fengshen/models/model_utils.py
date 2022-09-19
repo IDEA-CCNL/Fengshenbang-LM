@@ -50,3 +50,17 @@ def configure_optimizers(pl_model: LightningModule):
                               num_warmup_steps=warmup_steps, num_training_steps=pl_model.total_steps)
     scheduler = {"scheduler": scheduler, "interval": "step", "frequency": 1}
     return [optimizer], [scheduler]
+
+
+def get_total_steps(trainer, hparams):
+    train_loader = trainer._data_connector._train_dataloader_source.dataloader()
+    # Calculate total steps
+    if trainer.max_epochs > 0:
+        world_size = trainer.world_size
+        tb_size = hparams.train_batchsize * max(1, world_size)
+        ab_size = trainer.accumulate_grad_batches
+        total_steps = (len(train_loader.dataset) *
+                       trainer.max_epochs // tb_size) // ab_size
+    else:
+        total_steps = trainer.max_steps
+    return total_steps
