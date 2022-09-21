@@ -25,6 +25,8 @@
     - [下游效果](#下游效果)
 - [封神框架](#封神框架)
   - [安装](#安装)
+    - [使用自己的环境安装](#使用自己的环境安装)
+    - [使用Docker](#使用docker)
   - [Pipelines](#pipelines)
 - [封神榜系列文章](#封神榜系列文章)
 - [引用](#引用)
@@ -123,12 +125,30 @@ sh finetune_classification.sh
 
 ## 安装
 
-```
+### 使用自己的环境安装
+
+```shell
 git clone https://github.com/IDEA-CCNL/Fengshenbang-LM.git
 cd Fengshenbang-LM
 git submodule init
 git submodule update
+# submodule是我们用来管理数据集的fs_datasets，通过ssh的方式拉取，如果用户没有在机器上配置ssh-key的话可能会拉取失败。
+# 如果拉取失败，需要到.gitmodules文件中把ssh地址改为https地址即可。
 pip install --editable .
+```
+
+### 使用Docker
+
+我们提供一个简单的包含torch、cuda环境的docker来运行我们的框架。
+
+```shell
+sudo docker run --runtime=nvidia --rm -itd --ipc=host --name fengshen fengshenbang/pytorch:1.10-cuda11.1-cudann8-devel
+sudo docker exec -it fengshen bash
+cd Fengshenbang-LM
+# 更新代码 docker内的代码可能不是最新的
+git pull
+git submodule foreach 'git pull origin master' 
+# 即可快速的在docker中使用我们的框架啦
 ```
 
 ## Pipelines
@@ -136,7 +156,7 @@ pip install --editable .
 封神框架目前在适配各种下游任务的Pipeline，支持命令行一键启动Predict、Finetuning。
 以Text Classification为例
 
-```
+```python
 # predict
 ❯ fengshen-pipeline text_classification predict --model='IDEA-CCNL/Erlangshen-Roberta-110M-Similarity' --text='今天心情不好[SEP]今天很开心'
 [{'label': 'not similar', 'score': 0.9988130331039429}]
