@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from fengshen.models.zen1 import ZenModel
+# from fengshen.models.zen1 import ZenModel
 from dataclasses import dataclass
 from fengshen.models.megatron_t5 import T5Config
 from fengshen.models.megatron_t5 import T5EncoderModel
@@ -20,6 +20,7 @@ from fengshen.models.roformer import RoFormerConfig
 from fengshen.models.roformer import RoFormerModel
 from fengshen.models.longformer import LongformerConfig
 from fengshen.models.longformer import LongformerModel
+from fengshen.models.cocolm.modeling_cocolm import COCOLMForSequenceClassification
 import numpy as np
 import os
 from tqdm import tqdm
@@ -27,7 +28,7 @@ import json
 import torch
 import pytorch_lightning as pl
 import argparse
-from pytorch_lightning.callbacks import ModelCheckpoint
+from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping, LearningRateMonitor
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data._utils.collate import default_collate
 from transformers import (
@@ -38,6 +39,7 @@ from transformers import (
     AutoModel,
     AutoConfig,
     AutoTokenizer,
+    AutoModelForSequenceClassification,
 )
 # os.environ["CUDA_VISIBLE_DEVICES"] = '6'
 
@@ -47,18 +49,10 @@ model_dict = {'huggingface-bert': BertModel,
               'huggingface-megatron_bert': MegatronBertModel,
               'fengshen-megatron_t5': T5EncoderModel,
               'fengshen-longformer': LongformerModel,
-              'fengshen-zen1': ZenModel,
-              'huggingface-auto': AutoModel,
+              # 'fengshen-zen1': ZenModel,
+              'huggingface-auto': AutoModelForSequenceClassification,
+              'fengshen-cocolm': COCOLMForSequenceClassification,
               }
-
-
-config_dict = {'huggingface-bert': BertConfig,
-               'fengshen-roformer': RoFormerConfig,
-               'huggingface-megatron_bert': MegatronBertConfig,
-               'fengshen-megatron_t5': T5Config,
-               'fengshen-longformer': LongformerConfig,
-               'fengshen-zen1': BertConfig,
-               'huggingface-auto': AutoConfig}
 
 
 class TaskDataset(Dataset):
@@ -111,7 +105,8 @@ class TaskCollator:
                         truncation='longest_first')
                 else:
                     encode_dict = self.tokenizer.encode_plus(
-                        [item[self.args.texta_name]+'[SEP]'+item[self.args.textb_name]],
+                        [item[self.args.texta_name] +
+                            self.tokenizer.eos_token+item[self.args.textb_name]],
                         max_length=self.args.max_length,
                         padding='max_length',
                         truncation='longest_first')
@@ -125,6 +120,7 @@ class TaskCollator:
             for k, v in encode_dict.items():
                 sample[k] = torch.tensor(v)
             sample['labels'] = torch.tensor(item[self.args.label_name]).long()
+            sample['id'] = item['id']
             sample_list.append(sample)
         return default_collate(sample_list)
 
@@ -211,11 +207,10 @@ class taskModel(torch.nn.Module):
     def __init__(self, args):
         super().__init__()
         self.args = args
-        self.config = config_dict[args.model_type].from_pretrained(
-            args.pretrained_model_path)
         print('args mode type:', args.model_type)
         self.bert_encoder = model_dict[args.model_type].from_pretrained(
             args.pretrained_model_path)
+        self.config = self.bert_encoder.config
         self.cls_layer = torch.nn.Linear(
             in_features=self.config.hidden_size, out_features=self.args.num_labels)
         self.loss_func = torch.nn.CrossEntropyLoss()
@@ -250,27 +245,29 @@ class LitModel(pl.LightningModule):
         super().__init__()
         self.args = args
         self.num_data = num_data
-        self.model = taskModel(args)
+        self.model = model_dict[args.model_type].from_pretrained(
+            args.pretrained_model_path)
         self.save_hyperparameters(args)
 
     def setup(self, stage) -> None:
-        if stage == 'fit':
-            train_loader = self.trainer._data_connector._train_dataloader_source.dataloader()
+        train_loader = self.trainer._data_connector._train_dataloader_source.dataloader()
 
-            # Calculate total steps
-            if self.trainer.max_epochs > 0:
-                world_size = self.trainer.world_size
-                tb_size = self.hparams.train_batchsize * max(1, world_size)
-                ab_size = self.trainer.accumulate_grad_batches
-                self.total_steps = (len(train_loader.dataset) *
-                                    self.trainer.max_epochs // tb_size) // ab_size
-            else:
-                self.total_steps = self.trainer.max_steps // self.trainer.accumulate_grad_batches
+        # Calculate total steps
+        if self.trainer.max_epochs > 0:
+            world_size = self.trainer.world_size
+            tb_size = self.hparams.train_batchsize * max(1, world_size)
+            ab_size = self.trainer.accumulate_grad_batches
+            self.total_steps = (len(train_loader.dataset) *
+                                self.trainer.max_epochs // tb_size) // ab_size
+        else:
+            self.total_steps = self.trainer.max_steps // self.trainer.accumulate_grad_batches
 
-            print('Total steps: {}' .format(self.total_steps))
+        print('Total steps: {}' .format(self.total_steps))
 
     def training_step(self, batch, batch_idx):
-        loss, logits = self.model(**batch)
+        del batch['id']
+        output = self.model(**batch)
+        loss, logits = output[0], output[1]
         acc = self.comput_metrix(logits, batch['labels'])
         self.log('train_loss', loss)
         self.log('train_acc', acc)
@@ -285,14 +282,18 @@ class LitModel(pl.LightningModule):
         return acc
 
     def validation_step(self, batch, batch_idx):
-        loss, logits = self.model(**batch)
+        del batch['id']
+        output = self.model(**batch)
+        loss, logits = output[0], output[1]
         acc = self.comput_metrix(logits, batch['labels'])
         self.log('val_loss', loss)
-        self.log('val_acc', acc)
+        self.log('val_acc', acc, sync_dist=True)
 
     def predict_step(self, batch, batch_idx):
+        ids = batch['id']
+        del batch['id']
         output = self.model(**batch)
-        return output.logits
+        return {ids, output.logits}
 
     def configure_optimizers(self):
         from fengshen.models.model_utils import configure_optimizers
@@ -323,26 +324,30 @@ class TaskModelCheckpoint:
                                          every_n_train_steps=args.every_n_train_steps,
                                          save_weights_only=args.save_weights_only,
                                          dirpath=args.dirpath,
+                                         every_n_epochs=1,
                                          filename=args.filename)
 
 
-def save_test(data, args, data_model):
-    with open(args.output_save_path, 'w', encoding='utf-8') as f:
+def save_test(data, args, data_model, rank):
+    file_name = args.output_save_path + f'.{rank}'
+    with open(file_name, 'w', encoding='utf-8') as f:
         idx = 0
         for i in range(len(data)):
-            batch = data[i]
-            for sample in batch:
+            ids, batch = data[i]
+            for id, sample in zip(ids, batch):
                 tmp_result = dict()
-                label_id = np.argmax(sample.numpy())
-                tmp_result['id'] = data_model.test_data.data[idx]['id']
+                label_id = np.argmax(sample.cpu().numpy())
+                tmp_result['id'] = id.item()
                 tmp_result['label'] = data_model.id2label[label_id]
                 json_data = json.dumps(tmp_result, ensure_ascii=False)
                 f.write(json_data+'\n')
                 idx += 1
-    print('save the result to '+args.output_save_path)
+    print('save the result to '+file_name)
 
 
 def main():
+    pl.seed_everything(42)
+
     total_parser = argparse.ArgumentParser("TASK NAME")
     total_parser.add_argument('--pretrained_model_path', default='', type=str)
     total_parser.add_argument('--output_save_path',
@@ -362,18 +367,26 @@ def main():
     total_parser = LitModel.add_model_specific_args(total_parser)
 
     args = total_parser.parse_args()
+    print(args.pretrained_model_path)
 
     checkpoint_callback = TaskModelCheckpoint(args).callbacks
+    early_stop_callback = EarlyStopping(
+        monitor="val_acc", min_delta=0.00, patience=5, verbose=False, mode="max")
+    lr_monitor = LearningRateMonitor(logging_interval='step')
     trainer = pl.Trainer.from_argparse_args(args,
-                                            callbacks=[checkpoint_callback]
+                                            callbacks=[
+                                                checkpoint_callback,
+                                                lr_monitor,
+                                                early_stop_callback]
                                             )
 
     data_model = TaskDataModel(args)
     model = LitModel(args, len(data_model.train_dataloader()))
 
     trainer.fit(model, data_model)
-    # result = trainer.predict(model, data_model)
-    # save_test(result, args, data_model)
+    result = trainer.predict(
+        model, data_model, ckpt_path=trainer.checkpoint_callback.best_model_path)
+    save_test(result, args, data_model, trainer.global_rank)
 
 
 if __name__ == "__main__":

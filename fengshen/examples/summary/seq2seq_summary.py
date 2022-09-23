@@ -160,7 +160,7 @@ def main():
         model = FinetuneSummary(args)
         logger = loggers.TensorBoardLogger(save_dir=os.path.join(
             args.default_root_dir, 'log/'))
-        checkpoint_callback = UniversalCheckpoint(args).callbacks
+        checkpoint_callback = UniversalCheckpoint(args)
         trainer = Trainer.from_argparse_args(args,
                                              logger=logger,
                                              callbacks=[lr_monitor,
