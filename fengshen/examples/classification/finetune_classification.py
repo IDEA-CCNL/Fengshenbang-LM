@@ -14,13 +14,10 @@
 # limitations under the License.
 # from fengshen.models.zen1 import ZenModel
 from dataclasses import dataclass
-from fengshen.models.megatron_t5 import T5Config
 from fengshen.models.megatron_t5 import T5EncoderModel
-from fengshen.models.roformer import RoFormerConfig
 from fengshen.models.roformer import RoFormerModel
-from fengshen.models.longformer import LongformerConfig
 from fengshen.models.longformer import LongformerModel
-from fengshen.models.cocolm.modeling_cocolm import COCOLMForSequenceClassification
+# from fengshen.models.cocolm.modeling_cocolm import COCOLMForSequenceClassification
 import numpy as np
 import os
 from tqdm import tqdm
@@ -51,7 +48,6 @@ model_dict = {'huggingface-bert': BertModel,
               'fengshen-longformer': LongformerModel,
               # 'fengshen-zen1': ZenModel,
               'huggingface-auto': AutoModelForSequenceClassification,
-              'fengshen-cocolm': COCOLMForSequenceClassification,
               }
 
 
