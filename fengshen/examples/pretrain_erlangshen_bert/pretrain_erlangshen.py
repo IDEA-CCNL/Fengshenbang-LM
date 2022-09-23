@@ -221,7 +221,7 @@ if __name__ == '__main__':
     print('model load complete')
 
     lr_monitor = LearningRateMonitor(logging_interval='step')
-    checkpoint_callback = UniversalCheckpoint(args).callbacks
+    checkpoint_callback = UniversalCheckpoint(args)
 
     # 做兼容，如果目录不存在的话把这个参数去掉，不然会报错
     if args.load_ckpt_path is not None and \

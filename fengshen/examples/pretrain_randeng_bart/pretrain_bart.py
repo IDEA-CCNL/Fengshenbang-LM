@@ -124,7 +124,18 @@ class BartCollator:
                     self.tokenizer.cls_token_id, self.tokenizer.sep_token_id, self.tokenizer.mask_token_id,
                     max_predictions_per_seq, self.np_rng,
                     masking_style='bert', zh_tokenizer=self.zh_tokenizer)
-                source = torch.LongTensor(source)
+                # 合并[MASK] 因为这里用的是Bert的mask函数，Bert是按字mask的，
+                # 这里把连续的mask合并成一个MASK从而达到span mask的效果
+                span_mask_souce = []
+                for t in source:
+                    # 如果是连续的多个mask，则跳过
+                    if len(span_mask_souce) > 0 \
+                            and t is self.tokenizer.mask_token_id \
+                            and span_mask_souce[-1] is self.tokenizer.mask_token_id:
+                        continue
+                    span_mask_souce.append(t)
+
+                source = torch.LongTensor(span_mask_souce)
 
             assert (source >= 0).all()
             # assert (source[1:-1] >= 1).all(), source
@@ -254,7 +265,7 @@ if __name__ == '__main__':
     module = RandengBart(args, tokenizer=tokenizer)
 
     lr_monitor = LearningRateMonitor(logging_interval='step')
-    checkpoint_callback = UniversalCheckpoint(args).callbacks
+    checkpoint_callback = UniversalCheckpoint(args)
 
     # 做兼容，如果目录不存在的话把这个参数去掉，不然会报错
     if args.load_ckpt_path is not None and \

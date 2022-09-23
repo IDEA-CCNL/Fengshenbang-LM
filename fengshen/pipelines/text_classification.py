@@ -200,7 +200,7 @@ class TextClassificationPipeline(HuggingfacePipe):
                 train: Dataset()
             }
         """
-        checkpoint_callback = UniversalCheckpoint(self.args).callbacks
+        checkpoint_callback = UniversalCheckpoint(self.args)
         trainer = pl.Trainer.from_argparse_args(self.args,
                                                 callbacks=[checkpoint_callback]
                                                 )
