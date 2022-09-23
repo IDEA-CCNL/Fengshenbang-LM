@@ -1,36 +1,39 @@
-from fengshen.utils.utils import chinese_char_tokenize
-from fengshen.utils.universal_checkpoint import UniversalCheckpoint
-from torchmetrics.text.rouge import ROUGEScore
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-from pytorch_lightning import Trainer, loggers
-import pytorch_lightning as pl
-import json
-import argparse
+
+import torch
 import os
-import sys
+import argparse
+import json
+import pytorch_lightning as pl
+from fengshen.models.model_utils import add_module_args
+from fengshen.data.task_dataloader.task_datasets import AbstractCollator
+from fengshen.data.universal_datamodule import UniversalDataModule
+from fengshen.utils.universal_checkpoint import UniversalCheckpoint
+from fengshen.utils.utils import chinese_char_tokenize
+from torchmetrics.text.rouge import ROUGEScore
+from pytorch_lightning import Trainer, loggers
 from pytorch_lightning.callbacks import LearningRateMonitor
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import sys
 sys.path.append('../../../')
+
+
 # os.environ["CUDA_VISIBLE_DEVICES"] = '3,4'
 
 
 class FinetuneSummary(pl.LightningModule):
-
     @staticmethod
     def add_model_specific_args(parent_args):
         parser = parent_args.add_argument_group('BaseModel')
-        parser.add_argument('--learning_rate', default=1e-4, type=float)
-        parser.add_argument('--weight_decay', default=0.1, type=float)
-        parser.add_argument('--warmup', default=0.01, type=float)
         parser.add_argument('--rouge_keys', default='rougeL,rouge1,rouge2', type=str)
         return parent_args
 
-    def __init__(self, args):
+    def __init__(self, args, tokenizer=None):
         super().__init__()
         self.save_hyperparameters(args)
         self.model = AutoModelForSeq2SeqLM.from_pretrained(
             args.pretrained_model_path)
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            self.hparams.pretrained_model_path, use_fast=False)
+        self.tokenizer = tokenizer
+        assert self.tokenizer, "tokenizer is None!"
         self.rouge_keys = tuple(args.rouge_keys.split(','))
         self.rouge_metric = ROUGEScore(rouge_keys=self.rouge_keys, normalizer=lambda x: x)
 
@@ -71,8 +74,10 @@ class FinetuneSummary(pl.LightningModule):
         )
 
         preds = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+        labels = torch.where(batch['labels'] != -100, batch['labels'],
+                             self.tokenizer.pad_token_id)
         labels = self.tokenizer.batch_decode(
-            batch['labels'], skip_special_tokens=True, clean_up_tokenization_spaces=True)
+            labels, skip_special_tokens=True, clean_up_tokenization_spaces=True)
         # save preds for every rank
         prefix, ext = os.path.splitext(self.hparams.output_save_path)
         file_path_rank = '{}_{}{}'.format(
@@ -130,34 +135,49 @@ class FinetuneSummary(pl.LightningModule):
         self.save_prediction_to_file(preds, texts, labels)
 
     def configure_optimizers(self):
-        # using deepspeed optimizer config
-        pass
+        from fengshen.models.model_utils import configure_optimizers
+        return configure_optimizers(self)
 
 
 def main():
     total_parser = argparse.ArgumentParser("Summary Task")
-    total_parser.add_argument(
-        '--do_eval_only', action='store_true', default=False)
-    total_parser.add_argument(
-        '--pretrained_model_path', default='google/mt5-small', type=str)
-    total_parser.add_argument(
-        '--ckpt_path', default=None, type=str)
+    total_parser.add_argument('--do_eval_only',
+                              action='store_true',
+                              default=False)
+    total_parser.add_argument('--pretrained_model_path',
+                              default='google/mt5-small',
+                              type=str)
     total_parser.add_argument('--output_save_path',
-                              default='./predict.json', type=str)
+                              default='./predict.json',
+                              type=str)
+    total_parser.add_argument('--self_tokenizer',
+                              action='store_true',
+                              default=False)
+    total_parser.add_argument('--max_enc_length', default=1024, type=int)
+    total_parser.add_argument('--max_dec_length', default=256, type=int)
+    total_parser.add_argument('--prompt', default='summarize:', type=str)
     # * Args for data preprocessing
-    from fengshen.data.task_dataloader.task_datasets import LCSTSDataModel
-    total_parser = LCSTSDataModel.add_data_specific_args(total_parser)
+    # from fengshen.data.task_dataloader.task_datasets import LCSTSDataModel
+    total_parser = UniversalDataModule.add_data_specific_args(total_parser)
     # * Args for training
+    total_parser = add_module_args(total_parser)
     total_parser = Trainer.add_argparse_args(total_parser)
     total_parser = UniversalCheckpoint.add_argparse_args(total_parser)
     total_parser = FinetuneSummary.add_model_specific_args(total_parser)
     # * Args for base model
     args = total_parser.parse_args()
 
-    data_model = LCSTSDataModel(args)
+    if args.self_tokenizer:
+        from fengshen.examples.pegasus.tokenizers_pegasus import PegasusTokenizer
+        tokenizer = PegasusTokenizer.from_pretrained(args.pretrained_model_path)
+    else:
+        tokenizer = AutoTokenizer.from_pretrained(args.pretrained_model_path, use_fast=False)
+    collator = AbstractCollator(tokenizer, args.max_enc_length,
+                                args.max_dec_length, args.prompt)
+    data_model = UniversalDataModule(tokenizer=tokenizer, args=args, collate_fn=collator)
+    model = FinetuneSummary(args, tokenizer)
     if not args.do_eval_only:
         lr_monitor = LearningRateMonitor(logging_interval='step')
-        model = FinetuneSummary(args)
         logger = loggers.TensorBoardLogger(save_dir=os.path.join(
             args.default_root_dir, 'log/'))
         checkpoint_callback = UniversalCheckpoint(args)
@@ -166,10 +186,9 @@ def main():
                                              callbacks=[lr_monitor,
                                                         checkpoint_callback]
                                              )
-        trainer.fit(model, data_model, ckpt_path=args.ckpt_path)
+        trainer.fit(model, data_model)
     else:
         trainer = Trainer.from_argparse_args(args)
-        model = FinetuneSummary(args)
         # trainer.predict(model, data_model)
         trainer.validate(model, data_model)
 
