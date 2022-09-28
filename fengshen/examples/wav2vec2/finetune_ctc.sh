@@ -1,24 +1,24 @@
 #!/bin/bash
-#SBATCH --job-name=test-ctc # create a short name for your job
+#SBATCH --job-name=wav2vec2-ctc # create a short name for your job
 #SBATCH --nodes=1 # node count
-#SBATCH --ntasks-per-node=1 # number of tasks to run per node
+#SBATCH --ntasks-per-node=2 # number of tasks to run per node
 #SBATCH --cpus-per-task=30 # cpu-cores per task (>1 if multi-threaded tasks)
-#SBATCH --gres=gpu:1 # number of gpus per node
+#SBATCH --gres=gpu:2 # number of gpus per node
 #SBATCH -o ./output/%x-%j.log # output and error log file names (%x for job id)
 #SBATCH -x dgx050
 
+CHECK_POINT_NAME=hf_pretrained_epoch47_step400000
+MODEL_NAME=wav2vec2-base-wenet-ctc-${CHECK_POINT_NAME}
 config_json="./output/$MODEL_NAME.ds_config.json"
 
-export MASTER_PORT=25999
+export MASTER_PORT=20989
 MICRO_BATCH_SIZE=8
 ZERO_STAGE=1
-HOME_PATH=/cognitive_comp/zhuojianheng/experiment/
-MODEL_PATH=/cognitive_comp/zhuojianheng/pretrained_model/wav2vec2-base-ctc-libri
-DATA_DIR=/cognitive_comp/zhuojianheng/data/libri_tsv/train-clean-100
+HOME_PATH=/cognitive_comp/zhuojianheng/experiment
+MODEL_PATH=/cognitive_comp/zhuojianheng/pretrained_model/wav2vec2-base-ctc-wenet
+DATA_DIR=/cognitive_comp/zhuojianheng/data/wenet/S
+PRETRAINED_PATH=/cognitive_comp/zhuojianheng/experiment/fengshen-wav2vec2-base-wenet/ckpt/${CHECK_POINT_NAME}
 
-CHECK_POINT_NAME=hf_pretrained_epoch60_step40687
-MODEL_NAME=$CHECK_POINT_NAME
-PRETRAINED_PATH=/cognitive_comp/zhuojianheng/experiment/fengshen-wav2vec2-base-libri/ckpt/${CHECK_POINT_NAME}
 export TORCH_EXTENSIONS_DIR=/cognitive_comp/zhuojianheng/torch_extendsions
 
 
@@ -58,15 +58,14 @@ export PL_DEEPSPEED_CONFIG_PATH=$config_json
 
 DATA_ARGS="\
         --dataloader_workers 2 \
-        --train_batchsize $MICRO_BATCH_SIZE \
         --val_batchsize 16 \
         --test_batchsize 16  \
         --val_datasets_field valid \
         --test_datasets_field valid \
         --sampler_type random \
         --data ${DATA_DIR} \
-        --max_sample_size 25000000 \
-        --min_sample_size 0 \
+        --max_sample_size 250000 \
+        --min_sample_size 32000 \
         --normalize False \
         --enable_padding True \
         "
@@ -105,18 +104,18 @@ MODEL_CHECKPOINT_ARGS="\
 # deepspeed_stage_${ZERO_STAGE} \
 TRAINER_ARGS="\
         --gradient_clip_val 1.0 \
-        --gpus 1 \
+        --gpus 2 \
         --num_nodes 1 \
         --strategy deepspeed_stage_${ZERO_STAGE} \
         --log_every_n_steps 100 \
-        --val_check_interval 50 \
+        --val_check_interval 1000 \
 	    --limit_val_batches 10 \
-        --accumulate_grad_batches 8 \
+        --accumulate_grad_batches 4 \
         --precision 16 \
         --ckpt_path ${HOME_PATH}/fengshen-${MODEL_NAME}/ckpt/last.ckpt \
         --default_root_dir ${HOME_PATH}/fengshen-${MODEL_NAME}/ \
         --replace_sampler_ddp false \
-        --max_steps 4000
+        --max_steps 80000
         "
 
 
