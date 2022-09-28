@@ -29,7 +29,6 @@ def add_data_specific_args(parent_args):
     parser.add_argument('--max_sample_size', type=int)
     parser.add_argument('--max_tokens', type=int, default=1400000)
     parser.add_argument('--required_batch_size_multiple', type=int, default=8)
-    parser.add_argument('--labels', type=str, nargs='+')
     parser.add_argument('--enable_padding', type=bool)
     parser.add_argument('--normalize', type=bool)
     parser.add_argument('--padding', type=str)
