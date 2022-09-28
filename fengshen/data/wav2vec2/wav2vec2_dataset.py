@@ -33,7 +33,6 @@ def add_data_specific_args(parent_args):
     parser.add_argument('--enable_padding', type=bool)
     parser.add_argument('--normalize', type=bool)
     parser.add_argument('--padding', type=str)
-    parser.add_argument('--datatype', type=str, default="librispeech")
     return parent_args
 
 

@@ -42,7 +42,7 @@ class Wav2vec2CTCDataLoader():
             feature_extractor=self.feature_extractor,
             max_sample_size=self.args.max_sample_size,
             min_sample_size=self.args.min_sample_size,
-            pad=self.args.labels is not None or self.args.enable_padding,
+            pad=self.args.enable_padding,
             normalize=self.args.normalize,
             max_tokens=args.max_tokens
         )
