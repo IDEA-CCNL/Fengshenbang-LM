@@ -7,11 +7,9 @@
 #SBATCH -x dgx050
 
 SRC=/cognitive_comp/common_data/wenetspeech_untar
-PATH_TO_JSON="/cognitive_comp/common_data/wenetspeech_untar/WenetSpeech.json"
 PATH_TO_WAVES="/cognitive_comp/common_data/wenetspeech_segment" 
-TGT=/cognitive_comp/common_data/wenetspeech_segment
 
-python wenet_segment.py --json $PATH_TO_JSON --src $SRC --tgt $PATH_TO_WAVES
+python wenet_segment.py --json ${SRC}/WenetSpeech.json --src $SRC --tgt $PATH_TO_WAVES
 
 MANIFEST_PATH="/cognitive_comp/zhuojianheng/data/wenet/"
 
