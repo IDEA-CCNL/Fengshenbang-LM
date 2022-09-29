@@ -121,7 +121,7 @@ def main():
             print(text, file=wrd_out)
             ltr_data = " ".join(jieba.lcut(transcriptions[dir][part]))
             print(
-                " ".join(list(ltr_data.replace(" ", "|"))) + " |",
+                ltr_data,
                 file=ltr_out,
             )
 
