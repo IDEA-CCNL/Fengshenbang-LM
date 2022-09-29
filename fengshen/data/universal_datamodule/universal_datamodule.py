@@ -22,9 +22,9 @@ class UniversalDataModule(LightningDataModule):
         parser = parent_args.add_argument_group('Universal DataModule')
         parser.add_argument('--num_workers', default=8, type=int)
         parser.add_argument('--dataloader_workers', default=2, type=int)
-        parser.add_argument('--train_batchsize', default=32, type=int)
-        parser.add_argument('--val_batchsize', default=32, type=int)
-        parser.add_argument('--test_batchsize', default=32, type=int)
+        parser.add_argument('--train_batchsize', default=16, type=int)
+        parser.add_argument('--val_batchsize', default=16, type=int)
+        parser.add_argument('--test_batchsize', default=16, type=int)
         parser.add_argument('--datasets_name', type=str, default=None)
         parser.add_argument('--train_datasets_field', type=str, default='train')
         parser.add_argument('--val_datasets_field', type=str, default='validation')
@@ -141,6 +141,10 @@ class UniversalDataModule(LightningDataModule):
                 ds, shuffle=False),
             pin_memory=True,
         )
+
+        # return DataLoader(
+        #     ds, shuffle=False, batch_size=self.hparams.val_batchsize, pin_memory=False, collate_fn=collate_fn,
+        # )
 
     def test_dataloader(self):
         ds = self.datasets[self.hparams.test_datasets_field]

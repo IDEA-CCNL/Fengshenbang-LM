@@ -183,6 +183,8 @@ class TextClassificationPipeline(HuggingfacePipe):
             c.max_length = self.args.max_length
         self.collator = c
         device = -1 if args is None else args.device
+        print(device)
+        print(kwargs)
         super().__init__(model=self.model,
                          tokenizer=self.tokenizer,
                          framework='pt',

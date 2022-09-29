@@ -3,24 +3,33 @@ from fengshen.metric.utils_ner import get_entities
 
 import os
 
-def get_labels(decode_type):
-    with open("/cognitive_comp/lujunyu/data_zh/NER_Aligned/weibo/labels.txt") as f:
-        label_list = ["[PAD]", "[START]", "[END]"]
+def get_datasets(args):
+    processor = DataProcessor(args.data_dir, args.decode_type)
 
-        if decode_type=="crf" or decode_type=="linear":
-            for line in f.readlines():
-                label_list.append(line.strip())
-        elif decode_type=="biaffine" or decode_type=="span":
-            for line in f.readlines():
-                tag = line.strip().split("-")
-                if len(tag) == 1 and tag[0] not in label_list:
-                    label_list.append(tag[0])
-                elif tag[1] not in label_list:
-                    label_list.append(tag[1])
+    train_data = TaskDataset(processor=processor, mode="train")
+    valid_data = TaskDataset(processor=processor, mode="dev")
+    test_data = TaskDataset(processor=processor, mode="dev")
+
+    return {"train":train_data,"validation":valid_data,"test":test_data}
+
+# def get_labels(decode_type):
+#     with open("/cognitive_comp/lujunyu/data_zh/NER_Aligned/weibo/labels.txt") as f:
+#         label_list = ["[PAD]", "[START]", "[END]"]
+
+#         if decode_type=="crf" or decode_type=="linear":
+#             for line in f.readlines():
+#                 label_list.append(line.strip())
+#         elif decode_type=="biaffine" or decode_type=="span":
+#             for line in f.readlines():
+#                 tag = line.strip().split("-")
+#                 if len(tag) == 1 and tag[0] not in label_list:
+#                     label_list.append(tag[0])
+#                 elif tag[1] not in label_list:
+#                     label_list.append(tag[1])
     
-    label2id={label:id for id,label in enumerate(label_list)}
-    id2label={id:label for id,label in enumerate(label_list)}
-    return label2id, id2label
+#     label2id={label:id for id,label in enumerate(label_list)}
+#     id2label={id:label for id,label in enumerate(label_list)}
+#     return label2id, id2label
 
 class DataProcessor(object):
     def __init__(self, data_dir, decode_type) -> None:
@@ -31,14 +40,15 @@ class DataProcessor(object):
     def get_examples(self, mode):
         return self._create_examples(self._read_text(os.path.join(self.data_dir, mode + ".all.bmes")), mode)
 
-    def get_labels(self):
-        with open(os.path.join(self.data_dir, "labels.txt")) as f:
+    @staticmethod
+    def get_labels(args):
+        with open(os.path.join(args.data_dir, "labels.txt")) as f:
             label_list = ["[PAD]", "[START]", "[END]"]
 
-            if self.decode_type=="crf" or self.decode_type=="linear":
+            if args.decode_type=="crf" or args.decode_type=="linear":
                 for line in f.readlines():
                     label_list.append(line.strip())
-            elif self.decode_type=="biaffine" or self.decode_type=="span":
+            elif args.decode_type=="biaffine" or args.decode_type=="span":
                 for line in f.readlines():
                     tag = line.strip().split("-")
                     if len(tag) == 1 and tag[0] not in label_list:
@@ -47,7 +57,8 @@ class DataProcessor(object):
                         label_list.append(tag[1])
 
         label2id = {label: i for i, label in enumerate(label_list)}
-        return label2id
+        id2label={id:label for id,label in enumerate(label_list)}
+        return label2id,id2label
 
     def _create_examples(self, lines, set_type):
         examples = []

@@ -5,9 +5,8 @@ from dataclasses import dataclass
 from typing import Dict, List, Union
 
 from fengshen.models.tagging_models.bert_for_tagging import BertLinear,BertCrf,BertSpan,BertBiaffine
-from fengshen.data.tag_dataloader.tag_collator import CollatorForLinear, CollatorForCrf, CollatorForSpan, CollatorForBiaffine
-from fengshen.data.tag_dataloader.tag_datamodule import TaskDataModel
-from fengshen.data.tag_dataloader.tag_datasets import get_labels
+from fengshen.data.sequence_tagging_dataloader.sequence_tagging_collator import CollatorForLinear, CollatorForCrf, CollatorForSpan, CollatorForBiaffine
+from fengshen.data.sequence_tagging_dataloader.sequence_tagging_datasets import DataProcessor, get_datasets
 from fengshen.metric.metric import EntityScore
 from fengshen.metric.utils_ner import get_entities, bert_extract_item
 from transformers import (
@@ -20,8 +19,10 @@ from transformers import TokenClassificationPipeline as HuggingfacePipe
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor
 from fengshen.utils.universal_checkpoint import UniversalCheckpoint
+from fengshen.data.universal_datamodule import UniversalDataModule
 from fengshen.models.model_utils import add_module_args
 from fengshen.models.model_utils import configure_optimizers
+from fengshen.models.model_utils import get_total_steps
 
 _model_dict={
     'bert-linear': BertLinear,
@@ -42,17 +43,19 @@ class _taskModel(pl.LightningModule):
     @staticmethod
     def add_model_specific_args(parent_args):
         parser = parent_args.add_argument_group('sequence tagging task model')
+        parser.add_argument('--data_dir', default=None, type=str)
         parser.add_argument('--model_type', default='bert', type=str)
+        parser.add_argument("--decode_type", default="linear", choices=["linear", "crf", "biaffine", "span"], type=str)
         parser.add_argument('--loss_type', default='ce', type=str)
         return parent_args
     
-    def __init__(self, args, model, label2id, valiate_fn):
+    def __init__(self, args, model, label2id, validate_fn):
         super().__init__()
         self.label2id = label2id
         self.id2label = {v: k for k, v in self.label2id.items()}
 
         self.model=model
-        self.validate_fn=getattr(self,valiate_fn)
+        self.validate_fn=getattr(self,validate_fn)
 
         self.entity_score=EntityScore()
 
@@ -60,17 +63,7 @@ class _taskModel(pl.LightningModule):
 
     def setup(self, stage) -> None:
         if stage == 'fit':
-            train_loader = self.trainer._data_connector._train_dataloader_source.dataloader()
-            # Calculate total steps
-            if self.trainer.max_epochs > 0:
-                world_size = self.trainer.world_size
-                tb_size = self.hparams.train_batchsize * max(1, world_size)
-                ab_size = self.trainer.accumulate_grad_batches
-                self.total_steps = (len(train_loader.dataset) *
-                                    self.trainer.max_epochs // tb_size) // ab_size
-            else:
-                self.total_steps = self.trainer.max_steps // self.trainer.accumulate_grad_batches
-
+            self.total_steps = get_total_steps(self.trainer, self.hparams)
             print('Total steps: {}' .format(self.total_steps))
     
     def training_step(self, batch, batch_idx):
@@ -197,8 +190,9 @@ class SequenceTaggingPipeline(HuggingfacePipe):
     @staticmethod
     def add_pipeline_specific_args(parent_args):
         parser = parent_args.add_argument_group('SequenceTaggingPipeline')
+        parser.add_argument("--max_seq_length", default=512, type=int)
         parser = _taskModel.add_model_specific_args(parent_args)
-        parser = TaskDataModel.add_data_specific_args(parent_args)
+        parser = UniversalDataModule.add_data_specific_args(parent_args)
         parser = UniversalCheckpoint.add_argparse_args(parent_args)
         parser = pl.Trainer.add_argparse_args(parent_args)
         parser = add_module_args(parent_args)
@@ -226,7 +220,7 @@ class SequenceTaggingPipeline(HuggingfacePipe):
         self.args = args
         self.model_name=args.model_type+"-"+args.decode_type
 
-        self.label2id,self.id2label=get_labels(args.decode_type)
+        self.label2id,self.id2label=DataProcessor.get_labels(args)
 
         self.config=BertConfig.from_pretrained(model_path)
         self.model = _model_dict[self.model_name].from_pretrained(model_path, config=self.config, num_labels=len(self.label2id), loss_type=args.loss_type)
@@ -250,6 +244,9 @@ class SequenceTaggingPipeline(HuggingfacePipe):
         pass
 
     def train(self):
+
+        datasets=get_datasets(self.args)
+        
         checkpoint_callback = UniversalCheckpoint(self.args).callbacks
         lr_monitor = LearningRateMonitor(logging_interval='step')
 
@@ -257,7 +254,11 @@ class SequenceTaggingPipeline(HuggingfacePipe):
                                             callbacks=[checkpoint_callback, lr_monitor]
                                             )
 
-        data_model = TaskDataModel(args=self.args,collate_fn=self.collator,tokenizer=self.tokenizer)
+        data_model = UniversalDataModule(
+                    datasets=datasets,
+                    args=self.args,
+                    collate_fn=self.collator,
+                    tokenizer=self.tokenizer)
         model = _taskModel(self.args,self.model,self.label2id,self.validate_fn)
 
         trainer.fit(model,data_model)
