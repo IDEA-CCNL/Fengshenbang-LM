@@ -44,7 +44,7 @@ And the world needs an answer for this.
 
 IDEA (International Digital Economy Academy) officially announces the launch of "Fengshenbang" open source project —— a Chinese language driven foundation ecosystem, incorporates pre-trained models, task-specific fine-tune applications, benchmarks, and datasets. Our goal is to build a comprehensive, standardized and user-centered ecosystem. Although this can be instantiated in a variety of ways, we present the following design that we find to be particularly effective:
 
-![avatar](pics/fengshenbang_process1.png)
+![avatar](pics/fengshenbang_enprocess1.png)
 
 Although this seems complicated, with only 3 sequential steps, users can build their applications based on our resources.
 - Step 1: Choosing a pre-trained Chinese NLP model from our open-source library of Fengshenbang Models.
