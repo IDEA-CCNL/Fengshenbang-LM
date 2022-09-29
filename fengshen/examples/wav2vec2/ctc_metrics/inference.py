@@ -100,7 +100,8 @@ if __name__ == "__main__":
                 pred_logits = output.logits
                 pred_ids = torch.argmax(pred_logits, axis=-1)
                 text = processor.tokenizer.batch_decode(pred_ids)
-                predict += list(text)
+                text = [t.replace(" ", "") for t in text]
+                predict += text
 
     with open(args.target, 'w') as f:
         f.write("\n".join(predict))
