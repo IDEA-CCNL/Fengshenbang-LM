@@ -10,11 +10,11 @@ LM_PATH="/cognitive_comp/zhuojianheng/data/wenet/lm_model/test.bin"
 for DATA_SET in dev
 do
     python3 inference.py \
-    --model_path $MODEL_PATH \
-    --ckpt $CKPT \
-    --lm_path $LM_PATH \
-    --tsv ${DATA_HOME}/${DATA_SET}/data.tsv \
-    --wrd ${DATA_HOME}/${DATA_SET}/data.wrd \
-    --target ${MODEL_NAME}_${DATA_SET}.tem 
+        --model_path $MODEL_PATH \
+        --ckpt $CKPT \
+        --lm_path $LM_PATH \
+        --tsv ${DATA_HOME}/${DATA_SET}/data.tsv \
+        --wrd ${DATA_HOME}/${DATA_SET}/data.wrd \
+        --target ${MODEL_NAME}_${DATA_SET}.tem 
 done
 

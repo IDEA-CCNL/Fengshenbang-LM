@@ -5,6 +5,7 @@ from transformers.models.wav2vec2_with_lm.processing_wav2vec2_with_lm import Wav
 import torch
 from fengshen.data.wav2vec2.wav2vec2ctc_dataset import CTCDataset
 from decoder import build_ctcdecoder
+from tqdm import tqdm
 
 
 def get_model(model_path, ckpt):
@@ -81,7 +82,7 @@ if __name__ == "__main__":
         lm_processor = Wav2Vec2ProcessorWithLM(processor.feature_extractor, processor.tokenizer, decoder)
 
     with torch.no_grad():
-        for i, batch in enumerate(val_loader):
+        for batch in tqdm(val_loader):
             for item in batch:
                 if torch.is_tensor(batch[item]):
                     batch[item] = batch[item].to(device)
