@@ -64,12 +64,6 @@ pretreatment中包括wenetspeech数据预处理的代码。如果要进行预训
   ./lm.sh
   ```
 运行结束后会在model_home路径中生成.bin格式的模型。在ctc_metrics/inference.sh中指定lm_path为模型的路径即可使用语言模型进行调分。
-### 模型效果
-目前训练了参数量为的base模型。预训练数据是wenetspeech的一万小时数据，使用8张A100(40G)训练了170h。finetune数据为wenetspeech的一百小时数据，base模型的字错误率与腾讯发布结果的比较如下
-| model | dev | test-meeting | test-net |
-| ---- | ---- | ---- | ---- |
-| 用迁移的代码预训练 + finetune的效果 | 0.143 | 0.283 | 0.205 |
-| 不预训练，仅训练ctc模型 | 0.257 | 0.542 | 0.370 |
 
 ### asr_demo
 包含一个streamlit写的简单demo，能通过以下命令启动
