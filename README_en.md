@@ -2,29 +2,30 @@
 
 # Navigation
 - [Navigation](#navigation)
-- [Intro](#intro)
+- [Model Infofrmation](#model-infofrmation)
 - [Fengshenbang-LM](#fengshenbang-lm)
+- [Fengshenbang Model](#fengshenbang-model)
   - [Erlangshen](#erlangshen)
     - [Download the Models](#download-the-models)
     - [Load the Models](#load-the-models)
     - [Example of Usage](#example-of-usage)
     - [Performance on Downstream Tasks](#performance-on-downstream-tasks)
 - [Fengshen Framework](#fengshen-framework)
-- [A Series of Articles](#a-series-of-articles)
+- [Fengshen Benchmark](#fengshen-benchmark)
+- [Fegnshenbang Series Articles](#fegnshenbang-series-articles)
 - [Citation](#citation)
 - [Contact](#contact)
 - [License](#license)
 
-# Intro
-|Model|Scale|Architecture|Domain|Target Tasks|Notes|
-|-|-|-|-|-|-|
-|[Erlangshen](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BA%8C%E9%83%8E%E7%A5%9E%E7%B3%BB%E5%88%97/index.html)|0.1B-1.3B params|Bidirectional Laugnage Models with Encoder structure|Common|NLU|Largest Chinese open source Bert model; SOTA on few-shot learning benchmark FewCLUE|
-|[Wenzhong](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E9%97%BB%E4%BB%B2%E7%B3%BB%E5%88%97/index.html)|0.1B-3.5B params|Unidirectional Language Models with Decoder structure|Common|NLG||
-|[Randeng](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E7%87%83%E7%81%AF%E7%B3%BB%E5%88%97/index.html)|770M-0.7B params|Encoder-Decoder structured models with Transformer/T5 structures|Common|NLU+NLG||
-|[Yuyuan](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BD%99%E5%85%83%E7%B3%BB%E5%88%97/index.html)|0.1B-3.5B params|Unidirectional Language Models with GPT-2 structure|Medical|NLG|Largest open source GPT2 medical model|
-|[Bigan](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E6%AF%94%E5%B9%B2%E7%B3%BB%E5%88%97/index.html)|1.1B params| Transformer-XL structures|Common|Semantic Correction | |
-|[Zhouwenwang](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%91%A8%E6%96%87%E7%8E%8B%E7%B3%BB%E5%88%97/index.html)|0.1B-1.3B params|Unified Language Models|Common|NLU+NLG|Modified based on Roformer structure; the largest model trained on both LM and MLM|
-|[Taiyi](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%A4%AA%E4%B9%99%E7%B3%BB%E5%88%97/index.html)|87M-0.1B params| Co-attention | Multimodal | Multimodal Semantic understanding | |
+# Model Infofrmation
+|Series|Demand|Task|Parameter Scale|Extra|
+|-|-|-|-|-|
+|[Erlangshen](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BA%8C%E9%83%8E%E7%A5%9E%E7%B3%BB%E5%88%97/index.html)|General|NLU|97M-3.9B|Erlangshen was designed to solve NLU tasks; The largest BERT when publicly released; SOTA on FewCLUE and ZeroCLUE in 2021.|
+|[Wenzhong](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E9%97%BB%E4%BB%B2%E7%B3%BB%E5%88%97/index.html)|General|NLG|1B-3.5B|Wenzhong focuses on NLG tasks; Provides several generative models with different scales, such as GPT2, etc.|
+|[Randeng](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E7%87%83%E7%81%AF%E7%B3%BB%E5%88%97/index.html)|General|NLT|770M-0.7B|Randeng handles natural language transformation (NLT) type tasks that convert from source text to target text, such as machine translation, text summarization, etc.|
+|[Taiyi](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%A4%AA%E4%B9%99%E7%B3%BB%E5%88%97/index.html)|Speical|MultiModal|87M-0.1B|Taiyi was applied to cross-modality scenarios, including text image generation, protein structure prediction, speech-text representation, etc.|
+|[Yuyuan](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BD%99%E5%85%83%E7%B3%BB%E5%88%97/index.html)|Speical|Domain|0.1B-3.5B|Yuyuan was applied to specific domains such as healthcare, finance, law, programming, etc; The largest open-source GPT2 medical model|
+|-TBD-|Special|Exploration|-Unknown-|This series hopes to develop experimental models on NLP with various technology companies and universities. Currently there are:[Zhouwenwang](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%91%A8%E6%96%87%E7%8E%8B%E7%B3%BB%E5%88%97/index.html)|
 
 
 [Download url of Fengshenbang](https://huggingface.co/IDEA-CCNL)
@@ -33,15 +34,27 @@
 
 
 # Fengshenbang-LM
-Pretraining of large-scale models have gradually become the basis of cognitive computing in recent years; Tasks and algorithms of natural language processing and computer vision heavily rely on pretrained large models.
+Remarkable advances in Artificial Intelligence (AI) have produced great models, in particular, pre-trained based foundation models become an emerging paradigm. In contrast to traditional AI models that must be trained on vast datasets for one or a few scenarios, foundation models can be adapted to a wide range of downstream tasks, therefore, limiting the amount of resource demanded to acquire an AI venture off the ground. 
+Moreover, we observe that these models grow rapidly within a short period, around 10 times each year. For instance, BERT has 100 million parameters and GTP-3 has over 100 billion parameters. Many of the forefront challenges in AI, especially generalization ability, are becoming achievable due to this inspiring trend.
 
-The scale of pretrained models, measured by the number of parameters, have been growing at a rate of approximately 10 times per year from the initial 110M BERT to the 175B GPT-3. For different downstream tasks, pretrained models that vary in architectures, sizes and expertise domains are needed; in short, the world needs more larger models. 
-
-However, limited computing power is a major bottleneck for the development of the field. Institutions such as most universities, small companies and businesses in traditional areas are not equipped with enough computing resources for training and inferencing with large-scale pretrained models; further industrial practice of artificial intelligence is hence hindered.
+Foundation models, most notably language models, are dominated by the English-language community. 
+The Chinese language as the world's largest spoken language (native speakers), however, has no systematic research resources to support it, making the progress in the Chinese language domain lag behind others.
 
 And the world needs an answer for this.
 
-IDEA (International Digital Economy Academy) officially announces the launch of "Fengshenbang" open source project. It open sources a series of large-scale natural languguage pretrained models. These models will bring comprehensive coverage across various model architectures, sizes and expertise domains. We guarantee that we will optimize the models continuously with new datasets and latest algorithms. We aim to build universal infrastructure for Chinese cognitive intelligence and prevent duplicative construction, and hence save computing resources for the community.
+IDEA (International Digital Economy Academy) officially announces the launch of "Fengshenbang" open source project —— a Chinese language driven foundation ecosystem, incorporates pre-trained models, task-specific fine-tune applications, benchmarks, and datasets. Our goal is to build a comprehensive, standardized and user-centered ecosystem. Although this can be instantiated in a variety of ways, we present the following design that we find to be particularly effective:
+
+![avatar](pics/fengshenbang_process1.png)
+
+Although this seems complicated, with only 3 sequential steps, users can build their applications based on our resources.
+- Step 1: Choosing a pre-trained Chinese NLP model from our open-source library of Fengshenbang Models.
+- Step 2: Employing Fengshen Framework to adjust the model by exploring the our tutorial examples.
+- Step 3: Evaluating on downstream tasks, such as Fengshenbang Benchmarks or custom tasks.
+
+# Fengshenbang Model
+
+"Fengshenbang Model" will open-source a series of NLP-related pre-trained models in all aspects. There are a wide range of research tasks in the NLP community, which can be divided into two categories: general demands and special demands. In general demands, there are common NLP tasks, which are classified into Natural Language Understanding (NLU), Natural Language Generation (NLG), and Natural Language Transformation (NLT). 
+Due to the fast development, NLP community brings special demands to the entire AI community, which are often assigned to MultiModal (MM), Domains and Exploration. We consider all of these tasks and provide models that are fine tuning for downstream tasks, making our base model easy to use for users with limited computing resources. We consider all of these demands and provide models that are fine-tuned for downstream tasks, making our base model easy to use for users with limited computing resources. Moreover, we guarantee that we will optimize the models continuously with new datasets and latest algorithms. We aim to build universal infrastructure for Chinese cognitive intelligence and prevent duplicative construction, and hence save computing resources for the community.
 
 ![avatar](pics/pic1_eng.png)
 
@@ -102,19 +115,38 @@ sh finetune_classification.sh
 
 # Fengshen Framework
 
-To facilitate the use of the Fengshenbang large model, further joining in continued training as well as applying in downstream tasks, we synchronously open source the Fengshen framework. Referring to other excellent open source frameworks (including [HuggingFace](https://github.com/huggingface/transformers), [Megatron-LM](https://github.com/NVIDIA/Megatron-LM), [Pytorch-Lightning](https://github.com/PyTorchLightning/pytorch-lightning), [DeepSpeed](https://github.com/microsoft/DeepSpeed)) and combining the characteristics of NLP field, we redesign FengShen with Pytorch as the base framework and Pytorch-Lightning as the Pipeline. FengShen can be applied to pre-training of large models (tens of billions of parameters) based on massive data (terabytes of data) and fine-tuning on various downstream tasks. Users can easily perform distributed training and memory-saving techniques with configuration, thus focusing more on model implementation and innovation. Also, FengShen can directly use the model structure in [HuggingFace](https://github.com/huggingface/transformers) for continued training, which facilitates domain transfer for users. FengShen provides rich and realistic source code and examples. We will continue to optimize the FengShen framework as the models of Fengshenbang are trained and applied. Stay tuned. 
+To make it easy for everyone to use the FengShenbang model, participate in the continuous training and downstream applications of the large-scale model, we We simultaneously open-source the user-centered FengShen framework. For details, please also see: [FengShen Framework] (https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen).
 
+Referring to other excellent open source frameworks (including [HuggingFace](https://github.com/huggingface/transformers), [Megatron-LM](https://github.com/NVIDIA/Megatron-LM), [Pytorch-Lightning](https://github.com/PyTorchLightning/pytorch-lightning), [DeepSpeed](https://github.com/microsoft/DeepSpeed)) and combining the characteristics of NLP field, we redesign FengShen with Pytorch as the base framework and Pytorch-Lightning as the Pipeline. FengShen can be applied to pre-training of large models (tens of billions of parameters) based on massive data (terabytes of data) and fine-tuning on various downstream tasks. Users can easily perform distributed training and memory-saving techniques with configuration, thus focusing more on model implementation and innovation. Also, FengShen can directly use the model structure in [HuggingFace](https://github.com/huggingface/transformers) for continued training, which facilitates domain transfer for users. FengShen provides rich and realistic source code and examples. We will continue to optimize the FengShen framework as the models of Fengshenbang are trained and applied. Stay tuned. 
 
 [Get Started with Fengshen in 3 Minutes](fengshen/README.md)
 
+# Fengshen Benchmark
+Our "Fengshenbang" ecosystem also includes a benchmark module - "Fengshen Benchmark", which allows users to make fair comparisons on our platform and allows the entire Chinese community to track the latest advances in NLP models.
 
-# A Series of Articles
+To collect high-quality and robust benchmarks, we consider different aspects of testing the models. As a result, we identify the following requirements while building the Fengshenbang benchmark:
+- **Widely evaluated**: While some existing datasets are not designed in Chinese, they have been used extensively in NLP for years, e.g. SuperGLUE. We will gather some professional English and Chinese linguists to meticulously translate these popular datasets.
+- **Future-oriented**: In fact, a few NLP models already surpass human performance on several benchmarks. This declares that AI has reached or even can surpass human cognitive intelligence. One reason we believe is their limited scope of evaluation. A more urgent and necessary work is to construct challenging datasets instead of fitting existing datasets to $100\%$ accuracy. Future benchmarks need to consider broader ethical, technical, and societal challenges. Our datasets will be published soon to better support the research community.
+- **Applicable**: Benchmarks are required to represent real-world scenarios. This allows us to collaborate with industry-active companies to publish datasets and collect real-world data.
+
+# Fegnshenbang Series Articles
 
 [Fengshen Series: Getting Started on Training Large Model with Data Parallelism](https://zhuanlan.zhihu.com/p/512194216)
 
 [Fengshen Series: It is Time to Accelerate your Training Process !](https://zhuanlan.zhihu.com/p/485369778)
 
 # Citation
+If you are using the resource for your work, please cite the our [paper](https://arxiv.org/abs/2209.02970):
+```
+@article{fengshenbang,
+  author    = {Junjie Wang and Yuxiang Zhang and Lin Zhang and Ping Yang and Xinyu Gao and Ziwei Wu and Xiaoqun Dong and Junqing He and Jianheng Zhuo and Qi Yang and Yongfeng Huang and Xiayu Li and Yanghan Wu and Junyu Lu and Xinyu Zhu and Weifeng Chen and Ting Han and Kunhao Pan and Rui Wang and Hao Wang and Xiaojun Wu and Zhongshen Zeng and Chongpei Chen and Ruyi Gan and Jiaxing Zhang},
+  title     = {Fengshenbang 1.0: Being the Foundation of Chinese Cognitive Intelligence},
+  journal   = {CoRR},
+  volume    = {abs/2209.02970},
+  year      = {2022}
+}
+```
+You can also cite our [website](https://github.com/IDEA-CCNL/Fengshenbang-LM/):
 ```
 @misc{Fengshenbang-LM,
   title={Fengshenbang-LM},
@@ -129,4 +161,3 @@ To facilitate the use of the Fengshenbang large model, further joining in contin
 # License 
 
 [Apache License 2.0](LICENSE)
-
