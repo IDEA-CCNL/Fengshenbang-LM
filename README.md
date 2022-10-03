@@ -18,6 +18,7 @@
 - [导航](#导航)
 - [模型系列简介](#模型系列简介)
 - [Fengshenbang-LM](#fengshenbang-lm)
+- [封神榜模型](#封神榜模型)
   - [二郎神系列](#二郎神系列)
     - [模型下载地址](#模型下载地址)
     - [模型加载](#模型加载)
@@ -28,6 +29,7 @@
     - [使用自己的环境安装](#使用自己的环境安装)
     - [使用Docker](#使用docker)
   - [Pipelines](#pipelines)
+- [封神榜单](#封神榜单)
 - [封神榜系列文章](#封神榜系列文章)
 - [引用](#引用)
 - [联系我们](#联系我们)
@@ -35,15 +37,14 @@
 
 # 模型系列简介
 
-|系列名称|参数规模|结构|领域|适用任务|备注|
-|-|-|-|-|-|-|
-|[二郎神](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BA%8C%E9%83%8E%E7%A5%9E%E7%B3%BB%E5%88%97/index.html)|1亿-13亿参数|Encoder结构为主的双向语言模型|通用|语言理解|最大的开源中文bert模型，FewCLUE/ZeroCLUE均达到SOTA|
-|[闻仲](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E9%97%BB%E4%BB%B2%E7%B3%BB%E5%88%97/index.html)|1亿-35亿参数|Decoder结构为主的单向语言模型|通用|语言生成||
-|[燃灯](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E7%87%83%E7%81%AF%E7%B3%BB%E5%88%97/index.html)|7千万-7亿参数|T5/BART编解码结构为主|通用|语言理解+语言生成||
-|[余元](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BD%99%E5%85%83%E7%B3%BB%E5%88%97/index.html)|1亿-35亿参数|多种结构|医疗|语言生成|目前最大的开源GPT2医疗模型|
-|[比干](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E6%AF%94%E5%B9%B2%E7%B3%BB%E5%88%97/index.html)|11亿参数|Transformer-XL结构|通用|语义纠错||
-|[周文王](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%91%A8%E6%96%87%E7%8E%8B%E7%B3%BB%E5%88%97/index.html)|1亿-13亿参数|单双向统一语言模型|通用|语言理解+语言生成|基于roformer结构修改，最大的同时进行LM+MLM的模型|
-|[太乙](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%A4%AA%E4%B9%99%E7%B3%BB%E5%88%97/index.html)|8千万-1亿参数|双流结构|多模态|多模态语义理解||
+|系列名称|需求|适用任务|参数规模|备注|
+|-|-|-|-|-|
+|[二郎神](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BA%8C%E9%83%8E%E7%A5%9E%E7%B3%BB%E5%88%97/index.html)|通用|语言理解|9千万-39亿参数|处理理解任务，拥有开源时最大的中文bert模型，2021登顶FewCLUE和ZeroCLUE|
+|[闻仲](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E9%97%BB%E4%BB%B2%E7%B3%BB%E5%88%97/index.html)|通用|语言生成|1亿-35亿参数|专注于生成任务，提供了多个不同参数量的生成模型，例如GPT2等|
+|[燃灯](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E7%87%83%E7%81%AF%E7%B3%BB%E5%88%97/index.html)|通用|语言转换|7千万-7亿参数|处理各种从源文本转换到目标文本类型的任务，例如机器翻译，文本摘要等|  
+|[太乙](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%A4%AA%E4%B9%99%E7%B3%BB%E5%88%97/index.html)|特定|多模态|8千万-1亿参数|应用于跨模态场景，包括文本图像生成，蛋白质结构预测, 语音-文本表示等|
+|[余元](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BD%99%E5%85%83%E7%B3%BB%E5%88%97/index.html)|特定|领域|1亿-35亿参数|应用于领域，如医疗，金融，法律，编程等。拥有目前最大的开源GPT2医疗模型|
+|-待定-|特定|探索|-未知-|我们希望与各技术公司和大学一起开发NLP相关的实验模型。目前已有：[周文王](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%91%A8%E6%96%87%E7%8E%8B%E7%B3%BB%E5%88%97/index.html)|
 
 [封神榜模型下载链接](https://huggingface.co/IDEA-CCNL)
 
@@ -53,14 +54,25 @@
 
 # Fengshenbang-LM
 
-最近两年，预训练逐渐成为整个认知智能的基础，自然语言和计算机视觉的算法全方面的依赖于预训练模型来构建。
+人工智能的显著进步产生了许多伟大的模型，特别是基于预训练的基础模型成为了一种新兴的范式。传统的AI模型必须要在专门的巨大的数据集上为一个或几个有限的场景进行训练，相比之下，基础模型可以适应广泛的下游任务。基础模型造就了AI在低资源的场景下落地的可能。  
+我们观察到这些模型的参数量正在以每年10倍的速度增长。2018年的BERT，在参数量仅有1亿量级，但是到了2020年，GPT-3的参数量就已达到百亿的量级。由于这一鼓舞人心的趋势，人工智能中的许多前沿挑战，尤其是强大的泛化能力，逐渐变得可以被实现。
 
-预训练模型的规模从最初的1亿参数BERT到一千多亿参数的GTP-3，正在以每年10倍的速度增加。针对不同的下游任务，需要不同的结构，不同的尺寸和不同的专业领域的预训练模型。
-这个世界需要更多更大的模型。但是，有限的算力资源是限制整个领域进一步发展的瓶颈。尤其是高校、小公司和一些传统公司，根本不具备足够的算力来训练和使用大规模预训练模型。这些都阻碍了整个人工智能技术更进一步的落地。
+如今的基础模型，尤其是语言模型，正在被英文社区主导着。与此同时，中文作为这个世界上最大的口语语种（母语者中），却缺乏系统性的研究资源支撑，这使得中文领域的研究进展相较于英文来说有些滞后。
 
 这个世界需要一个答案。
 
-IDEA研究院正式宣布，开启 “封神榜”大模型开源计划。“封神榜”将全方面的开源一系列NLP相关的预训练大模型，它们将覆盖文本分类、文本续写、文本摘要、语义纠错等NLP相关任务，不同的专业领域。而且我们承诺，将对这些模型做持续的升级，不断融合最新的数据和最新的训练算法。通过IDEA研究院的努力，打造中文认知智能的通用基础设施，避免重复建设，为全社会节省算力。
+为了解决中文领域研究进展滞后和研究资源严重不足的问题，IDEA研究院正式宣布，开启 “封神榜”开源体系——一个以中文驱动的基础生态系统，其中包括了预训练大模型，特定任务的微调应用，基准和数据集等。我们的目标是构建一个全面的，标准化的，以用户为中心的生态系统。尽管这一目标可以通过多种方式去实现，但是我们经过对中文社区的重新审视与思考，提出了我们认为最为有效的方案：
+
+![avatar](pics/fengshenbang_process1.png)
+
+尽管这看起来可能有些复杂，但是只需三步，用户就可以根据我们的资源轻松构建所需的应用了。
+- 步骤1: 从我们的封神榜模型库中选择一个预训练好的中文NLP模型.
+- 步骤2: 通过阅读我们的教程示例，使用封神框架调整模型。
+- 步骤3: 在我们的封神榜单或者自定义任务中评估模型在下游任务上的表现。
+
+# 封神榜模型
+
+“封神榜模型”将全方面的开源一系列NLP相关的预训练大模型。NLP社区中有着广泛的研究任务，这些任务可以被分为两类：通用任务和特殊任务。前者包括了自然语言理解(NLU)，自然语言生成(NLG)和自然语言转换(NLT)任务。后者涵盖了多模态，特定领域等任务。我们考虑了所有的这些任务，并且提供了在下游任务上微调好的相关模型，这使得计算资源有限的用户也可以轻松使用我们的基础模型。而且我们承诺，将对这些模型做持续的升级，不断融合最新的数据和最新的训练算法。通过IDEA研究院的努力，打造中文认知智能的通用基础设施，避免重复建设，为全社会节省算力。
 
 ![avatar](pics/model_pic1.png)
 
@@ -121,7 +133,9 @@ sh finetune_classification.sh
 
 # 封神框架
 
-为了让大家好用封神榜大模型，参与大模型的继续训练和下游应用，我们同步开源了FengShen(封神)框架。我们参考了[HuggingFace](https://github.com/huggingface/transformers), [Megatron-LM](https://github.com/NVIDIA/Megatron-LM), [Pytorch-Lightning](https://github.com/PyTorchLightning/pytorch-lightning), [DeepSpeed](https://github.com/microsoft/DeepSpeed)等优秀的开源框架，结合NLP领域的特点, 以Pytorch为基础框架，Pytorch-Lightning为Pipeline重新设计了FengShen。 FengShen可以应用在基于海量数据(TB级别数据)的大模型(百亿级别参数)预训练以及各种下游任务的微调，用户可以通过配置的方式很方便地进行分布式训练和节省显存的技术，更加聚焦在模型实现和创新。同时FengShen也能直接使用[HuggingFace](https://github.com/huggingface/transformers)中的模型结构进行继续训练，方便用户进行领域模型迁移。FengShen针对封神榜开源的模型和模型的应用，提供丰富、真实的源代码和示例。随着封神榜模型的训练和应用，我们也会不断优化FengShen框架，敬请期待。
+为了让大家用好封神榜大模型，参与大模型的继续训练和下游应用，我们同步开源了以用户为中心的FengShen(封神)框架。详情请见：[FengShen(封神)框架](https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen)。
+
+我们参考了[HuggingFace](https://github.com/huggingface/transformers), [Megatron-LM](https://github.com/NVIDIA/Megatron-LM), [Pytorch-Lightning](https://github.com/PyTorchLightning/pytorch-lightning), [DeepSpeed](https://github.com/microsoft/DeepSpeed)等优秀的开源框架，结合NLP领域的特点, 以Pytorch为基础框架，Pytorch-Lightning为Pipeline重新设计了FengShen。 FengShen可以应用在基于海量数据(TB级别数据)的大模型(百亿级别参数)预训练以及各种下游任务的微调，用户可以通过配置的方式很方便地进行分布式训练和节省显存的技术，更加聚焦在模型实现和创新。同时FengShen也能直接使用[HuggingFace](https://github.com/huggingface/transformers)中的模型结构进行继续训练，方便用户进行领域模型迁移。FengShen针对封神榜开源的模型和模型的应用，提供丰富、真实的源代码和示例。随着封神榜模型的训练和应用，我们也会不断优化FengShen框架，敬请期待。
 
 ## 安装
 
@@ -166,6 +180,17 @@ fengshen-pipeline text_classification train --model='IDEA-CCNL/Erlangshen-Robert
 ```
 
 [三分钟上手封神](fengshen/README.md)
+
+# 封神榜单
+
+我们提出的生态系统中还包括了一个基准模块——“封神榜单“，它允许用户在我们的平台上进行公平的比较，并且可以让整个中文社区追踪NLP模型最新进展。
+
+为了构建高质量和健壮的基准，我们需要考虑到如何测试模型的方方面面。因此，我们在构建封神榜单时确定了以下要求：
+- **广泛认可**：虽然一些现有的数据集不是用中文设计的，但它们多年来在NLP领域中被广泛使用，例如[SuperGLUE](https://super.gluebenchmark.com/)。所以，我们将召集一些专业的中英文的语言专家，精心翻译并校对这些热门的数据集。
+- **面向未来**：一些NLP模型已经在多个基准测试中超越了人类的表现。我们认为更重要和紧迫的工作是构建一些具有挑战性的数据集，而不是将现有数据集拟合到100%的准确度。未来的基准需要考虑更广泛的道德, 技术和社会上的挑战。我们的数据集将会尽快发布，以更好地支持中文社区的进一步研究。
+- **合作共创**：基准需要反映真实世界的场景。我们希望能够与行业活跃的公司合作收集真实世界的数据并发布。
+
+我们在未来会发布榜单管理系统，希望可以推动更多定制的排行榜系统的发展，敬请期待。
 
 # 封神榜系列文章
 
