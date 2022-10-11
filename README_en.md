@@ -1,6 +1,20 @@
 [**中文**](./README.md) | [**English**](./README_en.md)
 
+# Fengshenbang big event
+
+- [AIWIN champion solution, Fengshenbang proposed multi-task learning model Ubert](https://mp.weixin.qq.com/s/A9G0YLbIPShKgm98DnD2jA) 2022.07.21
+- [Just a simple Finetune, "Fengshenbang" pre-trained language model "Erlangshen" won the first place in SimCLUE benchmark](https://mp.weixin.qq.com/s/KXQtCgxZlCnv0HqSyQAteQ) 2022.07.14
+- [Fengshen Framework is officially open-sourced, helping you easily pre-train and fine-tune major models in "Fengshenbang"](https://mp.weixin.qq.com/s/NtaEVMdTxzTJfVr-uQ419Q) 2022.06.30
+- [GTS model production platform is open to public beta, automatically produces AI models using AI](https://mp.weixin.qq.com/s/AFp22hzElkBmJD_VHW0njQ) 2022.05.23
+- [Dataset released！IDEA-CCNL × NLPCC 2022 Mission Challenge has begun, and the winning teams will receive IDEA internship opportunities](https://mp.weixin.qq.com/s/AikMy6ygfnRagOw3iWuArA) 2022.04.07
+- [A new record! IDEA-CCNL pretrained language model "Erlangshen", this time won ZeroCLUE](https://mp.weixin.qq.com/s/Ukp0JOUwAZJiegdX_4ox2Q) 2022.01.24
+- [IDEA Friends | CCNL Team "Fengshenbang", why did they choose IDEA?](https://mp.weixin.qq.com/s/eCmMtopG9DGvZ0qWM3C6Sg) 2022.01.12
+- [IDEA Meeting Release｜"Fengshenbang" Open Source Project](https://mp.weixin.qq.com/s/Ct06-vLEKoYMyJQPBV2n0w) 2021.11.25
+- [IDEA Chinese pre-trained language model Erlangshen tops the FewCLUE benchmark](https://mp.weixin.qq.com/s/bA_9n_TlBE9P-UzCn7mKoA) 2021.11.11
+
+
 # Navigation
+- [Fengshenbang big event](#fengshenbang-big-event)
 - [Navigation](#navigation)
 - [Model Infofrmation](#model-infofrmation)
 - [Fengshenbang-LM](#fengshenbang-lm)
@@ -11,6 +25,10 @@
     - [Example of Usage](#example-of-usage)
     - [Performance on Downstream Tasks](#performance-on-downstream-tasks)
 - [Fengshen Framework](#fengshen-framework)
+  - [Installation](#installation)
+    - [Installing in an existing environment](#installing-in-an-existing-environment)
+    - [Using Docker](#using-docker)
+  - [Pipelines](#pipelines)
 - [Fengshen Benchmark](#fengshen-benchmark)
 - [Fegnshenbang Series Articles](#fegnshenbang-series-articles)
 - [Citation](#citation)
@@ -19,7 +37,7 @@
 
 # Model Infofrmation
 |Series|Demand|Task|Parameter Scale|Extra|
-|-|-|-|-|-|
+|:---:|:---:|:---:|:---:|---|
 |[Erlangshen](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BA%8C%E9%83%8E%E7%A5%9E%E7%B3%BB%E5%88%97/index.html)|General|NLU|97M-3.9B|Erlangshen was designed to solve NLU tasks; The largest BERT when publicly released; SOTA on FewCLUE and ZeroCLUE in 2021.|
 |[Wenzhong](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E9%97%BB%E4%BB%B2%E7%B3%BB%E5%88%97/index.html)|General|NLG|1B-3.5B|Wenzhong focuses on NLG tasks; Provides several generative models with different scales, such as GPT2, etc.|
 |[Randeng](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E7%87%83%E7%81%AF%E7%B3%BB%E5%88%97/index.html)|General|NLT|770M-0.7B|Randeng handles natural language transformation (NLT) type tasks that convert from source text to target text, such as machine translation, text summarization, etc.|
@@ -29,6 +47,8 @@
 
 
 [Download url of Fengshenbang](https://huggingface.co/IDEA-CCNL)
+
+[Fengshenbang Model training and fine-tuning code script](https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples)
 
 [Handbook of Fengshenbang](https://fengshenbang-doc.readthedocs.io/zh/latest/index.html)
 
@@ -56,11 +76,11 @@ Although this seems complicated, with only 3 sequential steps, users can build t
 "Fengshenbang Model" will open-source a series of NLP-related pre-trained models in all aspects. There are a wide range of research tasks in the NLP community, which can be divided into two categories: general demands and special demands. In general demands, there are common NLP tasks, which are classified into Natural Language Understanding (NLU), Natural Language Generation (NLG), and Natural Language Transformation (NLT). 
 Due to the fast development, NLP community brings special demands to the entire AI community, which are often assigned to MultiModal (MM), Domains and Exploration. We consider all of these tasks and provide models that are fine tuning for downstream tasks, making our base model easy to use for users with limited computing resources. We consider all of these demands and provide models that are fine-tuned for downstream tasks, making our base model easy to use for users with limited computing resources. Moreover, we guarantee that we will optimize the models continuously with new datasets and latest algorithms. We aim to build universal infrastructure for Chinese cognitive intelligence and prevent duplicative construction, and hence save computing resources for the community.
 
-![avatar](pics/pic1_eng.png)
+![avatar](pics/model_pic1.png)
 
 We also call for businesses, universities and institutions to join us with the project and build the sytem of large-scale open-source models collaboratively. We envision that, in the near future, the first choice when in need of a new pretrained model should be selecting one in closest proximity to the desired scale,architecture and domain from the series, followed by further training. After obtaining a trained new model, we shall add it back to the series of open-source models for future usage. In this way we build the open-source system iteratively and collaboratively while individuals could get desired models using minimal computing resources. 
 
-![avatar](pics/pic2_eng.png)
+![avatar](pics/model_pic2.png)
 
 For better open source experience, all models of the Fengshenbang series are synchronized within the Huggingface community, and can be obtained for use within few lines of code. Welcome to download and use our models from our repo at [IDEA-CCNL at HuggingFace](https://huggingface.co/IDEA-CCNL).
 
@@ -98,13 +118,11 @@ For the convenience of developers, we offer an example [script](https://github.c
 MODEL_TYPE=huggingface-megatron_bert
 PRETRAINED_MODEL_PATH=IDEA-CCNL/Erlangshen-MegatronBert-1.3B
 ```
-2、run
+2、Then, run
 
 ``` sh
 sh finetune_classification.sh
 ```
-
-
 
 ### Performance on Downstream Tasks 
 |     Model   | afqmc    |  tnews  | iflytek    |  ocnli  |  cmnli  | wsc  | csl  |
@@ -115,9 +133,51 @@ sh finetune_classification.sh
 
 # Fengshen Framework
 
-To make it easy for everyone to use the FengShenbang model, participate in the continuous training and downstream applications of the large-scale model, we We simultaneously open-source the user-centered FengShen framework. For details, please also see: [FengShen Framework] (https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen).
+To make it easy for everyone to use the FengShenbang model, participate in the continuous training and downstream applications of the large-scale model, we We simultaneously open-source the user-centered FengShen framework. For details, please also see: [Fengshen Framework](https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen).
 
 Referring to other excellent open source frameworks (including [HuggingFace](https://github.com/huggingface/transformers), [Megatron-LM](https://github.com/NVIDIA/Megatron-LM), [Pytorch-Lightning](https://github.com/PyTorchLightning/pytorch-lightning), [DeepSpeed](https://github.com/microsoft/DeepSpeed)) and combining the characteristics of NLP field, we redesign FengShen with Pytorch as the base framework and Pytorch-Lightning as the Pipeline. FengShen can be applied to pre-training of large models (tens of billions of parameters) based on massive data (terabytes of data) and fine-tuning on various downstream tasks. Users can easily perform distributed training and memory-saving techniques with configuration, thus focusing more on model implementation and innovation. Also, FengShen can directly use the model structure in [HuggingFace](https://github.com/huggingface/transformers) for continued training, which facilitates domain transfer for users. FengShen provides rich and realistic source code and examples. We will continue to optimize the FengShen framework as the models of Fengshenbang are trained and applied. Stay tuned. 
+
+## Installation
+
+### Installing in an existing environment
+
+```shell
+git clone https://github.com/IDEA-CCNL/Fengshenbang-LM.git
+cd Fengshenbang-LM
+git submodule init
+git submodule update
+# ubmodule is the fs_datasets we use to manage the datasets, pulled by ssh, which may fail if the user does not have ssh-key configured on the machine.
+# If the pull fails, you need to go to the .gitmodules file and change the ssh address to an https address.
+pip install --editable .
+```
+
+### Using Docker
+
+We provide a simple docker, which contains torch and cuda environment to run our framework.
+
+```shell
+sudo docker run --runtime=nvidia --rm -itd --ipc=host --name fengshen fengshenbang/pytorch:1.10-cuda11.1-cudann8-devel
+sudo docker exec -it fengshen bash
+cd Fengshenbang-LM
+# Update the code. The code in docker may not be up to date
+git pull
+git submodule foreach 'git pull origin master' 
+# Now you're ready to use our framework in docker
+```
+
+## Pipelines
+
+Fenghen framework is currently adapting various downstream tasks in Pipeline, support Predict, Finetuning by one-click in command line.
+Take Text Classification as an example
+
+```python
+# predict
+❯ fengshen-pipeline text_classification predict --model='IDEA-CCNL/Erlangshen-Roberta-110M-Similarity' --text='今天心情不好[SEP]今天很开心'
+[{'label': 'not similar', 'score': 0.9988130331039429}]
+
+# train
+fengshen-pipeline text_classification train --model='IDEA-CCNL/Erlangshen-Roberta-110M-Similarity' --datasets='IDEA-CCNL/AFQMC' --gpus=0 --texta_name=sentence1 --strategy=ddp
+```
 
 [Get Started with Fengshen in 3 Minutes](fengshen/README.md)
 
@@ -133,7 +193,15 @@ To collect high-quality and robust benchmarks, we consider different aspects of 
 
 [Fengshen Series: Getting Started on Training Large Model with Data Parallelism](https://zhuanlan.zhihu.com/p/512194216)
 
-[Fengshen Series: It is Time to Accelerate your Training Process !](https://zhuanlan.zhihu.com/p/485369778)
+[Fengshen Series: It is Time to Accelerate your Training Process!](https://zhuanlan.zhihu.com/p/485369778)
+
+[Fengshen Series: Chinese PEGASUS Model Pre-training](https://zhuanlan.zhihu.com/p/528716336)
+
+[Fengshen Series: Just a Simple Finetune, Erlangshen Accidentally Took the First Place](https://zhuanlan.zhihu.com/p/539870077)
+
+[Fengshen Series: Quickly Build Your Algorithm Demo](https://zhuanlan.zhihu.com/p/528077249)
+
+[2022 AIWIN World Artificial Intelligence Innovation Competition: Small Sample Multi-Task Track Winner Solution](https://zhuanlan.zhihu.com/p/539958182)
 
 # Citation
 If you are using the resource for your work, please cite the our [paper](https://arxiv.org/abs/2209.02970):
@@ -156,6 +224,13 @@ You can also cite our [website](https://github.com/IDEA-CCNL/Fengshenbang-LM/):
 }
 ```
 # Contact
+
+IDEA-CCNL team has created the Fengshebang open source discussion group, we will update and release new models and articles of Fengshenbang in the discussion group from time to time. Please scan the QR code below or search "fengshenbang-lm" on WeChat to add the Fengshen space assistant into the group!
+
+![avartar](pics/wechat_icon.png)
+
+We are also continuously recruiting, so feel free to send in your resume!
+
 ![avartar](pics/contactus.png)
 
 # License 
