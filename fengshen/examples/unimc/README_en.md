@@ -81,11 +81,35 @@ To evaluate the performance of UniMC, we use 14 multiple-choice datasets to pre-
 If this repository helps you, please cite this paper:
 
 ```text
-@article{fengshenbang,
-  author    = {Ping Yang and  Junjie Wang and Ruyi Gan and Xinyu Zhu and Lin Zhang and Ziwei Wu and Xinyu Gao and Jiaxing Zhang and Tetsuya Sakai},
-  title     = {Zero-Shot Learners for Natural Language Understanding via a Unified Multiple Choice Perspective},
-  journal   = {},
-  volume    = {},
+@article{DBLP:journals/corr/abs-2209-02970,
+  author    = {Junjie Wang and
+               Yuxiang Zhang and
+               Lin Zhang and
+               Ping Yang and
+               Xinyu Gao and
+               Ziwei Wu and
+               Xiaoqun Dong and
+               Junqing He and
+               Jianheng Zhuo and
+               Qi Yang and
+               Yongfeng Huang and
+               Xiayu Li and
+               Yanghan Wu and
+               Junyu Lu and
+               Xinyu Zhu and
+               Weifeng Chen and
+               Ting Han and
+               Kunhao Pan and
+               Rui Wang and
+               Hao Wang and
+               Xiaojun Wu and
+               Zhongshen Zeng and
+               Chongpei Chen and
+               Ruyi Gan and
+               Jiaxing Zhang},
+  title     = {Fengshenbang 1.0: Being the Foundation of Chinese Cognitive Intelligence},
+  journal   = {CoRR},
+  volume    = {abs/2209.02970},
   year      = {2022}
 }
 ```
