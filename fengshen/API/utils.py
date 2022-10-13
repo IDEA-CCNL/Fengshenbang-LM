@@ -10,7 +10,7 @@ from pydantic import AnyHttpUrl, BaseSettings, HttpUrl, validator, BaseModel
 CURRENT_DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 
 # request body
-# 使用pydantic的BaseModel对请求中的body数据进行验证
+# 使用pydantic对请求中的body数据进行验证
 class RequestDataStructure(BaseModel):
     input_text: List[str] = [""]
     uuid: Optional[int]
@@ -71,7 +71,7 @@ class APIConfig:
     def setup_config(self, args:Namespace) -> None:
         
         # load config file
-        with open(CURRENT_DIR_PATH + "/config/" + args.config_path, "r") as jsonfile:
+        with open(CURRENT_DIR_PATH + "/" + args.config_path, "r") as jsonfile:
             config = json.load(jsonfile)
 
         server_config = config["SERVER"]
@@ -136,7 +136,7 @@ def setup_logger(logger, user_config: APIConfig):
         ch = logging.StreamHandler()
         
         if(user_config.log_file_path == ""):
-            fh = logging.FileHandler(filename = CURRENT_DIR_PATH + "/log/"  + user_config.SERVER_NAME  + ".log")
+            fh = logging.FileHandler(filename = CURRENT_DIR_PATH + "/"  + user_config.SERVER_NAME  + ".log")
         elif(".log" not in user_config.log_file_path[-5:-1]):
             fh = logging.FileHandler(filename = user_config.log_file_path + "/" + user_config.SERVER_NAME + ".log")
         else:

@@ -1,0 +1,46 @@
+{
+    "SERVER": {
+        "SERVER_HOST": "127.0.0.1",
+        "SERVER_PORT": 8990,
+        "SERVER_NAME": "fengshen_demo",
+        "PROJECT_NAME": "fengshen_demo",
+        "API_PREFIX_STR": "/api",
+        
+        "API_method" : "POST",
+        "API_path": "/TextClassification",
+        "API_tags": ["TextClassification"],
+
+        "BACKEND_CORS_ORIGINS": ["*"],
+        "allow_credentials": true,
+        "allow_methods": ["*"],
+        "allow_headers": ["*"]
+        
+    },
+    "LOGGING": {
+        "log_file_path": "",
+        "log_level": "INFO"
+    },
+
+    "PIPELINE": {
+        "pipeline_type": "text_classification",
+        "model_name": "IDEA-CCNL/Erlangshen-Roberta-110M-Similarity",
+        "model_settings": {
+            "device": -1,
+            "texta_name": "sentence",
+            "textb_name": "sentence2",
+            "label_name": "label",
+            "max_length": 512,
+            "return_tensors": "pt",
+            "padding": "longest",
+            "truncation": true,
+            "skip_special_tokens": true,
+            "clean_up_tkenization_spaces": true,
+            
+            "skip_steps": 10,
+            "clip_guidance_scale": 7500,
+            "init_scale": 10
+        }
+    }
+}
+
+    

@@ -8,7 +8,6 @@ from starlette.middleware.cors import CORSMiddleware
 from utils import user_config, api_logger, setup_logger, RequestDataStructure
 
 # 命令行启动时只输入一个参数，即配置文件的名字，eg: text_classification.json
-# 配置文件需保存在config文件夹中，否则需要在utils.APIConfig类中修改文件加载路径
 # 其余所有配置在该配置文件中设定，不在命令行中指定
 total_parser = argparse.ArgumentParser("API")
 total_parser.add_argument("config_path", type=str)
