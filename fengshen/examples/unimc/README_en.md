@@ -56,7 +56,7 @@ if args.train:
 result = model.predict(test_data)
 ```
 ## Pretrained Model
-For the English model, the model was pre-trained with 14 multiplechoice datasets. For the Chinese model, we have collected 42 datasets to pre-train the model, and we have open sourced the pre-trained model to the HuggingFace community.
+For the English model, the model was pre-trained with 14 multiplechoice datasets. For the Chinese model, we have collected 48 datasets to pre-train the model, and we have open sourced the pre-trained model to the HuggingFace community.
 
 | Model | URL   |
 |:---------:|:--------------:|
