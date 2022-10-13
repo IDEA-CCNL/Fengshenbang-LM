@@ -19,9 +19,6 @@
 import numpy as np
 import torch
 
-from fengshen.data.megatron_dataloader.utils import (
-    print_rank_0
-)
 from fengshen.data.megatron_dataloader.dataset_utils import (
     get_samples_mapping,
     get_a_and_b_segments,
@@ -58,7 +55,6 @@ class BertDataset(torch.utils.data.Dataset):
                                                    self.seed,
                                                    self.name,
                                                    self.binary_head)
-        print_rank_0(self.samples_mapping.size)
         inv_vocab = {v: k for k, v in tokenizer.vocab.items()}
         self.vocab_id_list = list(inv_vocab.keys())
         self.vocab_id_to_token_dict = inv_vocab
@@ -132,6 +128,9 @@ def build_training_sample(sample,
         tokens_b = []
         is_next_random = False
 
+    if len(tokens_a) >= max_seq_length-3:
+        tokens_a = tokens_a[:max_seq_length-3]
+
     # Truncate to `target_sequence_length`.
     max_num_tokens = target_seq_length
     ''''
@@ -142,7 +141,6 @@ def build_training_sample(sample,
     # Build tokens and toketypes.
     tokens, tokentypes = create_tokens_and_tokentypes(tokens_a, tokens_b,
                                                       cls_id, sep_id)
-
     # Masking.
     max_predictions_per_seq = masked_lm_prob * max_num_tokens
     (tokens, masked_positions, masked_labels, _, _) = create_masked_lm_predictions(

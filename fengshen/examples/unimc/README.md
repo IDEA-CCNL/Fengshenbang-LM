@@ -24,19 +24,19 @@ pip install --editable .
 你可以参考我们的 [example.py](./example.py) 脚本，只需要将处理好的 train、dev、test 即输入模型即可。
 ```python
 import argparse
-from fengshen import UniMCPiplines
+from fengshen.pipelines.multiplechoice import UniMCPiplines
 
 total_parser = argparse.ArgumentParser("TASK NAME")
 total_parser = UniMCPiplines.piplines_args(total_parser)
 args = total_parser.parse_args()
     
-args.pretrained_model_path = 'IDEA-CCNL/Erlangshen-RoBERTa-110M-UniMC-Chinese'
+pretrained_model_path = 'IDEA-CCNL/Erlangshen-RoBERTa-110M-UniMC-Chinese'
 args.learning_rate=2e-5
 args.max_length=512
 args.max_epochs=3
 args.batchsize=8
 args.default_root_dir='./'
-model = UniMCPiplines(args)
+model = UniMCPiplines(args,model_path=pretrained_model_path)
 
 train_data = [] 
 dev_data = [] 

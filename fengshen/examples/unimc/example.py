@@ -1,5 +1,5 @@
 import argparse
-from fengshen import UniMCPiplines
+from fengshen.pipelines.multiplechoice import UniMCPiplines
 
 
 def main():
@@ -7,7 +7,7 @@ def main():
     total_parser = UniMCPiplines.piplines_args(total_parser)
     args = total_parser.parse_args()
 
-    args.pretrained_model_path = '/cognitive_comp/yangping/pretrained_model/mypretrained_model/UniMC-macbert-base'
+    pretrained_model_path = 'IDEA-CCNL/Erlangshen-RoBERTa-110M-UniMC-Chinese'
     args.learning_rate = 2e-5
     args.max_length = 512
     args.max_epochs = 3
@@ -15,7 +15,7 @@ def main():
     args.train = 'train'
     args.default_root_dir = './'
 
-    model = UniMCPiplines(args)
+    model = UniMCPiplines(args, model_path=pretrained_model_path)
 
     train_data = [    # 训练数据
         {
@@ -72,7 +72,7 @@ def main():
     ]
 
     if args.train:
-        model.fit(train_data, dev_data)
+        model.train(train_data, dev_data)
     result = model.predict(test_data)
     for line in result:
         print(line)

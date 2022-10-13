@@ -29,11 +29,15 @@ from torch.utils.data import Dataset, DataLoader
 from transformers.optimization import get_linear_schedule_with_warmup
 from transformers import BertForMaskedLM, AlbertTokenizer
 from transformers import AutoConfig
+from transformers.pipelines.base import Pipeline
 from transformers import MegatronBertForMaskedLM
-from ..deberta_v2.modeling_deberta_v2 import DebertaV2ForMaskedLM
-from ..albert.modeling_albert import AlbertForMaskedLM
+from fengshen.models.deberta_v2.modeling_deberta_v2 import DebertaV2ForMaskedLM
+from fengshen.models.albert.modeling_albert import AlbertForMaskedLM
 import argparse
 import copy
+from fengshen.utils.universal_checkpoint import UniversalCheckpoint
+import warnings
+from transformers import TextClassificationPipeline as HuggingfacePipe
 
 
 class UniMCDataset(Dataset):
@@ -340,11 +344,11 @@ class UniMCLitModel(pl.LightningModule):
 
         return parent_args
 
-    def __init__(self, args, yes_token, num_data=100):
+    def __init__(self, args, yes_token, model_path, num_data=100):
         super().__init__()
         self.args = args
         self.num_data = num_data
-        self.model = UniMCModel(self.args.pretrained_model_path, yes_token)
+        self.model = UniMCModel(model_path, yes_token)
 
     def setup(self, stage) -> None:
         if stage == 'fit':
@@ -404,33 +408,6 @@ class UniMCLitModel(pl.LightningModule):
         return torch.sum(corr.float())/labels.size(0)
 
 
-class TaskModelCheckpoint:
-    @staticmethod
-    def add_argparse_args(parent_args):
-        parser = parent_args.add_argument_group('BaseModel')
-
-        parser.add_argument('--monitor', default='val_acc', type=str)
-        parser.add_argument('--mode', default='max', type=str)
-        parser.add_argument('--dirpath', default='./log/', type=str)
-        parser.add_argument(
-            '--filename', default='model-{epoch:02d}-{val_acc:.4f}', type=str)
-        parser.add_argument('--save_top_k', default=3, type=float)
-        parser.add_argument('--every_n_epochs', default=1, type=float)
-        parser.add_argument('--every_n_train_steps', default=100, type=float)
-        parser.add_argument('--save_weights_only', default=True, type=bool)
-        return parent_args
-
-    def __init__(self, args):
-        self.callbacks = ModelCheckpoint(monitor=args.monitor,
-                                         save_top_k=args.save_top_k,
-                                         mode=args.mode,
-                                         save_last=True,
-                                         every_n_train_steps=args.every_n_train_steps,
-                                         save_weights_only=args.save_weights_only,
-                                         dirpath=args.dirpath,
-                                         filename=args.filename)
-
-
 class UniMCPredict:
     def __init__(self, yes_token, no_token, model, tokenizer, args):
         self.tokenizer = tokenizer
@@ -470,7 +447,7 @@ class UniMCPredict:
         return batch_data
 
 
-class UniMCPiplines:
+class UniMCPiplines(Pipeline):
     @staticmethod
     def piplines_args(parent_args):
         total_parser = parent_args.add_argument_group("piplines args")
@@ -483,25 +460,25 @@ class UniMCPiplines:
                                   default='chinese', type=str)
 
         total_parser = UniMCDataModel.add_data_specific_args(total_parser)
-        total_parser = TaskModelCheckpoint.add_argparse_args(total_parser)
+        total_parser = UniversalCheckpoint.add_argparse_args(total_parser)
         total_parser = UniMCLitModel.add_model_specific_args(total_parser)
         total_parser = pl.Trainer.add_argparse_args(parent_args)
         return parent_args
 
-    def __init__(self, args):
+    def __init__(self, args, model_path):
         self.args = args
-        self.checkpoint_callback = TaskModelCheckpoint(args).callbacks
+        self.checkpoint_callback = UniversalCheckpoint(args).callbacks
         self.logger = loggers.TensorBoardLogger(save_dir=args.default_root_dir)
         self.trainer = pl.Trainer.from_argparse_args(args,
                                                      logger=self.logger,
                                                      callbacks=[self.checkpoint_callback])
-        self.config = AutoConfig.from_pretrained(args.pretrained_model_path)
+        self.config = AutoConfig.from_pretrained(model_path)
         if self.config.model_type == 'albert':
             self.tokenizer = AlbertTokenizer.from_pretrained(
-                args.pretrained_model_path)
+                model_path)
         else:
             self.tokenizer = BertTokenizer.from_pretrained(
-                args.pretrained_model_path)
+                model_path)
 
         if args.language == 'chinese':
             self.yes_token = self.tokenizer.encode('是')[1]
@@ -512,12 +489,13 @@ class UniMCPiplines:
 
         if args.load_checkpoints_path != '':
             self.model = UniMCLitModel.load_from_checkpoint(
-                args.load_checkpoints_path, args=args, yes_token=self.yes_token)
+                args.load_checkpoints_path, args=args, yes_token=self.yes_token, model_path=model_path)
             print('load model from: ', args.load_checkpoints_path)
         else:
-            self.model = UniMCLitModel(args, yes_token=self.yes_token)
+            self.model = UniMCLitModel(
+                args, yes_token=self.yes_token, model_path=model_path)
 
-    def fit(self, train_data, dev_data, process=True):
+    def train(self, train_data, dev_data, process=True):
         if process:
             train_data = self.preprocess(train_data)
             dev_data = self.preprocess(dev_data)
@@ -595,6 +573,36 @@ class UniMCPiplines:
 
         return data
 
+    def _forward(self, model_inputs):
+        return self.model(**model_inputs)
+
+    def _sanitize_parameters(self, return_all_scores=None, function_to_apply=None, top_k="", **tokenizer_kwargs):
+        # Using "" as default argument because we're going to use `top_k=None` in user code to declare
+        # "No top_k"
+        preprocess_params = tokenizer_kwargs
+
+        postprocess_params = {}
+        if hasattr(self.model.config, "return_all_scores") and return_all_scores is None:
+            return_all_scores = self.model.config.return_all_scores
+
+        if isinstance(top_k, int) or top_k is None:
+            postprocess_params["top_k"] = top_k
+            postprocess_params["_legacy"] = False
+        elif return_all_scores is not None:
+            warnings.warn(
+                "`return_all_scores` is now deprecated,  if want a similar funcionality use `top_k=None` instead of"
+                " `return_all_scores=True` or `top_k=1` instead of `return_all_scores=False`.",
+                UserWarning,
+            )
+            if return_all_scores:
+                postprocess_params["top_k"] = None
+            else:
+                postprocess_params["top_k"] = 1
+
+        if function_to_apply is not None:
+            postprocess_params["function_to_apply"] = function_to_apply
+        return preprocess_params, {}, postprocess_params
+
 
 def load_data(data_path):
     with open(data_path, 'r', encoding='utf8') as f:
@@ -632,7 +640,7 @@ def main():
     print(args.data_dir)
 
     if args.train:
-        model.fit(train_data, dev_data)
+        model.train(train_data, dev_data)
     result = model.predict(dev_data)
     for line in result[:20]:
         print(line)

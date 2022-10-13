@@ -24,20 +24,20 @@ You can refer to our [example.py]()
 
 ```python
 import argparse
-from fengshen import UniMCPiplines
+from fengshen.pipelines.multiplechoice import UniMCPiplines
 
 total_parser = argparse.ArgumentParser("TASK NAME")
 total_parser = UniMCPiplines.piplines_args(total_parser)
 args = total_parser.parse_args()
     
-args.pretrained_model_path = 'IDEA-CCNL/Erlangshen-Albert-235M-UniMC-English'
+pretrained_model_path = 'IDEA-CCNL/Erlangshen-Albert-235M-UniMC-English'
 args.language='english'
 args.learning_rate=2e-5
 args.max_length=512
 args.max_epochs=3
 args.batchsize=8
 args.default_root_dir='./'
-model = UniMCPiplines(args)
+model = UniMCPiplines(args, model_path=pretrained_model_path)
 
 train_data = [] 
 dev_data = [] 

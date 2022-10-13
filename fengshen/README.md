@@ -1,19 +1,20 @@
 ## 最新发布
 
+* \[2022.09.13\] [更新ErLangShen系列DeBERTa预训练代码](https://huggingface.co/IDEA-CCNL/Erlangshen-DeBERTa-v2-97M-Chinese)
+* \[2022.09.13\] [更新RanDeng系列Bart预训练代码](https://huggingface.co/IDEA-CCNL/Randeng-BART-139M)
+* \[2022.09.13\] [更新ErLangShen系列Bert预训练代码](https://huggingface.co/IDEA-CCNL/Erlangshen-MegatronBert-1.3B)
 * \[2022.05.11\] [更新TaiYi系列VIT多模态模型及下游任务示例](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/太乙系列/Taiyi-vit-87M-D.html)
-* \[2022.05.11\] [更新BiGan系列Transformer-XL去噪模型及下游任务示例](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/比干系列/Bigan-Transformer-XL-denoise-1.1B.html) 
-* \[2022.05.11\] [更新ErLangShen系列下游任务示例](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/二郎神系列/Erlangshen-Roberta-110M-NLI.html) 
-* \[2022.05.11\] [更新RanDeng系列T5模型预训练及下游任务示例](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/燃灯系列/Randeng-MegatronT5-770M.html) 
-* \[2022.04.26\] [更新RanDeng系列BART模型预训练及下游任务示例](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/燃灯系列/BART-139M.html) 
-
-
+* \[2022.05.11\] [更新BiGan系列Transformer-XL去噪模型及下游任务示例](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/比干系列/Bigan-Transformer-XL-denoise-1.1B.html)
+* \[2022.05.11\] [更新ErLangShen系列下游任务示例](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/二郎神系列/Erlangshen-Roberta-110M-NLI.html)
 
 # 导航
+
+- [导航](#导航)
   - [框架简介](#框架简介)
   - [依赖环境](#依赖环境)
   - [项目结构](#项目结构)
   - [设计思路](#设计思路)
-
+  - [分类下游任务](#分类下游任务)
 
 ## 框架简介
 
@@ -23,6 +24,7 @@ FengShen训练框架是封神榜大模型开源计划的重要一环，在大模
 所有的模型可以在[Huggingface主页](https://huggingface.co/IDEA-CCNL)找到
 
 通过我们的框架，你可以快速享受到：
+
 1. 比原生torch更强的性能，训练速度提升<font color=#0000FF >**300%**</font>
 2. 支持更大的模型，支持<font color=#0000FF >**百亿级别**</font>内模型训练及微调
 3. 支持<font color=#0000FF >**TB级以上**</font>的数据集，在家用主机上即可享受预训练模型带来的效果提升
@@ -31,7 +33,6 @@ FengShen训练框架是封神榜大模型开源计划的重要一环，在大模
 5. 集成主流的分布式训练逻辑，无需修改代码即可支持DDP、Zero Optimizer等分布式优化技术
 
 ![avartar](../pics/fengshen_pic.png)
-
 
 ## 依赖环境
 
@@ -82,14 +83,15 @@ FengShen框架目前整体基于Pytorch-Lightning & Transformer进行开发，�
 
  在examples/classification目录下，我们提供丰富的分类任务的示例，其中我们提供三个一键式运行的示例。
 
- - demo_classification_afqmc_roberta.sh              使用DDP微调roberta
- - demo_classification_afqmc_roberta_deepspeed.sh    结合deepspeed微调roberta，获得更快的运算速度
- - demo_classification_afqmc_erlangshen_offload.sh   仅需7G显存即可微调我们效果最好的二郎神系列模型
+* demo_classification_afqmc_roberta.sh              使用DDP微调roberta
+* demo_classification_afqmc_roberta_deepspeed.sh    结合deepspeed微调roberta，获得更快的运算速度
+* demo_classification_afqmc_erlangshen_offload.sh   仅需7G显存即可微调我们效果最好的二郎神系列模型
 
  上述示例均采用AFQMC的数据集，关于数据集的介绍可以在[这里](https://www.cluebenchmarks.com/introduce.html)找到。
  同时我们处理过的数据文件已经放在Huggingface上，点击[这里](https://huggingface.co/datasets/IDEA-CCNL/AFQMC)直达源文件。
  仅需要按我们的格式稍微处理一下数据集，即可适配下游不同的分类任务。
  在脚本示例中，仅需要修改如下参数即可适配本地文件
+
  ```
          --dataset_name IDEA-CCNL/AFQMC \
 
@@ -101,4 +103,3 @@ FengShen框架目前整体基于Pytorch-Lightning & Transformer进行开发，�
          --test_data test.json \
 
  ```
-
