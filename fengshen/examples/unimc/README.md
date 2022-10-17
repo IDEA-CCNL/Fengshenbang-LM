@@ -30,7 +30,7 @@ total_parser = argparse.ArgumentParser("TASK NAME")
 total_parser = UniMCPiplines.piplines_args(total_parser)
 args = total_parser.parse_args()
     
-pretrained_model_path = 'IDEA-CCNL/Erlangshen-RoBERTa-110M-UniMC-Chinese'
+pretrained_model_path = 'IDEA-CCNL/Erlangshen-UniMC-RoBERTa-110M-Chinese'
 args.learning_rate=2e-5
 args.max_length=512
 args.max_epochs=3
@@ -59,10 +59,10 @@ result = model.predict(test_data)
 
 | 模型 | 地址   |
 |:---------:|:--------------:|
-| Erlangshen-Albert-235M-UniMC-English  | [https://huggingface.co/IDEA-CCNL/Erlangshen-Albert-235M-UniMC-English](https://huggingface.co/IDEA-CCNL/Erlangshen-Albert-235M-UniMC-English)   |
-| Erlangshen-RoBERTa-110M-UniMC-Chinese  | [https://huggingface.co/IDEA-CCNL/Erlangshen-RoBERTa-110M-UniMC-Chinese](https://huggingface.co/IDEA-CCNL/Erlangshen-RoBERTa-110M-UniMC-Chinese)       |
-| Erlangshen-RoBERTa-330M-UniMC-Chinese  | [https://huggingface.co/IDEA-CCNL/Erlangshen-RoBERTa-330M-UniMC-Chinese](https://huggingface.co/IDEA-CCNL/Erlangshen-RoBERTa-330M-UniMC-Chinese)   |
-| Erlangshen-MegatronBERT-1.3B-UniMC-Chinese  | [https://huggingface.co/IDEA-CCNL/Erlangshen-MegatronBERT-1.3B-UniMC-Chinese](https://huggingface.co/IDEA-CCNL/Erlangshen-MegatronBERT-1.3B-UniMC-Chinese)       |
+| Erlangshen-UniMC-Albert-235M-English  | [https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-Albert-235M-English](https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-Albert-235M-English)   |
+| Erlangshen-UniMC-RoBERTa-110M-Chinese  | [https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-RoBERTa-110M-Chinese](https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-RoBERTa-110M-Chinese)       |
+| Erlangshen-UniMC-RoBERTa-330M-Chinese  | [https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-RoBERTa-330M-Chinese](https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-RoBERTa-330M-Chinese)   |
+| Erlangshen-UniMC-MegatronBERT-1.3B-Chinese  | [https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-MegatronBERT-1.3B-Chinese](https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-MegatronBERT-1.3B-Chinese)       |
 
 ## Experiments
 
@@ -97,7 +97,8 @@ result = model.predict(test_data)
 
 我们使用中文领域常用的benchmark来测试UniMC的性能，具体是FewCLUE的9个任务
 
-**Few-shot**的结果如下表所示
+
+**Few-shot**
 | Model      | eprstmt    | csldcp   | tnews     | iflytek  | ocnli     | bustm     | chid      | csl      | wsc       | Avg       |
 |------------|------------|----------|-----------|----------|-----------|-----------|-----------|----------|-----------|-----------|
 | Finetuning | 65.4       | 35.5     | 49        | 32.8     | 33        | 60.7      | 14.9      | 50       | 55.6      | 44.1      |
@@ -105,11 +106,11 @@ result = model.predict(test_data)
 | LM-BFF     | 85.6       | 54.4     | 53        | 47.1     | 41.6      | 57.6      | 61.2      | 51.7     | 54.7      | 56.32     |
 | P-tuning   | 88.3       | 56       | 54.2      | **57.6** | 41.9      | 60.9      | 59.3      | **62.9** | 58.1      | 59.91     |
 | EFL        | 84.9       | 45       | 52.1      | 42.7     | 66.2      | 71.8      | 30.9      | 56.6     | 53        | 55.91     |
-| [UniMC-110M](https://huggingface.co/IDEA-CCNL/Erlangshen-RoBERTa-110M-UniMC-Chinese) | 88.64      | 54.08    | 54.32     | 48.6     | 66.55     | 73.76     | 67.71     | 52.54    | 59.92     | 62.86     |
-| [UniMC-330M](https://huggingface.co/IDEA-CCNL/Erlangshen-RoBERTa-330M-UniMC-Chinese) | 89.53      | 57.3     | 54.25     | 50       | 70.59     | 77.49     | 78.09     | 55.73    | 65.16     | 66.46     |
-| [UniMC-1.3B](https://huggingface.co/IDEA-CCNL/Erlangshen-MegatronBERT-1.3B-UniMC-Chinese) | **89.278** | **60.9** | **57.46** | 52.89    | **76.33** | **80.37** | **90.33** | 61.73    | **79.15** | **72.05** |
+| [UniMC-RoBERTa-110M](https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-RoBERTa-110M-Chinese) | 88.64      | 54.08    | 54.32     | 48.6     | 66.55     | 73.76     | 67.71     | 52.54    | 59.92     | 62.86     |
+| [UniMC-RoBERTa-330M](https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-RoBERTa-330M-Chinese) | 89.53      | 57.3     | 54.25     | 50       | 70.59     | 77.49     | 78.09     | 55.73    | 65.16     | 66.46     |
+| [UniMC-MegatronBERT-1.3B](https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-MegatronBERT-1.3B-Chinese) | **89.278** | **60.9** | **57.46** | 52.89    | **76.33** | **80.37** | **90.33** | 61.73    | **79.15** | **72.05** |
 
-**Zero-shot**的结果如下表所示
+**Zero-shot**
 
 | Model         | eprstmt   | csldcp    | tnews     | iflytek   | ocnli     | bustm    | chid     | csl      | wsc       | Avg       |
 |---------------|-----------|-----------|-----------|-----------|-----------|----------|----------|----------|-----------|-----------|
@@ -119,9 +120,9 @@ result = model.predict(test_data)
 | ZeroPrompt    | -         | -         | -         | 16.14     | 46.16     | -        | -        | -        | 47.98     | -         |
 |  Yuan1.0-13B  | 88.13     | 38.99     | 57.47     | 38.82     | 48.13     | 59.38    | 86.14    | 50       | 38.99     | 56.22     |
 | ERNIE3.0-240B | 88.75     | **50.97** | **57.83** | **40.42** | 53.57     | 64.38    | 87.13    | 56.25    | 53.46     | 61.41     |
-| UniMC-110M    | 86.16     | 31.26     | 46.61     | 26.54     | 66.91     | 73.34    | 66.68    | 50.09    | 53.66     | 55.7      |
-| UniMC-330M    | 87.5      | 30.4      | 47.6      | 31.5      | 69.9      | 75.9     | 78.17    | 49.5     | 60.55     | 59.01     |
-| [UniMC-1.3B](https://huggingface.co/IDEA-CCNL/Erlangshen-MegatronBERT-1.3B-UniMC-Chinese)     | **88.79** | 42.06     | 55.21     | 33.93     | **75.57** | **79.5** | **89.4** | 50.25    | **66.67** | **64.53** |
+| [UniMC-RoBERTa-110M](https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-RoBERTa-110M-Chinese)    | 86.16     | 31.26     | 46.61     | 26.54     | 66.91     | 73.34    | 66.68    | 50.09    | 53.66     | 55.7      |
+| [UniMC-RoBERTa-330M](https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-RoBERTa-330M-Chinese)     | 87.5      | 30.4      | 47.6      | 31.5      | 69.9      | 75.9     | 78.17    | 49.5     | 60.55     | 59.01     |
+| [UniMC-MegatronBERT-1.3B](https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-MegatronBERT-1.3B-Chinese)     | **88.79** | 42.06     | 55.21     | 33.93     | **75.57** | **79.5** | **89.4** | 50.25    | **66.67** | **64.53** |
 
 
 

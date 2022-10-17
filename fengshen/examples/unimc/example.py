@@ -7,7 +7,7 @@ def main():
     total_parser = UniMCPiplines.piplines_args(total_parser)
     args = total_parser.parse_args()
 
-    pretrained_model_path = 'IDEA-CCNL/Erlangshen-RoBERTa-110M-UniMC-Chinese'
+    pretrained_model_path = 'IDEA-CCNL/Erlangshen-UniMC-RoBERTa-110M-Chinese'
     args.learning_rate = 2e-5
     args.max_length = 512
     args.max_epochs = 3
