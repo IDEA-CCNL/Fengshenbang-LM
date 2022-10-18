@@ -1,13 +1,13 @@
 [**中文**](./README.md) | [**English**](./README_en.md)
 # UniMC
-Code for  [Zero-Shot Learners for Natural Language Understanding via a Unified Multiple Choice Perspective]()
+Code for  [Zero-Shot Learners for Natural Language Understanding via a Unified Multiple Choice Perspective](https://arxiv.org/abs/2210.08590)
 
 
 
 ![](./unimc.jpg)
 
 ## Update
-- [2022-10-16] Release preprint in arXiv.
+- [2022-10-18] Release preprint in arXiv.
 - [2022-10-14] Release code in GitHub.
 
 ## Requirements
@@ -52,7 +52,7 @@ test_data = [{
 }]
 
 if args.train:
-	model.fit(train_data, dev_data)
+	model.train(train_data, dev_data)
 result = model.predict(test_data)
 ```
 ## Pretrained Model
@@ -60,10 +60,10 @@ For the English model, the model was pre-trained with 14 multiplechoice datasets
 
 | Model | URL   |
 |:---------:|:--------------:|
-| Erlangshen-Albert-235M-UniMC-English  | [https://huggingface.co/IDEA-CCNL/Erlangshen-Albert-235M-UniMC-English](https://huggingface.co/IDEA-CCNL/Erlangshen-Albert-235M-UniMC-English)   |
-| Erlangshen-RoBERTa-110M-UniMC-Chinese  | [https://huggingface.co/IDEA-CCNL/Erlangshen-RoBERTa-110M-UniMC-Chinese](https://huggingface.co/IDEA-CCNL/Erlangshen-RoBERTa-110M-UniMC-Chinese)       |
-| Erlangshen-RoBERTa-330M-UniMC-Chinese  | [https://huggingface.co/IDEA-CCNL/Erlangshen-RoBERTa-330M-UniMC-Chinese](https://huggingface.co/IDEA-CCNL/Erlangshen-RoBERTa-330M-UniMC-Chinese)   |
-| Erlangshen-MegatronBERT-1.3B-UniMC-Chinese  | [https://huggingface.co/IDEA-CCNL/Erlangshen-MegatronBERT-1.3B-UniMC-Chinese](https://huggingface.co/IDEA-CCNL/Erlangshen-MegatronBERT-1.3B-UniMC-Chinese)       |
+| Erlangshen-UniMC-Albert-235-English  | [https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-Albert-235M-English](https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-Albert-235M-English)   |
+| Erlangshen-UniMC-RoBERTa-110M-Chinese  | [https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-RoBERTa-110M-Chinese](https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-RoBERTa-110M-Chinese)       |
+| Erlangshen-UniMC-RoBERTa-330M-Chinese  | [https://huggingface.co/IDEA-CCNL/Erlangshen-UnimC-RoBERTa-330M-Chinese](https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-RoBERTa-330M-Chinese)   |
+| Erlangshen-UniMC-MegatronBERT-1.3B-Chinese  | [https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-MegatronBERT-1.3B-Chinese](https://huggingface.co/IDEA-CCNL/Erlangshen-UniMC-MegatronBERT-1.3B-Chinese)       |
 
 
 ## Experiments
@@ -81,35 +81,19 @@ To evaluate the performance of UniMC, we use 14 multiple-choice datasets to pre-
 If this repository helps you, please cite this paper:
 
 ```text
-@article{DBLP:journals/corr/abs-2209-02970,
-  author    = {Junjie Wang and
-               Yuxiang Zhang and
-               Lin Zhang and
-               Ping Yang and
-               Xinyu Gao and
-               Ziwei Wu and
-               Xiaoqun Dong and
-               Junqing He and
-               Jianheng Zhuo and
-               Qi Yang and
-               Yongfeng Huang and
-               Xiayu Li and
-               Yanghan Wu and
-               Junyu Lu and
-               Xinyu Zhu and
-               Weifeng Chen and
-               Ting Han and
-               Kunhao Pan and
-               Rui Wang and
-               Hao Wang and
-               Xiaojun Wu and
-               Zhongshen Zeng and
-               Chongpei Chen and
+@article{unimc,
+  author    = {Ping Yang and
+               Junjie Wang and
                Ruyi Gan and
-               Jiaxing Zhang},
-  title     = {Fengshenbang 1.0: Being the Foundation of Chinese Cognitive Intelligence},
+               Xinyu Zhu and
+               Lin Zhang and
+               Ziwei Wu and
+               Xinyu Gao and
+               Jiaxing Zhang and
+               Tetsuya Sakai},
+  title     = {Zero-Shot Learners for Natural Language Understanding via a Unified Multiple Choice Perspective},
   journal   = {CoRR},
-  volume    = {abs/2209.02970},
+  volume    = {abs/2210.08590},
   year      = {2022}
 }
 ```

@@ -1,12 +1,12 @@
 [**中文**](./README.md) | [**English**](./README_en.md)
 # UniMC
 
-EMNLP 2022 论文 《[Zero-Shot Learners for Natural Language Understanding via a Unified Multiple Choice Perspective]()》源码
+EMNLP 2022 论文 《[Zero-Shot Learners for Natural Language Understanding via a Unified Multiple Choice Perspective](https://arxiv.org/abs/2210.08590)》源码
 
 ![](./unimc.jpg)
 
 ## Update
-- [2022-10-16] Release preprint in arXiv.
+- [2022-10-18] Release preprint in arXiv.
 - [2022-10-14] Release code in GitHub.
 
 ## Requirements
@@ -51,7 +51,7 @@ test_data = [{
 }]
 
 if args.train:
-	model.fit(train_data, dev_data)
+	model.train(train_data, dev_data)
 result = model.predict(test_data)
 ```
 ## Pretrained Model
@@ -68,6 +68,7 @@ result = model.predict(test_data)
 
 
 ### English
+
 为了测评 UniMC 的性能，在英文中，我们使用 14份 multiple-choice 数据集（具体数据参考原论文）来对模型进行预训练，使其具备做选择题的能力，
 
 **Zero-shot**
@@ -78,6 +79,7 @@ result = model.predict(test_data)
 | ANLI R3 | 41.3   | 40.9     | 47.0        | 45.7      | **47.8**       |
 | CB      | 70.1   | 33.9     | 64.1      | 51.8      | **75.7**       |
 ### Chinese
+
 为了测评 UniMC 在中文场景下的性能我们使用 13份 有监督数据集来对模型进行预训练,预训练数据如下：
 | Task type   | Task | # of option | Data size |
 |---------|--------|----------|-----------|
@@ -95,7 +97,7 @@ result = model.predict(test_data)
 | Paraphrace | PAWS-X   | 2     | 49k      |
 | Paraphrace | STS-B   | 2     | 80k      |
 
-我们使用中文领域常用的benchmark来测试UniMC的性能，具体是FewCLUE的9个任务
+我们使用中文领域常用的benchmark来测试UniMC的性能，具体是FewCLUE的9个任务，我们在 test_public 上测评模型的性能。
 
 
 **Few-shot**
@@ -196,35 +198,19 @@ result = model.predict(test_data)
 如果你觉得本仓库帮助到了你，你可以使用下面方式引用我们的工作
 
 ```text
-@article{DBLP:journals/corr/abs-2209-02970,
-  author    = {Junjie Wang and
-               Yuxiang Zhang and
-               Lin Zhang and
-               Ping Yang and
-               Xinyu Gao and
-               Ziwei Wu and
-               Xiaoqun Dong and
-               Junqing He and
-               Jianheng Zhuo and
-               Qi Yang and
-               Yongfeng Huang and
-               Xiayu Li and
-               Yanghan Wu and
-               Junyu Lu and
-               Xinyu Zhu and
-               Weifeng Chen and
-               Ting Han and
-               Kunhao Pan and
-               Rui Wang and
-               Hao Wang and
-               Xiaojun Wu and
-               Zhongshen Zeng and
-               Chongpei Chen and
+@article{unimc,
+  author    = {Ping Yang and
+               Junjie Wang and
                Ruyi Gan and
-               Jiaxing Zhang},
-  title     = {Fengshenbang 1.0: Being the Foundation of Chinese Cognitive Intelligence},
+               Xinyu Zhu and
+               Lin Zhang and
+               Ziwei Wu and
+               Xinyu Gao and
+               Jiaxing Zhang and
+               Tetsuya Sakai},
+  title     = {Zero-Shot Learners for Natural Language Understanding via a Unified Multiple Choice Perspective},
   journal   = {CoRR},
-  volume    = {abs/2209.02970},
+  volume    = {abs/2210.08590},
   year      = {2022}
 }
 ```
