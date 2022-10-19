@@ -485,6 +485,8 @@ class OffsetMapping:
 
 
 class extractModel:
+    '''
+    # 在我目前提交的这一版程序中，这个方法已经不再需要被调用了。
     def get_actual_id(self, text, query_text, tokenizer, args):
         text_encode = tokenizer.encode(text)
         one_input_encode = tokenizer.encode(query_text)
@@ -497,6 +499,7 @@ class extractModel:
         text_mapping = OffsetMapping().rematch(text, text_token)
 
         return text_start_id, text_end_id, text_mapping, one_input_encode
+    '''
 
     def extract_index(self, span_logits, sample_length, split_value=0.5):
         result = []
@@ -561,7 +564,9 @@ class extractModel:
         input_ids = torch.tensor(input_ids).to(model.device)
         attention_mask = torch.tensor(attention_mask).to(model.device)
         token_type_ids = torch.tensor(token_type_ids).to(model.device)
-        span_labels_mask = torch.tensor(span_labels_masks).to(model.device)
+        
+        # 因为原有代码会导致deprecated警告，所以修改如下：
+        span_labels_mask = torch.tensor(np.array(span_labels_masks)).to(model.device)
 
         _, span_logits = model.model(input_ids=input_ids,
                                      attention_mask=attention_mask,
@@ -569,7 +574,8 @@ class extractModel:
                                      span_labels=None,
                                      span_labels_mask=span_labels_mask)
 
-        span_logits = torch.nn.functional.sigmoid(span_logits)
+        # 因为原有代码会导致deprecated警告，所以修改如下：
+        span_logits = torch.sigmoid(span_logits)
         span_logits = span_logits.cpu().detach().numpy()
 
         for i, item in enumerate(batch_data):
@@ -580,52 +586,86 @@ class extractModel:
                 batch_data[i]['choices'][max_c]['score'] = span_logits[i,
                                                                        max_c, cls_idx, cls_idx]
             else:
-                if item['subtask_type'] == '抽取式阅读理解':
-                    for c in range(len(item['choices'])):
-                        texta = item['subtask_type'] + \
-                            '[SEP]' + choice['entity_type']
-                        textb = item['text']
-                        text_start_id, text_end_id, offset_mapping, input_ids = self.get_actual_id(
-                            item['text'], texta+'[SEP]'+textb, tokenizer, args)
-                        logits = span_logits[i, c, :, :]
-                        max_index = np.unravel_index(
-                            np.argmax(logits, axis=None), logits.shape)
-                        entity_list = []
-                        if logits[max_index] > args.threshold:
 
-                            entity = self.extract_entity(
-                                item['text'], (max_index[0], max_index[1]), text_start_id, offset_mapping)
-                            entity = {
-                                'entity_name': entity,
-                                'score': logits[max_index]
-                            }
-                            if entity not in entity_list:
+                '''
+                优化了代码效率，并修复了一些bug：
+                1.通过合理的调整程序，去掉了“text_start_id, text_end_id, offset_mapping, input_ids = self.get_actual_id(item['text'], texta+'[SEP]'+textb, tokenizer, args)”。
+                2.保证在一个item任务中，item['text']的“encode”、“tokenize”只需要执行一次，而不是像之前一样会因为item['choices']的多寡而重复执行。
+                3.修复了"抽取式阅读理解"无法在item['choices']中有多个实体的情况下，正确提取文字内容，以及提取的文字内容出现错位的问题。
+                4.在“抽取式阅读理解”任务下，增加了top_k的选项：可在预测数据的"choices"下，增加top_k属性，如：{"entity_type": "***", "top_k": 2}，若未设置top_k属性，则默认为1。
+                5.为"抽取任务"下除"抽取式阅读理解"之外的子任务，增加了“entity_name”的过滤，保证“entity_name”唯一。
+                '''
+                textb = item['text']
+                offset_mapping = OffsetMapping().rematch(textb, tokenizer.tokenize(textb))
+                
+                input_ids = tokenizer.encode('[SEP]' + textb,
+                                            max_length=args.max_length,
+                                            truncation='longest_first')
+
+                for c in range(len(item['choices'])):
+
+                    texta = item['task_type'] + '[SEP]' + item['subtask_type'] + \
+                        '[SEP]' + item['choices'][c]['entity_type']
+                    
+                    
+                    text_start_id = len(tokenizer.encode(texta))
+
+                    logits = span_logits[i, c, :, :]
+
+                    entity_name_list = []
+                    entity_list = []
+                    if item['subtask_type'] == '抽取式阅读理解':
+
+                        try:
+
+                            top_k = int(item['choices'][c]['top_k'])
+                        except KeyError:
+
+                            top_k = 1
+
+                        if( 0 >= top_k ): 
+
+                            top_k = 1
+                        
+                        _, top_indices = torch.topk(torch.flatten(torch.tensor(logits)), top_k)
+                        
+                        for top_idx in top_indices: 
+
+                            max_index = np.unravel_index(top_idx, logits.shape)
+                            
+                            if logits[max_index] > args.threshold:
+
+                                entity = self.extract_entity(
+                                    item['text'], (max_index[0], max_index[1]), text_start_id, offset_mapping)
+                                
+                                entity = {
+                                    'entity_name': entity,
+                                    'score': logits[max_index]
+                                }
+
                                 entity_list.append(entity)
-                        batch_data[i]['choices'][c]['entity_list'] = entity_list
-                else:
-                    for c in range(len(item['choices'])):
-                        texta = item['task_type'] + '[SEP]' + item['subtask_type'] + \
-                            '[SEP]' + item['choices'][c]['entity_type']
+                    else: 
 
-                        textb = item['text']
-                        text_start_id, text_end_id, offset_mapping, input_ids = self.get_actual_id(
-                            item['text'], texta+'[SEP]'+textb, tokenizer, args)
-                        logits = span_logits[i, c, :, :]
-                        sample_length = len(input_ids)
+                        sample_length = text_start_id + len(input_ids)
                         entity_idx_type_list = self.extract_index(
                             logits, sample_length, split_value=args.threshold)
-                        entity_list = []
 
                         for entity_idx in entity_idx_type_list:
+
                             entity = self.extract_entity(
                                 item['text'], (entity_idx[0], entity_idx[1]), text_start_id, offset_mapping)
-                            entity = {
-                                'entity_name': entity,
-                                'score': entity_idx[2]
-                            }
-                            if entity not in entity_list:
+                            
+                            if entity not in entity_name_list:
+                                
+                                entity_name_list.append(entity)
+
+                                entity = {
+                                    'entity_name': entity,
+                                    'score': entity_idx[2]
+                                }
                                 entity_list.append(entity)
-                        batch_data[i]['choices'][c]['entity_list'] = entity_list
+
+                    batch_data[i]['choices'][c]['entity_list'] = entity_list
         return batch_data
 
 
@@ -682,17 +722,37 @@ class UbertPiplines:
         self.model.num_data = len(train_data)
         self.trainer.fit(self.model, data_model)
 
-    def predict(self, test_data, cuda=True):
+    '''
+    通过增加“桶”的概念实现了，在一批预测数据的“choices”中可以存在不同数量的实体。
+    '''
+    def predict(self, predict_data, cuda=True):
         result = []
         start = 0
         if cuda:
             self.model = self.model.cuda()
         self.model.eval()
-        while start < len(test_data):
-            batch_data = test_data[start:start+self.args.batchsize]
+        while start < len(predict_data):
+            batch_data = predict_data[start:start+self.args.batchsize]
             start += self.args.batchsize
 
-            batch_result = self.em.extract(
-                batch_data, self.model, self.tokenizer, self.args)
-            result.extend(batch_result)
+            
+            batch_data_bucket = {}
+            for item in batch_data:
+
+                choice_num = len(item['choices'])
+                
+                try:
+
+                    batch_data_bucket[choice_num].append(item)
+                except KeyError:
+
+                    batch_data_bucket[choice_num] = []
+                    batch_data_bucket[choice_num].append(item)
+
+            for k, batch_data in batch_data_bucket.items():
+
+                batch_result = self.em.extract(
+                    batch_data, self.model, self.tokenizer, self.args)
+                result.extend(batch_result)
+                
         return result
