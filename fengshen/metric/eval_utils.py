@@ -6,8 +6,16 @@ from torchmetrics.functional import bleu_score
 from torchmetrics.functional.text.rouge import rouge_score
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 import evaluate
+import torch
+from collections import Counter, defaultdict
 import jieba
-from collections import Counter
+from bert_score.utils import (
+    get_model,
+    get_tokenizer,
+    get_idf_dict,
+    bert_cos_score_idf,
+)
+
 
 # utils
 def load_metric_fn(metric):
@@ -18,7 +26,8 @@ def load_metric_fn(metric):
         "em" : em_fn,
         "acc": acc_fn,
         "dist": dist_fn,
-        "vocab": vocab_fn
+        "vocab": vocab_fn,
+        "bertscore": bertscore_fn
     }
     if metric in fn_dict.keys():
         return fn_dict[metric]
@@ -103,12 +112,8 @@ def f1_fn(references, candidates, word_level=False):
         f1 = (2 * precision * recall) / (precision + recall)
         return precision, recall, f1
 
-    if word_level:
-        reference = [" ".join(jieba.cut(ref)).split() for ref in references]
-        candidate = [" ".join(jieba.cut(can)).split() for can in candidates]
-    else:  # unigram token-level
-        reference = [references[i][0] for i in range(len(references))]
-        candidate = [candidates[i] for i in range(len(candidates))]
+    reference = [references[i][0] for i in range(len(references))]
+    candidate = [candidates[i] for i in range(len(candidates))]
 
     prec, recall, f1 = [],[],[]
     for ref, can in zip(reference,candidate):
@@ -132,6 +137,55 @@ def acc_fn(references, candidates):
             num_same = num_same + 1
     
     return {"acc" :num_same / len(candidates)}     
+
+
+def bertscore_fn(references, candidates, model_id="bert-base-chinese", idf=False):
+    """
+    cands = ["龙卷风发生的原因是什么","难道龙卷风不应该在陆地发生吗?"]
+    refs=["大型龙卷风为什么会发生","龙卷风应该在内陆土地上产生"]
+    bertscore(refs,cands,"bert-base-chinese")
+
+    lang is zh and use bert-base-chinese, idf is True
+    """
+    assert len(candidates) == len(references), "Differnt dimension of ref and cans"
+    if type(references[0]) is list: # 嵌套列表
+        references = [ref[0] for ref in references]
+
+    tokenizer = get_tokenizer(model_id, False)
+    model = get_model(model_id,num_layers=8) #use first 8 layers of bert-base-chinese
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model.to(device)
+
+    if not idf:
+        idf_dict = defaultdict(lambda: 1.0)
+        # set idf for [SEP] and [CLS] to 0
+        idf_dict[tokenizer.sep_token_id] = 0
+        idf_dict[tokenizer.cls_token_id] = 0
+    else:
+        idf_dict = get_idf_dict(references, tokenizer, nthreads=4)
+
+    all_preds = bert_cos_score_idf(
+        model,
+        references,
+        candidates,
+        tokenizer,
+        idf_dict,
+        verbose=True,
+        device=device,
+        batch_size=64,
+        all_layers=False,
+    ).cpu()   
+
+    out = {
+        "bertscore_pre":mean(all_preds[..., 0]), 
+        "bertscore_re":mean(all_preds[..., 1]), 
+        "bertscore_f1":mean(all_preds[..., 2])  
+    }
+
+    return out
+
+
+
 
 def dist_fn(candidates):
     """
@@ -172,6 +226,7 @@ def vocab_fn(candidates):
         vocab.append(len(counts.keys()))
 
     return {"vocab_length" : sum(vocab)/len(vocab)}
+
 
 def load_huggingface_fn(metric):
     metric = evaluate.load(metric)

@@ -1,17 +1,17 @@
 # coding=utf8
+from torch.utils.data import Dataset, DataLoader, DistributedSampler
+from fengshen.data.fs_datasets.load import load_dataset, list_datasets
+from fengshen.data.t5_dataloader.t5_datasets import TaskT5DataModel, TaskT5Dataset
+from torch.utils.data.dataset import ConcatDataset
+from dataclasses import dataclass
+from typing import Optional
+from tqdm import tqdm
 import json
 from json import decoder
 import torch
 import sys
 import pytorch_lightning as pl
 sys.path.append('../../')
-from torch.utils.data import Dataset, DataLoader,DistributedSampler
-from tqdm import tqdm
-from typing import Optional
-from dataclasses import dataclass
-from torch.utils.data.dataset import ConcatDataset
-from fengshen.data.t5_dataloader.t5_datasets import TaskT5DataModel, TaskT5Dataset
-from fengshen.data.fs_datasets.load import load_dataset, list_datasets
 
 
 class DialoT5DataModule(pl.LightningDataModule):
@@ -29,7 +29,7 @@ class DialoT5DataModule(pl.LightningDataModule):
         parser.add_argument('--val_datasets_field', type=str, default='validation')
         parser.add_argument('--test_datasets_field', type=str, default='test')
         parser.add_argument('--sampler_type', type=str,
-                            choices=['single','random','mixing'],
+                            choices=['single', 'random', 'mixing'],
                             default='random')
         return parent_args
 
@@ -53,7 +53,7 @@ class DialoT5DataModule(pl.LightningDataModule):
         print('---------ending load datasets {}'.format(args.datasets_name))
 
     def get_custom_sampler(self):
-        from universal_datamodule.universal_sampler import PretrainingRandomSampler,PretrainingSampler
+        from universal_datamodule.universal_sampler import PretrainingRandomSampler, PretrainingSampler
         from universal_datamodule.universal_datamodule import get_consume_samples
         from gpt_dataloader.mixing_sampler import PropMixingRandomSampler
         world_size = self.trainer.world_size
@@ -127,15 +127,8 @@ class DialoT5DataModule(pl.LightningDataModule):
             shuffle=False,
             num_workers=self.hparams.dataloader_workers,
             collate_fn=self.collate_fn,
-            sampler=DistributedSampler(
-                self.datasets[self.hparams.test_datasets_field], shuffle=False),
+
+            # sampler=DistributedSampler(
+            #    self.datasets[self.hparams.test_datasets_field], shuffle=False),
             pin_memory=True,
         )
-
-
-
-
-
-
-
-

@@ -1,21 +1,20 @@
 #!/bin/bash
-#SBATCH --job-name=randeng_pegasus_523M_summary
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=8
-#SBATCH --gres=gpu:8               # number of gpus
-#SBATCH --cpus-per-task=30
-#SBATCH -o %x-%j.log
-
+#SBATCH --job-name=bart_qg # create a short name for your job
+#SBATCH --nodes=1 # node count
+#SBATCH --ntasks-per-node=8 # number of tasks to run per node
+#SBATCH --cpus-per-task=10 # cpu-cores per task (>1 if multi-threaded tasks)
+#SBATCH --gres=gpu:1 # number of gpus per node
+#SBATCH -o %x-%j.log # output and error log file names (%x for job id)
 set -x -e
 
 MODEL_NAME=Randeng-BART-139M
 RUN_NAME=bart_test
-ROOT_DIR=/cognitive_comp/yangqi/logs/bart/$RUN_NAME
+ROOT_DIR=/home/xxxxxx/workspace/log/$RUN_NAME
 
 config_json="$ROOT_DIR/$MODEL_NAME.ds_config.json"
 export MASTER_PORT=$[RANDOM%10000+40000]
 
-MICRO_BATCH_SIZE=8
+MICRO_BATCH_SIZE=32
 
 cat <<EOT > $config_json
 {
@@ -59,58 +58,60 @@ cat <<EOT > $config_json
 EOT
 
 export PL_DEEPSPEED_CONFIG_PATH=$config_json
-export TORCH_EXTENSIONS_DIR=/cognitive_comp/yangqi/torch_extensions
+export TORCH_EXTENSIONS_DIR=/home/xxxxxx/torch_extensions
 
 
 DATA_ARGS=" \
-        --datasets_name qag \
-        --datasets_subname squadzh1 \
+        --datasets_name squad \
         --sampler_type random \
         --tokenizer_type bart \
         --num_workers 8 \
         --dataloader_workers 2 \
         --train_batchsize $MICRO_BATCH_SIZE \
         --val_batchsize $MICRO_BATCH_SIZE \
-        --test_batchsize 32  \
+        --test_batchsize $MICRO_BATCH_SIZE  \
         --train_datasets_field train \
         --test_datasets_field test \
         --val_datasets_field validation \
         --max_seq_lengt 512 \
-        --max_src_length 8 \
-        --max_kno_length 440 \
+        --max_src_length 32 \
+        --max_kno_length 416 \
         --max_tgt_length 64 \
+        --mask_ans_style anstoken_multispan \
         "
 
 MODEL_ARGS="\
-        --model_path /cognitive_comp/yangqi/model/$MODEL_NAME/ \
+        --model_path /home/xxxxxx/workspace/model/$MODEL_NAME/ \
         --learning_rate 1e-5 \
         --weight_decay 0.1 \
         --warmup 0.0001 \
         "
 
 MODEL_CHECKPOINT_ARGS="\
-        --monitor train_loss \
+        --monitor val_loss \
         --save_top_k 3 \
         --mode min \
         --save_last \
-        --every_n_train_steps 10000 \
-        --dirpath $ROOT_DIR/$RUN_NAME/ckpt/ \
+        --every_n_train_steps 5000 \
+        --dirpath $ROOT_DIR/ckpt/ \
         --filename model-{step:02d}-{train_loss:.4f} \
         "
 
 TRAINER_ARGS="\
         --gradient_clip_val 1.0 \
-        --max_epochs 3 \
+        --max_epochs 5 \
         --gpus 1 \
         --num_nodes 1 \
         --strategy deepspeed_stage_1 \
-        --log_every_n_steps 1000 \
-        --val_check_interval 0.1 \
+        --log_every_n_steps 100 \
+        --val_check_interval 0.5 \
         --accumulate_grad_batches 1 \
         --default_root_dir $ROOT_DIR \
-        --tensorboard_dir $ROOT_DIR/$RUN_NAME
-        "
-#     --resume_from_checkpoint None\
+        --tensorboard_dir $ROOT_DIR \
+        --label_smooth 0.1 \
+        
+    "
+#     --resume_from_checkpoint $ROOT_DIR/ckpt/last.ckpt \
 
 export options=" \
         $DATA_ARGS \
@@ -119,14 +120,7 @@ export options=" \
         $TRAINER_ARGS \
         "
 # test
-export SCRIPT_PATH=/cognitive_comp/yangqi/project/Fengshenbang-LM/fengshen/examples/bart_qg/finetune_bart.py
+export SCRIPT_PATH=finetune_bart.py
 
-
-# .02 debug mode
-CUDA_LAUNCH_BLOCKING=3 CUDA_VISIBLE_DEVICES=5 python3 ${SCRIPT_PATH} $options > $ROOT_DIR/test.log
-
-# slurm cluster mode
-# SINGULARITY_PATH=/cognitive_comp/gaoxinyu/docker/pytorch21_06_py3_docker_image_v2.sif
-# singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c 'python3 $SCRIPT_PATH $options'
-# singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $DOCKER_PATH python3 $SCRIPT_PATH $options > /cognitive_comp/yangqi/logs/$RUN_NAME/test.log
+python3 ${SCRIPT_PATH} $options > $ROOT_DIR/test.log
 
