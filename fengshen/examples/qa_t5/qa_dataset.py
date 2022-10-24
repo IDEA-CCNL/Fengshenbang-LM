@@ -1,4 +1,13 @@
-# encoding: utf8
+# -*- encoding: utf-8 -*-
+'''
+@File    :   qa_dataset.py
+@Time    :   2022/10/24 20:03
+@Author  :   He Junqing
+@Version :   1.0
+@Contact :   hejunqing@idea.edu.cn
+@License :   (C)Copyright 2022-2023, CCNL-IDEA
+'''
+# here put the import lib
 
 import numpy as np
 import torch
