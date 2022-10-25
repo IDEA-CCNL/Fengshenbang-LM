@@ -6,26 +6,27 @@ from torch.utils.data.dataset import ConcatDataset
 from typing import Optional
 
 
-def get_consume_dataset(name,subname=None):
-    if name is not "dial":# not dial dataset
+def get_consume_dataset(name, subname=None):
+    if name != "dial":  # not dial dataset
         return load_dataset(name)
 
-    if subname is not "balance":#other single dataset
-        return load_dataset(name,subname)
+    if subname != "balance":  # other single dataset
+        return load_dataset(name, subname)
 
-    if subname is "balance":
+    if subname == "balance":
         concat_list = list_datasets(name)
-        concat_list.remove("allmerge") # do not include all merge data
+        concat_list.remove("allmerge")  # do not include all merge data
     else:
         concat_list = subname.split('-')
 
     datasets = [load_dataset(name, ds) for ds in concat_list]
     concat_dataset = {
-        "train":ConcatDataset([ds["train"] for ds in datasets]),
-        "test":ConcatDataset([ds["test"] for ds in datasets]),
-        "dev":ConcatDataset([ds["dev"] for ds in datasets])
+        "train": ConcatDataset([ds["train"] for ds in datasets]),
+        "test": ConcatDataset([ds["test"] for ds in datasets]),
+        "dev": ConcatDataset([ds["dev"] for ds in datasets])
     }
     return concat_dataset
+
 
 def get_consume_samples(data_model: LightningDataModule) -> int:
     if hasattr(data_model.trainer.lightning_module, 'consumed_samples'):
@@ -38,6 +39,7 @@ def get_consume_samples(data_model: LightningDataModule) -> int:
         print('calculate consumed samples: {}'.format(consumed_samples))
     return consumed_samples
 
+
 class DusincDataModule(LightningDataModule):
     @ staticmethod
     def add_data_specific_args(parent_args):
@@ -47,8 +49,8 @@ class DusincDataModule(LightningDataModule):
         parser.add_argument('--train_batchsize', default=32, type=int)
         parser.add_argument('--val_batchsize', default=32, type=int)
         parser.add_argument('--test_batchsize', default=32, type=int)
-        parser.add_argument('--datasets_name', default='dial',type=str)
-        parser.add_argument('--datasets_subname', default=None,type=str)
+        parser.add_argument('--datasets_name', default='dial', type=str)
+        parser.add_argument('--datasets_subname', default=None, type=str)
         parser.add_argument('--train_datasets_field', type=str, default='train')
         parser.add_argument('--val_datasets_field', type=str, default='validation')
         parser.add_argument('--test_datasets_field', type=str, default='test')
@@ -67,8 +69,7 @@ class DusincDataModule(LightningDataModule):
     ):
         super().__init__()
         print('---------begin to load datasets {}'.format(args.datasets_name), flush=True)
-        from ..fs_datasets import load_dataset
-        self.datasets = get_consume_dataset(args.datasets_name,args.datasets_subname)
+        self.datasets = get_consume_dataset(args.datasets_name, args.datasets_subname)
         self.tokenizer = tokenizer
         self.collate_fn = collate_fn
         self.save_hyperparameters(args)
@@ -148,7 +149,6 @@ class DusincDataModule(LightningDataModule):
         )
 
 
-
 class MixingDataModule(LightningDataModule):
     @ staticmethod
     def add_data_specific_args(parent_args):
@@ -180,7 +180,6 @@ class MixingDataModule(LightningDataModule):
     ):
         super().__init__()
         print('---------begin to load datasets {}'.format(args.datasets_name), flush=True)
-        from ..fs_datasets import load_dataset
         self.datasets = get_consume_dataset(args.datasets_name)
         self.tokenizer = tokenizer
         self.collate_fn = collate_fn
@@ -190,7 +189,7 @@ class MixingDataModule(LightningDataModule):
     def get_custom_sampler(self):
         from universal_datamodule.universal_sampler import PretrainingRandomSampler
         from universal_datamodule.universal_sampler import PretrainingSampler
-        from .mixing_sampler import PropMixingRandomSampler, TempMixingRandomSampler
+        from .mixing_sampler import PropMixingRandomSampler
         world_size = self.trainer.world_size
         consumed_samples = get_consume_samples(self)
         # use the user default sampler
@@ -270,18 +269,18 @@ class MixingDataModule(LightningDataModule):
 
 # rewarite from pretrain_bart Text Filling Collator
 # x = src + kno +  tgt
-def truncate_sequence(document:str, max_num_tokens:int,reverse=False):
+def truncate_sequence(document: str, max_num_tokens: int, reverse=False):
     total_length = len(document)
     if total_length <= max_num_tokens:
         return document
-    else: 
+    else:
         if reverse:
             return document[-1*max_num_tokens:]
         else:
             return document[:max_num_tokens]
 
+
 def padding_to_maxlength(ids, max_length, pad_id):
     cur_len = len(ids)
     len_diff = max_length - len(ids)
     return ids + [pad_id] * len_diff, [1] * cur_len + [0] * len_diff
-    

@@ -5,7 +5,6 @@ from __future__ import print_function
 import torch
 import torch.nn.functional as F
 import json
-import random
 
 
 class QGDataset(torch.utils.data.Dataset):
@@ -82,7 +81,7 @@ def white_space_fix(text):
     return "".join(text.split(" "))
 
 
-def remove_prompt(text, prompt):
-    if prompt in text:
+def remove_prompt(text):
+    if ":" in text:
         return text.split(":")[1]
     return text
