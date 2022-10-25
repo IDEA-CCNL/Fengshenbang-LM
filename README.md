@@ -1,5 +1,20 @@
 [**中文**](./README.md) | [**English**](./README_en.md)
 
+# 封神榜科技成果
+> [**BioBART**](https://arxiv.org/abs/2204.03905): 由清华大学和IDEA研究院一起提供的生物医疗领域的生成语言模型。(```BioNLP 2022```)
+
+> [**UniMC**](https://arxiv.org/abs/2210.08590): 针对zero-shot场景下基于标签数据集的统一模型。(```EMNLP 2022```)
+
+> [**FMIT**](https://arxiv.org/abs/2208.11039): 基于相对位置编码的单塔多模态命名实体识别模型。(```COLING 2022```)
+
+> [**MAP**](https://arxiv.org/abs/2210.05335): 多模态语义理解任务中，把图片和文本建模成分布表征以学习多模态不确定性。(```CVPR 2023在投```)
+
+> [**UBERT**](https://arxiv.org/abs/2206.12094): 基于抽取式结构解码的统一自然语言推理模型。
+
+> [**CoRe**](): zero-shot场景下使用语言模型的协同推理框架。(```ACL 2023在投```)
+
+> [**MVP Tuning**](): zero-shot场景下使用语言模型的协同推理框架。(```ACL 2023在投```)
+
 # 封神榜大事件
 
 - [AIWIN大赛冠军，封神榜提出多任务学习方案Ubert](https://mp.weixin.qq.com/s/A9G0YLbIPShKgm98DnD2jA) 2022.07.21
