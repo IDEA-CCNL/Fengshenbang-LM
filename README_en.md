@@ -14,7 +14,7 @@
 
 > [**Erlangshen+PCL**](https://arxiv.org/abs/2208.02959): Towards No.1 in CLUE Semantic Matching Challenge: Pre-trained Language Model Erlangshen with Propensity-Corrected Loss.
 
-# Fengshenbang big event
+# Fengshenbang Big Event
 
 - [AIWIN champion solution, Fengshenbang proposed multi-task learning model Ubert](https://mp.weixin.qq.com/s/A9G0YLbIPShKgm98DnD2jA) 2022.07.21
 - [Just a simple Finetune, "Fengshenbang" pre-trained language model "Erlangshen" won the first place in SimCLUE benchmark](https://mp.weixin.qq.com/s/KXQtCgxZlCnv0HqSyQAteQ) 2022.07.14
@@ -28,7 +28,8 @@
 
 
 # Navigation
-- [Fengshenbang big event](#fengshenbang-big-event)
+- [Fengshenbang Achievements](#fengshenbang-achievements)
+- [Fengshenbang Big Event](#fengshenbang-big-event)
 - [Navigation](#navigation)
 - [Model Infofrmation](#model-infofrmation)
 - [Fengshenbang-LM](#fengshenbang-lm)
