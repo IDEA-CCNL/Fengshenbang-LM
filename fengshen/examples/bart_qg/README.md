@@ -26,12 +26,12 @@ Table1: 模型结构和配置 Model Architecture and Config
 
 |    配置 Config      |  参数 Value|
 | ------------------- | --------- |
-| encoder layers      |     12    |
+| encoder layers      |     6    |
 | encoder_attn_heads  |     12    |
-| encoder_ffn_dim     |           |
-| decoder_layers      |     12    |
+| encoder_ffn_dim     |     3072  |
+| decoder_layers      |     6    |
 | decoder_attn_heads  |     12    |
-| decoder_ffn_dim     |           |
+| decoder_ffn_dim     |    3072   |
 | max_encoder_len     |    512    |
 
 
