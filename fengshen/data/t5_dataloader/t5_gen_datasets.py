@@ -234,7 +234,7 @@ class DialogDataModel(pl.LightningDataModule):
 
     def load_data(self, args):
         if args.train_split_size is not None:
-            from data.fs_datasets import load_dataset
+            from fengshen.data.fs_datasets import load_dataset
 
             data_splits = load_dataset(
                 args.train_data_path, num_proc=args.dataset_num_workers
