@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
-from fengshen.models.transfo_xl_paraphrase import TransfoXLTokenizer
 from fengshen.models.transfo_xl_paraphrase import TransfoXLModel
+from transformers import T5Tokenizer
 
 
 def top_k_logits(logits, top_k=0, top_p=0.0, filter_value=-float('Inf')):
@@ -95,9 +95,11 @@ def paraphrase_generate(model,
 
 
 if __name__ == "__main__":
-    device = 1
-    tokenizer = TransfoXLTokenizer.from_pretrained('IDEA-CCNL/Randeng-TransformerXL-1.B-Paraphrasing-Chinese')
-    model = TransfoXLModel.from_pretrained('IDEA-CCNL/Randeng-TransformerXL-1.B-Paraphrasing-Chinese')
+    device = 0
+    tokenizer = T5Tokenizer.from_pretrained('IDEA-CCNL/Randeng-TransformerXL-1.1B-Paraphrasing-Chinese',
+                                           eos_token='<|endoftext|>',
+                                           extra_ids=0)
+    model = TransfoXLModel.from_pretrained('IDEA-CCNL/Randeng-TransformerXL-1.1B-Paraphrasing-Chinese')
     input_text = "年轻教师选择农村学校，还是县城学校？"
-    res = paraphrase_generate(model, tokenizer, input_text)
+    res = paraphrase_generate(model, tokenizer, input_text, device=device)
     print(res)
