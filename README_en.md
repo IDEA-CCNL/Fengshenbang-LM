@@ -2,17 +2,17 @@
 
 # Fengshenbang Scientific and Technical Achievements
 
+> [**Fengshenbang 1.0**](https://arxiv.org/abs/2209.02970): Fengshenbang1.0 bilingual general paper, aims to be the Foundation of Chinese Cognitive Intelligence.
+
 > [**BioBART**](https://arxiv.org/abs/2204.03905): A generative language model for biomedical domain provided by Tsinghua University together with IDEA Institute.(```BioNLP 2022```)
 
 > [**UniMC**](https://arxiv.org/abs/2210.08590): A unified model for zero-shot scenarios based on labeled datasets.(```EMNLP 2022```)
 
 > [**FMIT**](https://arxiv.org/abs/2208.11039): A single-tower multimodal named entity recognition model based on relative position encoding.(```COLING 2022```)
 
-> [**MAP**](https://arxiv.org/abs/2210.05335): In a multimodal semantic understanding task, pictures and text are modeled as distributed representations to learn multimodal uncertainty.(```CVPR 2023在投```)
-
 > [**UBERT**](https://arxiv.org/abs/2206.12094): A unified natural language inference model based on extractive structural decoding.
 
-> [**CoRe**](): A cooperative reasoning framework using language models in zero-shot mathematical logic reasoning.(```ACL 2023在投```)
+> [**Erlangshen+PCL**](https://arxiv.org/abs/2208.02959): Towards No.1 in CLUE Semantic Matching Challenge: Pre-trained Language Model Erlangshen with Propensity-Corrected Loss.
 
 # Fengshenbang big event
 
