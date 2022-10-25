@@ -1,5 +1,19 @@
 [**中文**](./README.md) | [**English**](./README_en.md)
 
+# Fengshenbang Scientific and Technical Achievements
+
+> [**BioBART**](https://arxiv.org/abs/2204.03905): A generative language model for biomedical domain provided by Tsinghua University together with IDEA Institute.(```BioNLP 2022```)
+
+> [**UniMC**](https://arxiv.org/abs/2210.08590): A unified model for zero-shot scenarios based on labeled datasets.(```EMNLP 2022```)
+
+> [**FMIT**](https://arxiv.org/abs/2208.11039): A single-tower multimodal named entity recognition model based on relative position encoding.(```COLING 2022```)
+
+> [**MAP**](https://arxiv.org/abs/2210.05335): In a multimodal semantic understanding task, pictures and text are modeled as distributed representations to learn multimodal uncertainty.(```CVPR 2023在投```)
+
+> [**UBERT**](https://arxiv.org/abs/2206.12094): A unified natural language inference model based on extractive structural decoding.
+
+> [**CoRe**](): A cooperative reasoning framework using language models in zero-shot mathematical logic reasoning.(```ACL 2023在投```)
+
 # Fengshenbang big event
 
 - [AIWIN champion solution, Fengshenbang proposed multi-task learning model Ubert](https://mp.weixin.qq.com/s/A9G0YLbIPShKgm98DnD2jA) 2022.07.21
