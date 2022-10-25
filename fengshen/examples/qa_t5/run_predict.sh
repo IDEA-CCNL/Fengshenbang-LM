@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=finetune-cmrc
+#SBATCH --job-name=predict-cmrc
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=4
-#SBATCH --gres=gpu:4               # number of gpus
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:1               # number of gpus
 #SBATCH --cpus-per-task=4 # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH -o /cognitive_comp/hejunqing/projects/CMRC/models/%x-%j.log
 #SBATCH -e /cognitive_comp/hejunqing/projects/CMRC/models/%x-%j.err
@@ -14,7 +14,6 @@ MICRO_BATCH_SIZE=8
 
 ROOT_DIR=/cognitive_comp/hejunqing/projects/CMRC/models/v1_bs8/
 DOWNLOAD_MODEL_PATH=/cognitive_comp/hejunqing/projects/CMRC/huggingface/
-
 
 if [ ! -d ${ROOT_DIR} ];then
   mkdir ${ROOT_DIR}
@@ -80,7 +79,7 @@ strategy=deepspeed_stage_1
 
 TRAINER_ARGS="
     --max_epochs 10 \
-    --gpus 4 \
+    --gpus 1 \
     --num_nodes 1 \
     --strategy ${strategy} \
     --default_root_dir $ROOT_DIR \
@@ -97,6 +96,9 @@ TRAINER_ARGS="
     --accumulate_grad_batches 2 \
     --formator t5style \
     --filename model-{epoch:02d}-{val_loss:.4f}-{val_rougeL_fmeasure:.3f} \
+    --do_eval_only \
+    --prediction_res_path $ROOT_DIR/predictions_sampling.txt \
+    --decode_strategy sampling
 "
 
 DATA_DIR=cmrc
@@ -109,9 +111,8 @@ DATA_ARGS="
     --max_knowledge_length 425 \
     --max_target_length 128
 "
-
 MODEL_ARGS="
-    --pretrained_model_path $DOWNLOAD_MODEL_PATH \
+    --pretrained_model_path $DOWNLOAD_MODEL_DIR\
     --tokenizer_type t5_tokenizer \
 "
 
