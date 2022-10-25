@@ -1,6 +1,6 @@
 [**中文**](./README.md) | [**English**](./README_en.md)
 
-# Fengshenbang Scientific and Technical Achievements
+# Fengshenbang Achievements
 
 > [**Fengshenbang 1.0**](https://arxiv.org/abs/2209.02970): Fengshenbang1.0 bilingual general paper, aims to be the Foundation of Chinese Cognitive Intelligence.
 
