@@ -447,7 +447,7 @@ class UniMCPredict:
         return batch_data
 
 
-class UniMCPiplines(Pipeline):
+class UniMCPipelines(Pipeline):
     @staticmethod
     def piplines_args(parent_args):
         total_parser = parent_args.add_argument_group("piplines args")
@@ -626,7 +626,7 @@ def main():
     total_parser.add_argument('--valid_data', default='dev.json', type=str)
     total_parser.add_argument('--test_data', default='test.json', type=str)
     total_parser.add_argument('--output_path', default='', type=str)
-    total_parser = UniMCPiplines.piplines_args(total_parser)
+    total_parser = UniMCPipelines.piplines_args(total_parser)
     args = total_parser.parse_args()
 
     train_data = load_data(os.path.join(args.data_dir, args.train_data))
@@ -635,7 +635,7 @@ def main():
 
     dev_data_ori = copy.deepcopy(dev_data)
 
-    model = UniMCPiplines(args)
+    model = UniMCPipelines(args)
 
     print(args.data_dir)
 

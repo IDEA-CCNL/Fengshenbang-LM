@@ -38,7 +38,7 @@ from fengshen.models.unimc.modeling_unimc import (
 )
 
 
-class UniMCPiplines(Pipeline):
+class UniMCPipelines(Pipeline):
     @staticmethod
     def piplines_args(parent_args):
         total_parser = parent_args.add_argument_group("piplines args")
