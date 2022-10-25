@@ -1,1 +1,1 @@
-from .modeling_unimc import UniMCPiplines
+from .modeling_unimc import UniMCPipelines
