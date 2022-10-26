@@ -1,13 +1,23 @@
 from utils import *
 import random
+# import json
+# import lpips
 import gc
+from transformers import BertForSequenceClassification, BertTokenizer
 import clip
+# from types import SimpleNamespace
 from guided_diffusion.script_util import create_model_and_diffusion
+# from ipywidgets import Output
 from datetime import datetime
 from tqdm.notebook import tqdm
+# from glob import glob
+# import time
 from guided_diffusion.unet import HFUNetModel
 import argparse
-from transformers import BertForSequenceClassification, BertTokenizer
+
+# def get_parameter_num(model):
+#     total = sum(p.numel() for p in model.parameters())
+#     return total
 
 
 class Diffuser:
@@ -20,6 +30,9 @@ class Diffuser:
         print(f'Prepping model...model name: {custom_path}')
         __, self.diffusion = create_model_and_diffusion(**model_config)
         self.model = HFUNetModel.from_pretrained(custom_path)
+        # total = get_parameter_num(self.model)
+        # print("Number of parameter: %.2fM" % (total/1e6))
+        # print("Number of parameter: %.2fM" % (total/1024/1024))
 
         self.model.requires_grad_(False).eval().to(device)
         for name, param in self.model.named_parameters():
@@ -69,7 +82,7 @@ class Diffuser:
             torch.manual_seed(seed)
             torch.cuda.manual_seed_all(seed)
             torch.backends.cudnn.deterministic = True
-        # target_embeds = [],
+        # target_embeds, weights = [], []
         frame_prompt = input_text_prompts
 
         print(f'Frame {frame_num} Prompt: {frame_prompt}')
@@ -124,7 +137,11 @@ class Diffuser:
                 for model_stat in model_stats:
                     for i in range(args.cutn_batches):
                         t_int = int(t.item()) + 1  # errors on last step without +1, need to find source
-                        input_resolution = 224
+                        # try:
+                        input_resolution = model_stat["clip_model"].visual.input_resolution
+                        # except:
+                        #     input_resolution = 224
+
                         cuts = MakeCutoutsDango(input_resolution,
                                                 Overview=args.cut_overview[1000 - t_int],
                                                 InnerCrop=args.cut_innercut[1000 - t_int],
@@ -147,17 +164,20 @@ class Diffuser:
                     init_losses = self.lpips_model(x_in, init)
                     loss = loss + init_losses.sum() * init_scale
                 x_in_grad += torch.autograd.grad(loss, x_in)[0]
-                if torch.isnan(x_in_grad).any() is False:
+                if not torch.isnan(x_in_grad).any():
                     grad = -torch.autograd.grad(x_in, x, x_in_grad)[0]
                 else:
                     x_is_NaN = True
                     grad = torch.zeros_like(x)
-            if args.clamp_grad and x_is_NaN is False:
+            if args.clamp_grad and not x_is_NaN:
                 magnitude = grad.square().mean().sqrt()
                 return grad * magnitude.clamp(max=args.clamp_max) / magnitude  # min=-0.02, min=-clamp_max,
             return grad
 
-        sample_fn = self.diffusion.ddim_sample_loop_progressive
+        if args.diffusion_sampling_mode == 'ddim':
+            sample_fn = self.diffusion.ddim_sample_loop_progressive
+        else:
+            sample_fn = self.diffusion.plms_sample_loop_progressive
 
         for i in range(args.n_batches):
             current_time = datetime.now().strftime('%y%m%d-%H%M%S_%f')
@@ -207,10 +227,10 @@ class Diffuser:
                         intermediateStep = True
                 elif j in args.intermediate_saves:
                     intermediateStep = True
-                if j % args.display_rate == 0 or cur_t == -1 or intermediateStep is True:
+                if j % args.display_rate == 0 or cur_t == -1 or intermediateStep:
                     for k, image in enumerate(sample['pred_xstart']):
                         # tqdm.write(f'Batch {i}, step {j}, output {k}:')
-                        # percent = math.ceil(j/total_steps*100)
+                        # percent = math.ceil(j / total_steps * 100)
                         if args.n_batches > 0:
                             filename = f'{current_time}-{parse_prompt(prompt)[0]}.png'
                         image = TF.to_pil_image(image.add(1).div(2).clamp(0, 1))
@@ -226,7 +246,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="setting")
     parser.add_argument('--prompt', type=str, required=True)
     parser.add_argument('--text_scale', type=int, default=5000)
-    parser.add_argument('--model_path', type=str, default="IDEA-CCNL/Taiyi-Diffusion-532M-Nature")
+    parser.add_argument('--model_path', type=str, default="wf-genius/nature_uncond_diffusion")
     parser.add_argument('--width', type=int, default=512)
     parser.add_argument('--height', type=int, default=512)
 
