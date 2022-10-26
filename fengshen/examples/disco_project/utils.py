@@ -1,24 +1,25 @@
-import random
-from types import SimpleNamespace
-from guided_diffusion.script_util import model_and_diffusion_defaults
-from params import *
-from resize_right import resize
-import cv2
-import pandas as pd
-import requests
-import math
-import torchvision.transforms as T
-import torchvision.transforms.functional as TF
-import numpy as np
-import torch
-from torch.nn import functional as F
-import torch.nn as nn
-import io
-import subprocess
 import os
 import sys
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, f'{PROJECT_DIR}/guided-diffusion')   # 加在前面，不再读取库文件的东西。
+
+import subprocess
+import io
+import torch.nn as nn
+from torch.nn import functional as F
+import torch
+import numpy as np
+import torchvision.transforms.functional as TF
+import torchvision.transforms as T
+import math
+import requests
+import pandas as pd
+import cv2
+from resize_right import resize
+from params import *
+from guided_diffusion.script_util import model_and_diffusion_defaults
+from types import SimpleNamespace
+import random
 
 
 def createPath(filepath):
