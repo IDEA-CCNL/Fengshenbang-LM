@@ -8,7 +8,7 @@
 - setup the environment by`pip install -r requirement.txt` or install the lack package directly
 ### Run Directly 
 ```
-python disco.py
+python disco.py --prompt 夕阳西下
 ```
 
 ### Streamlit Setup

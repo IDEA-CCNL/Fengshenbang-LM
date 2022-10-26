@@ -226,7 +226,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="setting")
     parser.add_argument('--prompt', type=str, required=True)
     parser.add_argument('--text_scale', type=int, default=5000)
-    parser.add_argument('--model_path', type=str, default="wf-genius/nature_uncond_diffusion")
+    parser.add_argument('--model_path', type=str, default="IDEA-CCNL/Taiyi-Diffusion-532M-Nature")
     parser.add_argument('--width', type=int, default=512)
     parser.add_argument('--height', type=int, default=512)
 
