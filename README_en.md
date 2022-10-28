@@ -1,7 +1,22 @@
 [**中文**](./README.md) | [**English**](./README_en.md)
 
-# Fengshenbang big event
+# Fengshenbang Achievements
 
+> [**Fengshenbang 1.0**](https://arxiv.org/abs/2209.02970): Fengshenbang1.0 bilingual general paper, aims to be the Foundation of Chinese Cognitive Intelligence.
+
+> [**BioBART**](https://arxiv.org/abs/2204.03905): A generative language model for biomedical domain provided by Tsinghua University together with IDEA Institute.(```BioNLP 2022```)
+
+> [**UniMC**](https://arxiv.org/abs/2210.08590): A unified model for zero-shot scenarios based on labeled datasets.(```EMNLP 2022```)
+
+> [**FMIT**](https://arxiv.org/abs/2208.11039): A single-tower multimodal named entity recognition model based on relative position encoding.(```COLING 2022```)
+
+> [**UBERT**](https://arxiv.org/abs/2206.12094): A unified natural language inference model based on extractive structural decoding.
+
+> [**Erlangshen+PCL**](https://arxiv.org/abs/2208.02959): Towards No.1 in CLUE Semantic Matching Challenge: Pre-trained Language Model Erlangshen with Propensity-Corrected Loss.
+
+# Fengshenbang Big Event
+
+- [Breaking the impossible triangle, comparable to 540B models, IDEA Fengshenbang team only has 200B models to achieve zero-shot SOTA](https://mp.weixin.qq.com/s/m0_W31mP4xKKla8jIwUXkw) 2022.10.25
 - [AIWIN champion solution, Fengshenbang proposed multi-task learning model Ubert](https://mp.weixin.qq.com/s/A9G0YLbIPShKgm98DnD2jA) 2022.07.21
 - [Just a simple Finetune, "Fengshenbang" pre-trained language model "Erlangshen" won the first place in SimCLUE benchmark](https://mp.weixin.qq.com/s/KXQtCgxZlCnv0HqSyQAteQ) 2022.07.14
 - [Fengshen Framework is officially open-sourced, helping you easily pre-train and fine-tune major models in "Fengshenbang"](https://mp.weixin.qq.com/s/NtaEVMdTxzTJfVr-uQ419Q) 2022.06.30
@@ -14,7 +29,8 @@
 
 
 # Navigation
-- [Fengshenbang big event](#fengshenbang-big-event)
+- [Fengshenbang Achievements](#fengshenbang-achievements)
+- [Fengshenbang Big Event](#fengshenbang-big-event)
 - [Navigation](#navigation)
 - [Model Infofrmation](#model-infofrmation)
 - [Fengshenbang-LM](#fengshenbang-lm)

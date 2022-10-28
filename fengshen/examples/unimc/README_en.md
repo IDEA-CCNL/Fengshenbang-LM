@@ -24,10 +24,10 @@ You can refer to our [example.py]()
 
 ```python
 import argparse
-from fengshen.pipelines.multiplechoice import UniMCPiplines
+from fengshen.pipelines.multiplechoice import UniMCPipelines
 
 total_parser = argparse.ArgumentParser("TASK NAME")
-total_parser = UniMCPiplines.piplines_args(total_parser)
+total_parser = UniMCPipelines.piplines_args(total_parser)
 args = total_parser.parse_args()
     
 pretrained_model_path = 'IDEA-CCNL/Erlangshen-UniMC-Albert-235M-English'
@@ -37,7 +37,7 @@ args.max_length=512
 args.max_epochs=3
 args.batchsize=8
 args.default_root_dir='./'
-model = UniMCPiplines(args, model_path=pretrained_model_path)
+model = UniMCPipelines(args, model_path=pretrained_model_path)
 
 train_data = [] 
 dev_data = [] 
