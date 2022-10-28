@@ -1,9 +1,10 @@
 # from disco_huge import Diffuser
-from utils import *
+# from utils import *
 from disco import Diffuser
 import streamlit as st
 from io import BytesIO
 from PIL import Image
+from disco import steps
 
 
 @st.cache(show_spinner=False, allow_output_mutation=True)   # 加装饰器， 只加载一次。
@@ -14,7 +15,6 @@ class ST_Diffuser(Diffuser):
 
 if __name__ == '__main__':
     dd = ST_Diffuser(custom_path="IDEA-CCNL/Taiyi-Diffusion-532M-Nature")  # 初始化
-
     form = st.form("参数设置")
     input_text = form.text_input('输入文本生成图像:', value='', placeholder='你想象的一个画面')
     form.form_submit_button("提交")
