@@ -1,9 +1,29 @@
-from fengshen.data.universal_datamodule import UniversalDataModule
-from fengshen.utils.universal_checkpoint import UniversalCheckpoint
-from fengshen.utils import chinese_char_tokenize
-from utils import truncate_sequence, white_space_fix
+# -*- encoding: utf-8 -*-
+'''
+Copyright 2022 The International Digital Economy Academy (IDEA). CCNL team. All rights reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+@File    :   finetune_bart.py
+@Time    :   2022/10/28 18:23
+@Author  :   Qi Yang
+@Version :   1.0
+@Contact :   yangqi@idea.edu.cn
+@License :   (C)Copyright 2022-2023, CCNL-IDEA
+'''
+
+
 from utils import LabelSmoothingCrossEntropy
-import time
+from utils import truncate_sequence, white_space_fix
+from fengshen.utils import chinese_char_tokenize
+from fengshen.utils.universal_checkpoint import UniversalCheckpoint
+from fengshen.data.universal_datamodule import UniversalDataModule
 import sys
 import os
 import torch
@@ -12,9 +32,9 @@ import pytorch_lightning as pl
 from dataclasses import dataclass
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import LearningRateMonitor
-from transformers import BartForConditionalGeneration, BertTokenizer, AutoTokenizer, T5ForConditionalGeneration
+from transformers import BartForConditionalGeneration
+from transformers import BertTokenizer, AutoTokenizer
 from torchmetrics.text.rouge import ROUGEScore
-from torchmetrics.functional import bleu_score, rouge_score
 sys.path.append('../../../')
 
 
@@ -28,7 +48,10 @@ class QGT5Collator:
         parser.add_argument('--max_src_length', default=32, type=int)
         parser.add_argument('--max_kno_length', default=416, type=int)
         parser.add_argument('--max_tgt_length', default=64, type=int)
-        parser.add_argument('--mask_ans_style', default='normal', type=str)
+        parser.add_argument('--mask_ans_style',
+                            default='normal',
+                            type=str,
+                            choices=['normal', 'unmask', 'anstoken', 'postag'])
         return parent_args
 
     def __init__(self, tokenizer, args):
@@ -158,8 +181,6 @@ class QGT5Collator:
                 question = s["question"]
 
             x_trunc, y_trunc = self.prompt(context, answer, question)
-            print("x_trunc y_trunc after prompt")
-            print(x_trunc, y_trunc)
             encoder_input, decoder_output = self.encode(x_trunc, y_trunc)
 
             input_ids.append(encoder_input["input_ids"])
@@ -167,7 +188,6 @@ class QGT5Collator:
             labels.append(decoder_output["input_ids"])
 
         labels = torch.cat(labels)
-        print(labels.shape)
         if self.tokenizer_type == "bart":
             end_token_index = torch.where(labels == self.tokenizer.eos_token_id)[1]
         else:
@@ -213,10 +233,7 @@ class BARTFinetuneModel(pl.LightningModule):
     def __init__(self, tokenizer, args):
         super().__init__()
         self.save_hyperparameters(args)
-        if 'BART' in args.model_path:
-            self.model = BartForConditionalGeneration.from_pretrained(args.model_path)
-        elif 'T5' in args.model_path:
-            self.model = T5ForConditionalGeneration.from_pretrained(args.model_path)
+        self.model = BartForConditionalGeneration.from_pretrained(args.model_path)
         self.tokenizer = tokenizer
 
         # add special token ans
@@ -315,7 +332,6 @@ class BARTFinetuneModel(pl.LightningModule):
             eos_index = torch.where(batch['labels'] == self.tokenizer.sep_token_id)[1]
 
         loss = torch.sum(loss_tensor, dim=1) / eos_index
-        print(loss.shape)
 
         with torch.no_grad():
             cond_output = self.model.generate(
@@ -343,29 +359,6 @@ class BARTFinetuneModel(pl.LightningModule):
         acc = torch.sum(corr.float())/y_true.shape[0]
         return acc
 
-    def compute_bleu(self, candidates, references):
-        references = [chinese_char_tokenize(ref[0]) for ref in references]
-        candidates = [chinese_char_tokenize(can) for can in candidates]
-        bleus = {}
-        for i in range(1, 5):
-            bleus['bleu_'+str(i)] = bleu_score(candidates, references, i, False)
-        return bleus
-
-    def compute_rouge(self, candidates, references):
-        references = [chinese_char_tokenize(ref) for ref in references]
-        candidates = [chinese_char_tokenize(can) for can in candidates]
-
-        def normalize(x):
-            return x
-        rouges = rouge_score(candidates, references, normalizer=normalize)
-        return rouges
-
-    def compute_f1(self, candidates, references):
-        from fengshen.metric.eval_utils import f1_fn
-
-        f1 = f1_fn(references, candidates)
-        return f1
-
     def on_save_checkpoint(self, checkpoint) -> None:
         if self.trainer._accelerator_connector.cluster_environment.global_rank() == 0:
             self.model.save_pretrained(os.path.join(
@@ -377,10 +370,6 @@ class BARTFinetuneModel(pl.LightningModule):
         if 'global_samples' in checkpoint:
             self.consumed_samples = checkpoint['global_samples']
         self.trainer.fit_loop.epoch_loop._batches_that_stepped = global_step_offset
-
-
-def get_time_str():
-    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
 
 
 def get_tokenizer(tokenizer_type, pretrained_model_path):
@@ -397,7 +386,7 @@ def get_tokenizer(tokenizer_type, pretrained_model_path):
 def main():
     total_parser = argparse.ArgumentParser("Finetune BART for QG")
     total_parser.add_argument('--do_eval_only', action='store_true', default=False)
-    total_parser.add_argument('--tokenizer_type', type=str, default="bart")
+    total_parser.add_argument('--tokenizer_type', type=str, default="bart", choices=['bart', 'bert'])
     total_parser.add_argument('--tensorboard_dir', type=str, default="bart")
     total_parser.add_argument('--deepspeed')
 

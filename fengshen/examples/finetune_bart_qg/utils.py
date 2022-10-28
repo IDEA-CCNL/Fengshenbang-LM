@@ -1,46 +1,29 @@
+# -*- encoding: utf-8 -*-
+'''
+Copyright 2022 The International Digital Economy Academy (IDEA). CCNL team. All rights reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+@File    :   utils.py
+@Time    :   2022/10/28 18:27
+@Author  :   Qi Yang
+@Version :   1.0
+@Contact :   yangqi@idea.edu.cn
+@License :   (C)Copyright 2022-2023, CCNL-IDEA
+'''
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
 import torch
 import torch.nn.functional as F
-import json
-
-
-class QGDataset(torch.utils.data.Dataset):
-    """Some Information about MyDataset"""
-
-    def __init__(self, test_file, sample_num=0):
-        super(QGDataset, self).__init__()
-        self.test_file = test_file
-        with open(test_file, 'r', encoding='utf8') as f:
-            lines = f.readlines()
-            datas = [json.loads(line) for line in lines]
-        if sample_num == 0:
-            self.samples = datas
-        else:
-            self.samples = datas[0:sample_num]
-
-    def __getitem__(self, index):
-        return self.samples[index]
-
-    def __len__(self):
-        return len(self.samples)
-
-
-def test_dataloader(collate_fn, args):
-    """avoid to inference should modify fsdataset and loaddataset"""
-    dataset = QGDataset(args.pred_file, args.sample_num)
-    return torch.utils.data.DataLoader(
-        dataset,
-        batch_size=args.test_batchsize,
-        shuffle=False,
-        num_workers=args.dataloader_workers,
-        collate_fn=collate_fn,
-        # sampler=DistributedSampler(
-        #    self.datasets[self.hparams.test_datasets_field], shuffle=False),
-        pin_memory=True,
-    )
 
 
 class LabelSmoothingCrossEntropy(torch.nn.Module):
