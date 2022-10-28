@@ -1,4 +1,6 @@
-# from utils import *
+import os
+import sys
+# sys.path.insert(0, f'{PROJECT_DIR}/guided-diffusion')   # 加在前面，不再读取库文件的东西。
 import subprocess
 import io
 import torch.nn as nn
@@ -10,25 +12,22 @@ import math
 import requests
 import cv2
 from resize_right import resize
-from guided_diffusion.script_util import model_and_diffusion_defaults
+from guided_diffusion.guided_diffusion.script_util import model_and_diffusion_defaults
 from types import SimpleNamespace
 from PIL import Image
 import argparse
-from guided_diffusion.unet import HFUNetModel
+from guided_diffusion.guided_diffusion.unet import HFUNetModel
 from tqdm.notebook import tqdm
 from datetime import datetime
-from guided_diffusion.script_util import create_model_and_diffusion
+from guided_diffusion.guided_diffusion.script_util import create_model_and_diffusion
 import clip
 from transformers import BertForSequenceClassification, BertTokenizer
 import gc
 import random
-import os
-import sys
-PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, f'{PROJECT_DIR}/guided-diffusion')   # 加在前面，不再读取库文件的东西。
 
 
 # ======================== GLOBAL SETTING ========================
+PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 useCPU = False  # @param {type:"boolean"}
 skip_augs = False  # @param{type: 'boolean'}
