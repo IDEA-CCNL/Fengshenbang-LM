@@ -5,7 +5,7 @@
 - the checkpoint has been upload to hugging face.
 ## Usage
 
-- setup the environment by`pip install -r requirement.txt` or install the lack package directly
+- Install the lack package directly
 ### Run Directly 
 ```
 python disco.py --prompt 夕阳西下 --model_path IDEA-CCNL/Taiyi-Diffusion-532M-Nature # or IDEA-CCNL/Taiyi-Diffusion-532M-Cyberpunk
