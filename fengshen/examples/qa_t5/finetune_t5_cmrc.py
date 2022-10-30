@@ -1,13 +1,24 @@
 # -*- encoding: utf-8 -*-
-"""
+'''
+Copyright 2022 The International Digital Economy Academy (IDEA). CCNL team. All rights reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 @File    :   finetune_t5_cmrc.py
-@Time    :   2022/10/19 16:57
+@Time    :   2022/10/28 19:57
 @Author  :   He Junqing
 @Version :   1.0
 @Contact :   hejunqing@idea.edu.cn
 @License :   (C)Copyright 2022-2023, CCNL-IDEA
-"""
+'''
 # here put the import lib
+
 import pytorch_lightning as pl
 import os
 import sys
@@ -16,10 +27,10 @@ import torch
 import argparse
 from collections import Counter
 from fengshen.utils.utils import chinese_char_tokenize
+from fengshen.data.universal_datamodule import UniversalDataModule
 from pytorch_lightning import Trainer, loggers
 from pytorch_lightning.callbacks import LearningRateMonitor
-from transformers import MT5ForConditionalGeneration, T5Tokenizer
-from qa_dataset import TextGenDataModel
+from transformers import MT5ForConditionalGeneration, T5Tokenizer, MT5Config
 from torchmetrics.text.rouge import ROUGEScore
 from nltk.translate.bleu_score import corpus_bleu
 
@@ -267,7 +278,6 @@ class QAFinetuneModel(pl.LightningModule):
                     fw.write("context:" + "".join(context) + "\n")
                     fw.write("pred:" + pred + "\n")
                     fw.write("target" + target + "\n")
-                    fw.write("idx:{}\n".format(batch["idx"][i].item()))
                     fw.write("loss:{:.6f}\n".format(batch["loss"][i].item()))
                     fw.write("\n")
             bleu = compute_bleu(preditions, labels)
@@ -284,6 +294,12 @@ class QAFinetuneModel(pl.LightningModule):
             y_true.view(size=(-1,)).shape[0] - pad_num
         )
         return acc
+
+
+class PredictDataModule(UniversalDataModule):
+
+    def predict_dataloader(self):
+        return self.test_dataloader()
 
 
 def main():
@@ -308,8 +324,10 @@ def main():
     sys.path.append("../../../")
 
     from fengshen.utils.universal_checkpoint import UniversalCheckpoint
+    from qa_dataset import T5StyleDataset, TextGenCollator
 
-    total_parser = TextGenDataModel.add_data_specific_args(
+    total_parser = T5StyleDataset.add_data_specific_args(total_parser)
+    total_parser = UniversalDataModule.add_data_specific_args(
         total_parser
     )  # TaskDataModel
     total_parser = Trainer.add_argparse_args(total_parser)
@@ -322,13 +340,24 @@ def main():
     print("Argument parse success.")
     print("superviseT5DataModel load start {}".format(get_time_str()))
 
+    config = MT5Config.from_pretrained(args.pretrained_model_path)
+    collate_fn = TextGenCollator(
+        config=config,
+        pad_token_id=config.pad_token_id,
+        decoder_start_token_id=config.decoder_start_token_id,
+        formator=args.formator)
     if not args.do_eval_only:
+        datasets = {'train': T5StyleDataset(args.train_file, args, load_data_type=0, data="train"),
+                    'validation': T5StyleDataset(args.val_file, args, load_data_type=0, data="dev")}
 
         model = QAFinetuneModel(args)
         print("superviseT5DataModel load end {}".format(get_time_str()))
-        # model=T5FinetuneModel(args=args)
-        data_model = TextGenDataModel(args)  # TaskDataModel
-        checkpoint_callback = UniversalCheckpoint(args).callbacks
+
+        data_model = UniversalDataModule(
+            tokenizer=None, args=args, collate_fn=collate_fn, datasets=datasets
+        )
+        print('data loaded')
+        checkpoint_callback = UniversalCheckpoint(args)
         lr_monitor = LearningRateMonitor(logging_interval="step")
         logger = loggers.TensorBoardLogger(
             save_dir=os.path.join(args.default_root_dir, "logs/")  # TOCHANGE
@@ -338,15 +367,17 @@ def main():
         )
         trainer.fit(model, data_model)
     else:
-        data_model = TextGenDataModel(args)
+        datasets = {'test': T5StyleDataset(args.test_file, args, load_data_type=0, data="test")}
+
+        data_model = PredictDataModule(
+            tokenizer=None, args=args, collate_fn=collate_fn, datasets=datasets
+        )
+
         tokenizer = T5Tokenizer.from_pretrained(args.pretrained_model_path)
         model = QAFinetuneModel(args=args)
         trainer = Trainer.from_argparse_args(args)
-        # trainer.validate(model,data_model)
-        # print('val f1:{}'.format(self.f1))
         result = trainer.predict(model, data_model, ckpt_path=args.ckpt_path)
         predictions, labels = model.save_preditions(result, args)
-        # trainer.test(model,data_model,ckpt_path=args.ckpt_path)
         sample = result[0]  # first_batch
         batch_labels = torch.where(
             sample["labels"] != -100, sample["labels"], model.tokenizer.pad_token_id

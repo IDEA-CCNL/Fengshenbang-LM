@@ -4,16 +4,18 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:1               # number of gpus
 #SBATCH --cpus-per-task=4 # cpu-cores per task (>1 if multi-threaded tasks)
-#SBATCH -o /cognitive_comp/hejunqing/projects/CMRC/models/%x-%j.log
-#SBATCH -e /cognitive_comp/hejunqing/projects/CMRC/models/%x-%j.err
+#SBATCH -o $YOUR_SLURM_LOG_PATH/%x-%j.log
+#SBATCH -e $YOUR_SLURM_LOG_PATH/%x-%j.err
 
+#
 set -x -e
 
 echo "START TIME: $(date)"
 MICRO_BATCH_SIZE=8
 
-ROOT_DIR=/cognitive_comp/hejunqing/projects/CMRC/models/v1_bs8/
-DOWNLOAD_MODEL_PATH=/cognitive_comp/hejunqing/projects/CMRC/huggingface/
+ROOT_DIR=$YOUR_PROJECT_DIR
+DOWNLOAD_MODEL_PATH=$YOUR_PROJECT_DIR/Randeng-T5-784M-QA-Chinese/
+#YOUR_MODEL_DIR
 
 if [ ! -d ${ROOT_DIR} ];then
   mkdir ${ROOT_DIR}
@@ -73,7 +75,7 @@ cat <<EOT > $config_json
 EOT
 
 export PL_DEEPSPEED_CONFIG_PATH=$config_json
-export TORCH_EXTENSIONS_DIR=/cognitive_comp/hejunqing/tmp/torch_extendsions
+export TORCH_EXTENSIONS_DIR=$YOUR_HOME/tmp/torch_extendsions
 # strategy=ddp
 strategy=deepspeed_stage_1
 
@@ -83,15 +85,15 @@ TRAINER_ARGS="
     --num_nodes 1 \
     --strategy ${strategy} \
     --default_root_dir $ROOT_DIR \
-    --dirpath $ROOT_DIR/ckpt \
+    --save_ckpt_path $ROOT_DIR/ckpt \
     --save_top_k 5 \
     --every_n_train_steps 100\
     --monitor val_rougeL_fmeasure \
     --mode max \
     --save_last \
     --check_val_every_n_epoch 1 \
-    --dataset_num_workers 4 \
-    --dataloader_num_workers 4 \
+    --num_workers 4 \
+    --dataloader_workers 4 \
     --replace_sampler_ddp False \
     --accumulate_grad_batches 2 \
     --formator t5style \
@@ -101,22 +103,22 @@ TRAINER_ARGS="
     --decode_strategy sampling
 "
 
-DATA_DIR=cmrc
+TEST_FILE_PATH=$YOUR_DATA_FILE
 
 DATA_ARGS="
     --train_batchsize $MICRO_BATCH_SIZE \
-    --valid_batchsize $MICRO_BATCH_SIZE \
-    --train_data_path ${DATA_DIR} \
+    --val_batchsize $MICRO_BATCH_SIZE \
+    --test_file $TEST_FILE_PATH \
     --max_seq_length 512 \
     --max_knowledge_length 425 \
     --max_target_length 128
 "
 MODEL_ARGS="
-    --pretrained_model_path $DOWNLOAD_MODEL_DIR\
+    --pretrained_model_path $DOWNLOAD_MODEL_PATH\
     --tokenizer_type t5_tokenizer \
 "
 
-SCRIPTS_PATH=/cognitive_comp/hejunqing/projects/Fengshenbang-LM/fengshen/examples/qa_t5/finetune_t5_cmrc.py
+SCRIPTS_PATH=$YOUR_PROJECT_DIR/Fengshenbang-LM/fengshen/examples/qa_t5/finetune_t5_cmrc.py
 
 export CMD=" \
     $SCRIPTS_PATH \

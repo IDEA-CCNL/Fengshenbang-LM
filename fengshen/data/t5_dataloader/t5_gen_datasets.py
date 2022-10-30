@@ -101,8 +101,10 @@ class DialogDataset(Dataset):
         """
         from datasets import load_dataset
 
-        ds = load_dataset("json", data_files=data_path)
-        return ds
+        ds = load_dataset("json", data_files=data_path)['train']
+        samples = ds.map(self.regular_tokenize, batched=False, num_proc=self.num_workers
+                         )
+        return samples
 
     def __getitem__(self, index):
         return self.data[index]

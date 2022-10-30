@@ -1,7 +1,17 @@
 # -*- encoding: utf-8 -*-
 '''
+Copyright 2022 The International Digital Economy Academy (IDEA). CCNL team. All rights reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 @File    :   qa_dataset.py
-@Time    :   2022/10/24 20:03
+@Time    :   2022/10/28 19:57
 @Author  :   He Junqing
 @Version :   1.0
 @Contact :   hejunqing@idea.edu.cn
@@ -9,16 +19,24 @@
 '''
 # here put the import lib
 
+from dataclasses import dataclass
 import numpy as np
 import torch
 from torch.nn.utils.rnn import pad_sequence
-from torch.utils.data import DataLoader
-from transformers import MT5Config
 
-from fengshen.data.t5_dataloader.t5_gen_datasets import DialogDataModel, DialogDataset
+from fengshen.data.t5_dataloader.t5_gen_datasets import DialogDataset
 
 
 class T5StyleDataset(DialogDataset):
+
+    @staticmethod
+    def add_data_specific_args(parent_args):
+        parser = parent_args.add_argument_group("Dataset")
+        parser.add_argument("--max_seq_length", default=512, type=int)
+        parser.add_argument("--max_knowledge_length", default=128, type=int)
+        parser.add_argument("--max_target_length", default=128, type=int)
+        return parent_args
+
     def regular_tokenize(self, sample):
         """
         sample.keys:question:str,context:stc, answer:[],idx:int,ans_span:[]
@@ -71,91 +89,26 @@ class T5StyleDataset(DialogDataset):
         return tokenized_sample
 
 
-class TextGenDataModel(DialogDataModel):
-    def load_data(self, args):
-        if args.train_split_size is not None:
-            from fengshen.data.fs_datasets import load_dataset
+@dataclass
+class TextGenCollator:
+    '''
+    '''
+    config: None
+    pad_token_id: -100
+    decoder_start_token_id: 0
+    formator: str = 't5style'
 
-            data_splits = load_dataset(
-                args.train_data_path, num_proc=args.dataset_num_workers
-            )
-            if args.do_eval_only:
-                test_split = data_splits["test"]
-                print("\ntest_data:", test_split)
-            else:
-                train_split = data_splits["train"]
-                dev_split = data_splits["dev"]
-                print("train:", train_split, "\ndev_data:", dev_split)
+    def setup(self):
+        pass
 
-            if not args.do_eval_only:
-                self.train_dataset = T5StyleDataset(
-                    args.train_data_path, args, load_data_type=1, data="train"
-                )
-                self.dev_dataset = T5StyleDataset(
-                    args.train_data_path, args, load_data_type=1, data="dev"
-                )
-            else:
-                self.test_dataset = T5StyleDataset(
-                    args.train_data_path, args, load_data_type=1, data="test"
-                )
-        else:
-
-            self.train_dataset = T5StyleDataset(
-                args.train_data_path, args, load_data_type=1, data="train"
-            )
-
-        self.config = MT5Config.from_pretrained(args.pretrained_model_path)
-        self.pad_token_id = self.config.pad_token_id
-        self.decoder_start_token_id = self.config.decoder_start_token_id
-        self.formator = args.formator
-        print("bos id:", self.decoder_start_token_id)
-
-    def val_dataloader(self):
-        sampler = torch.utils.data.distributed.DistributedSampler(
-            self.dev_dataset, shuffle=False
-        )
-        return DataLoader(
-            self.dev_dataset,
-            sampler=sampler,
-            shuffle=False,
-            batch_size=self.hparams.valid_batchsize,
-            pin_memory=True,
-            num_workers=self.hparams.dataloader_num_workers,
-            collate_fn=self.collate_fn,
-        )
-
-    def test_dataloader(self):
-        sampler = torch.utils.data.distributed.DistributedSampler(
-            self.test_dataset, shuffle=False
-        )
-        return DataLoader(
-            self.test_dataset,
-            sampler=sampler,
-            shuffle=False,
-            batch_size=self.hparams.valid_batchsize,
-            pin_memory=True,
-            num_workers=self.hparams.dataloader_num_workers,
-            collate_fn=self.collate_fn,
-        )
-
-    def collate_fn(self, samples):
-        if self.formator == "t5style":
-            batch = {
-                k: [
-                    torch.tensor(samples[i][k], dtype=torch.int64)
-                    for i in range(len(samples))
-                ]
-                for k in ["input_ids", "attention_mask", "labels"]
-            }
-        else:
-            batch = {
-                k: [
-                    torch.tensor(samples[i][k], dtype=torch.int64)
-                    for i in range(len(samples))
-                ]
-                for k in ["input_ids", "token_types", "attention_mask", "labels"]
-            }
-
+    def __call__(self, samples):
+        batch = {
+            k: [
+                torch.tensor(samples[i][k], dtype=torch.int64)
+                for i in range(len(samples))
+            ]
+            for k in ["input_ids", "attention_mask", "labels"]
+        }
         batch["idx"] = torch.tensor([samples[i]["idx"] for i in range(len(samples))])
 
         # print(batch)
@@ -175,6 +128,21 @@ class TextGenDataModel(DialogDataModel):
         )
         return batch
 
+    def shift_tokens_right(
+        self, input_ids: np.array, pad_token_id: int, decoder_start_token_id: int
+    ) -> np.ndarray:
+        """
+        Shift input ids one token to the right.
+        """
+        shifted_input_ids = np.zeros_like(input_ids)
+        shifted_input_ids[:, 1:] = input_ids[:, :-1]
+        shifted_input_ids[:, 0] = decoder_start_token_id
+
+        shifted_input_ids = np.where(
+            shifted_input_ids == -100, pad_token_id, shifted_input_ids
+        )
+        return shifted_input_ids
+
 
 if __name__ == "__main__":
     # test
@@ -189,19 +157,19 @@ if __name__ == "__main__":
     total_parser.add_argument("--preprocessing_num_workers", default="4", type=int)
     total_parser.add_argument(
         "--new_vocab_path",
-        default="/cognitive_comp/hejunqing/projects/Dialog_pretrain/randeng_t5_newvocab_784M",
+        default=None,
         type=str,
     )
 
     total_parser.add_argument(
         "--pretrained_model_path",
-        default="/cognitive_comp/hejunqing/projects/Dialog_pretrain/randeng_t5_newvocab_784M",
+        default="YOUR DOWNLOAD MODEL PATH",
     )
     total_parser.add_argument("--train_split_size", default=0.995, type=int)
     total_parser.add_argument(
         "--formator", default="t5style", choices=["t5style", "squad", "dialog"]
     )
-    total_parser = TextGenDataModel.add_data_specific_args(total_parser)
+    total_parser = TextGenCollator.add_data_specific_args(total_parser)
     args = total_parser.parse_args()
     args.train_data_path = "cmrc"
     ds = T5StyleDataset("cmrc", args, "dev")
@@ -209,7 +177,7 @@ if __name__ == "__main__":
     for i in range(10):
         print(ds[i])
 
-    dl = TextGenDataModel(args)
+    dl = TextGenCollator(args)
     for i in range(5):
         for batch in dl.val_dataloader():
             print(batch)
