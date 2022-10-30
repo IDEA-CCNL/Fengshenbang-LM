@@ -2,7 +2,7 @@
 ## 简介 Brief Introduction
  Here are codes for finetuning Randeng-T5-QA-Chinese. The model was pretrained on the Wudao 180G corpus, and finetuned on Chinese SQuAD and CMRC2018 dataset. It can produce a fluent and accurate answer given a passage and question.
 
-这是中文的生成式问答模型的微调代码。它基于T5-Large结构，使用悟道180G语料在[封神框架](https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen)进行预训练，在ChineseSQuAD和CMRC2018两个阅读理解数据集上进行微调。输入一篇文章和一个问题，可以生成准确流畅的回答。
+这是中文的生成式问答模型[Randeng-T5-QA-Chinese](https://huggingface.co/IDEA-CCNL/Randeng-T5-784M-QA-Chinese)的微调代码。它基于T5-Large结构，使用悟道180G语料在[封神框架](https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen)进行预训练，在ChineseSQuAD和CMRC2018两个阅读理解数据集上进行微调。输入一篇文章和一个问题，可以生成准确流畅的回答。
 
 ## 模型类别 Model Taxonomy
 
