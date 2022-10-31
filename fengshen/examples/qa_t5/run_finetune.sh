@@ -81,6 +81,7 @@ TRAINER_ARGS="
     --accumulate_grad_batches 2 \
     --formator t5style \
     --filename model-{epoch:02d}-{val_loss:.4f}-{val_rougeL_fmeasure:.3f} \
+    --precision 16 \
 "
 
 TRAIN_DATA_PATH=$YOUR_TRAIN_FILE
