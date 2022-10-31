@@ -25,35 +25,7 @@ cat <<EOT > $config_json
     },
     "fp16": {
         "enabled": true,
-        "loss_scale": 0,
-        "loss_scale_window": 1000,
-        "initial_scale_power": 16,
-        "hysteresis": 2,
-        "min_loss_scale": 1
-    },
-    "optimizer": {
-        "params": {
-            "betas": [
-                0.9,
-                0.999
-            ],
-            "eps": 1e-08,
-            "lr": 1e-04,
-            "weight_decay": 1e-2
-        },
-        "type": "Adam"
-    },
-    "scheduler": {
-        "params": {
-            "warmup_max_lr": 1e-04,
-            "warmup_min_lr": 1e-08,
-            "total_num_steps": 100000,
-            "warmup_num_steps" : 1000
-        },
-        "type": "WarmupDecayLR"
-    },
-    "steps_per_print": 1000,
-    "zero_allow_untested_optimizer": false
+    }
 }
 EOT
 export PL_DEEPSPEED_CONFIG_PATH=$config_json
@@ -75,12 +47,12 @@ DATA_ARGS=" \
         --max_tgt_length 64 \
         --mask_ans_style anstoken_multispan \
         "  
-
+#train,json
 MODEL_ARGS="\
-        --model_path $MODEL_NAME \
-        --learning_rate 1e-5 \
-        --weight_decay 0.1 \
-        --warmup 0.0001 \
+        --model_path $MODEL_NAME/ \
+        --learning_rate 1e-4 \
+        --weight_decay 1e-2 \
+        --warmup_steps 1000 \
         "
 
 MODEL_CHECKPOINT_ARGS="\
@@ -99,7 +71,7 @@ TRAINER_ARGS="\
         --max_epochs 1 \
         --gpus 1 \
         --num_nodes 1 \
-        --strategy deepspeed_stage_1 \
+        --strategy ddp \
         --log_every_n_steps 100 \
         --val_check_interval 0.5 \
         --accumulate_grad_batches 1 \
@@ -107,6 +79,8 @@ TRAINER_ARGS="\
         --tensorboard_dir $ROOT_DIR \
         --label_smooth 0.1 \
     "
+
+
 
 export options=" \
         $DATA_ARGS \
