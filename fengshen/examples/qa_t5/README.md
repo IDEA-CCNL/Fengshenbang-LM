@@ -42,7 +42,7 @@ T5-Large: [Randeng-T5-784M-QA-Chinese](https://huggingface.co/IDEA-CCNL/Randeng-
 文件：
  - qa_dataset.py 数据集的处理，包含dataset和dataloader
  - finetune_t5_cmrc.py 模型微调核心代码
- - run_finetune.sh 微调脚本
+ - run_finetune.sh, 微调脚本(未安装deepspeed的话strategy参数改为ddp)
  - run_predict2.sh 预测脚本
 
 ## 使用 Usage

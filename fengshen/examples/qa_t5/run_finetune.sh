@@ -41,22 +41,6 @@ cat <<EOT > $config_json
     "reduce_bucket_size": 50000000,
     "allgather_bucket_size": 500000000
   },
-  "optimizer": {
-    "type": "AdamW",
-    "params": {
-      "lr": 1e-4,
-      "weight_decay": 1e-2
-    }
-  },
-  "scheduler": {
-    "params": {
-      "warmup_min_lr": 1e-05,
-      "warmup_max_lr": 1e-04,
-      "total_num_steps": 1500,
-      "warmup_num_steps" : 150
-    },
-    "type": "WarmupDecayLR"  
-  },
   "zero_allow_untested_optimizer": false,
   "fp16": {
     "enabled": true,
@@ -115,6 +99,10 @@ DATA_ARGS="
 MODEL_ARGS="
     --pretrained_model_path $DOWNLOAD_MODEL_PATH \
     --tokenizer_type t5_tokenizer \
+    --learning_rate 1e-4 \
+    --weight_decay 1e-2 \
+    --warmup_ratio 0.1 \
+    --sheduler_type polynomial 
 "
 
 SCRIPTS_PATH=$YOUR_PROJECT_DIR/Fengshenbang-LM/fengshen/examples/qa_t5/finetune_t5_cmrc.py
