@@ -12,8 +12,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from fengshen.models.megatron_t5 import T5Config
-from fengshen.models.megatron_t5 import T5EncoderModel
+import sys
+sys.path.append('/cognitive_comp/wuziwei/codes/Fengshenbang-LM/')
+from fengshen.models.megatron_t5.configuration_megatron_t5 import T5Config
+from fengshen.models.megatron_t5.modeling_megatron_t5 import T5EncoderModel
 from fengshen.models.roformer import RoFormerConfig
 from fengshen.models.roformer import RoFormerModel
 from fengshen.models.longformer import LongformerConfig
@@ -35,10 +37,9 @@ from transformers import (
     MegatronBertModel,
     MegatronBertConfig
 )
-import sys
-sys.path.append('../../../')
 
-os.environ["CUDA_VISIBLE_DEVICES"] = '6'
+
+# os.environ["CUDA_VISIBLE_DEVICES"] = '6'
 
 
 model_dict = {'huggingface-bert': BertModel,
@@ -331,13 +332,11 @@ def main():
                               default='./predict.json', type=str)
     total_parser.add_argument('--model_type',
                               default='huggingface-bert', type=str)
-
     # * Args for data preprocessing
     total_parser = TaskDataModel.add_data_specific_args(total_parser)
     # * Args for training
     total_parser = pl.Trainer.add_argparse_args(total_parser)
     total_parser = TaskModelCheckpoint.add_argparse_args(total_parser)
-
     # * Args for base model
     total_parser = LitModel.add_model_specific_args(total_parser)
 
