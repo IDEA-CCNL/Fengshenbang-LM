@@ -103,7 +103,8 @@ MODEL_ARGS="
     --learning_rate 1e-4 \
     --weight_decay 1e-2 \
     --warmup_ratio 0.1 \
-    --sheduler_type polynomial 
+    --sheduler_type polynomial \
+    --min_learning_rate 1e-5 \
 "
 
 SCRIPTS_PATH=$YOUR_PROJECT_DIR/Fengshenbang-LM/fengshen/examples/qa_t5/finetune_t5_cmrc.py
