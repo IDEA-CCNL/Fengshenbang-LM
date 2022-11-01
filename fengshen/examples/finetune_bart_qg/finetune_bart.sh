@@ -47,10 +47,12 @@ DATA_ARGS=" \
         --max_tgt_length 64 \
         --mask_ans_style anstoken_multispan \
         "  
-#train,json
+
 MODEL_ARGS="\
         --model_path $MODEL_NAME/ \
         --learning_rate 1e-4 \
+        --min_learning_rate 1e-8 \
+        --lr_decay_steps 100000 \
         --weight_decay 1e-2 \
         --warmup_steps 1000 \
         "
@@ -91,5 +93,5 @@ export options=" \
 # test
 export SCRIPT_PATH=./finetune_bart.py
 
-CUDA_VISIBLE_DEVICES=3 python3 ${SCRIPT_PATH} $options > $ROOT_DIR/test.log
+python3 ${SCRIPT_PATH} $options > $ROOT_DIR/test.log
 
