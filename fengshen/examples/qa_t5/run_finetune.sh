@@ -42,17 +42,6 @@ cat <<EOT > $config_json
     "allgather_bucket_size": 500000000
   },
   "zero_allow_untested_optimizer": false,
-  "fp16": {
-    "enabled": true,
-    "loss_scale": 0,
-    "loss_scale_window": 1000,
-    "hysteresis": 2,
-    "min_loss_scale": 1
-  },
-  "activation_checkpointing": {
-    "partition_activations": false,
-    "contiguous_memory_optimization": false
-  },
   "wall_clock_breakdown": false
 }
 EOT

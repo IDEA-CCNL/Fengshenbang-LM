@@ -42,34 +42,7 @@ cat <<EOT > $config_json
     "reduce_bucket_size": 50000000,
     "allgather_bucket_size": 500000000
   },
-  "optimizer": {
-    "type": "AdamW",
-    "params": {
-      "lr": 1e-4,
-      "weight_decay": 1e-2
-    }
-  },
-  "scheduler": {
-    "params": {
-      "warmup_min_lr": 1e-05,
-      "warmup_max_lr": 1e-04,
-      "total_num_steps": 1500,
-      "warmup_num_steps" : 150
-    },
-    "type": "WarmupDecayLR"  
-  },
   "zero_allow_untested_optimizer": false,
-  "fp16": {
-    "enabled": true,
-    "loss_scale": 0,
-    "loss_scale_window": 1000,
-    "hysteresis": 2,
-    "min_loss_scale": 1
-  },
-  "activation_checkpointing": {
-    "partition_activations": false,
-    "contiguous_memory_optimization": false
-  },
   "wall_clock_breakdown": false
 }
 EOT
@@ -100,7 +73,8 @@ TRAINER_ARGS="
     --filename model-{epoch:02d}-{val_loss:.4f}-{val_rougeL_fmeasure:.3f} \
     --do_eval_only \
     --prediction_res_path $ROOT_DIR/predictions_sampling.txt \
-    --decode_strategy sampling
+    --decode_strategy sampling \
+    --precision 16 \
 "
 
 TEST_FILE_PATH=$YOUR_DATA_FILE
@@ -116,6 +90,11 @@ DATA_ARGS="
 MODEL_ARGS="
     --pretrained_model_path $DOWNLOAD_MODEL_PATH\
     --tokenizer_type t5_tokenizer \
+    --learning_rate 1e-4 \
+    --weight_decay 1e-2 \
+    --warmup_ratio 0.1 \
+    --sheduler_type polynomial \
+    --min_learning_rate 1e-5 \
 "
 
 SCRIPTS_PATH=$YOUR_PROJECT_DIR/Fengshenbang-LM/fengshen/examples/qa_t5/finetune_t5_cmrc.py
