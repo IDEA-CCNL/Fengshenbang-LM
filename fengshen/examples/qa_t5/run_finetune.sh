@@ -41,8 +41,6 @@ cat <<EOT > $config_json
     "reduce_bucket_size": 50000000,
     "allgather_bucket_size": 500000000
   },
-  "zero_allow_untested_optimizer": false,
-  "wall_clock_breakdown": false
 }
 EOT
 
