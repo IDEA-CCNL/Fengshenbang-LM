@@ -19,11 +19,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 '''
 
 
-from utils import LabelSmoothingCrossEntropy
-from utils import truncate_sequence, white_space_fix
-from fengshen.utils import chinese_char_tokenize
-from fengshen.utils.universal_checkpoint import UniversalCheckpoint
+from fengshen.models.model_utils import configure_optimizers
 from fengshen.data.universal_datamodule import UniversalDataModule
+from fengshen.utils.universal_checkpoint import UniversalCheckpoint
+from fengshen.utils import chinese_char_tokenize
+from utils import truncate_sequence, white_space_fix
+from utils import LabelSmoothingCrossEntropy
 import sys
 import os
 import torch
@@ -51,7 +52,7 @@ class QGT5Collator:
         parser.add_argument('--mask_ans_style',
                             default='normal',
                             type=str,
-                            choices=['normal', 'unmask', 'anstoken', 'postag'])
+                            choices=['normal', 'unmask', 'anstoken', 'postag', 'anstoken_multispan', 'postag_multispan', 'normal_multispan'])
         return parent_args
 
     def __init__(self, tokenizer, args):
@@ -224,10 +225,19 @@ class BARTFinetuneModel(pl.LightningModule):
         parser = parent_args.add_argument_group('BaseModel')
         parser.add_argument('--model_path', type=str, default='')
         parser.add_argument('--learning_rate', default=1e-5, type=float)
+        parser.add_argument('--min_learning_rate', default=1e-7, type=float)
+        parser.add_argument('--lr_decay_steps', default=0, type=int)
+        parser.add_argument('--lr_decay_ratio', default=1.0, type=float)
         parser.add_argument('--weight_decay', default=0.1, type=float)
-        parser.add_argument('--warmup', default=0.01, type=float)
+        parser.add_argument('--warmup_steps', default=1000, type=int)
+        parser.add_argument('--warmup_ratio', default=0.01, type=float)
         parser.add_argument('--label_smooth', default=0, type=float)
         parser.add_argument('--new_token_path', default="./", type=str)  # save new token after add special token
+        parser.add_argument('--adam_beta1', default=0.9, type=float)
+        parser.add_argument('--adam_beta2', default=0.999, type=float)
+        parser.add_argument('--adam_epsilon', default=1e-8, type=float)
+        parser.add_argument('--scheduler_type', default='polynomial', type=str)
+
         return parent_args
 
     def __init__(self, tokenizer, args):
@@ -266,7 +276,6 @@ class BARTFinetuneModel(pl.LightningModule):
             print('Total steps: {}' .format(self.total_steps))
 
     def configure_optimizers(self):
-        from fengshen.models.model_utils import configure_optimizers
         return configure_optimizers(self)
 
     def training_step(self, batch, batch_idx):
@@ -412,7 +421,8 @@ def main():
                                          callbacks=[checkpoint_callback, lr_monitor]
                                          )
 
-    trainer.fit(model, data_model)
+    if not args.do_eval_only:
+        trainer.fit(model, data_model)
 
 
 if __name__ == '__main__':
