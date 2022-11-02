@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=pretrain_bart # create a short name for your job
+#SBATCH --job-name=pretrain_wenzhong # create a short name for your job
 #SBATCH --nodes=1 # node count
 #SBATCH --ntasks-per-node=1 # number of tasks to run per node
-#SBATCH --cpus-per-task=4 # cpu-cores per task (>1 if multi-threaded tasks)
+#SBATCH --cpus-per-task=2 # cpu-cores per task (>1 if multi-threaded tasks)
 #SBATCH --gres=gpu:1 # number of gpus per node
 #SBATCH -o %x-%j.log # output and error log file names (%x for job id)
 #SBATCH -p 3090 # hgx or 3090, if not set, default hgx
@@ -11,7 +11,7 @@
 ROOT_DIR=../../workspace
 export TORCH_EXTENSIONS_DIR=${ROOT_DIR}/torch_extendsions
 
-MODEL_NAME=erlangshen-bert-base-test
+MODEL_NAME=wenzhong-110M-floyed
 MODEL_ROOT_DIR=$ROOT_DIR/${MODEL_NAME}
 if [ ! -d ${MODEL_ROOT_DIR} ];then
   mkdir ${MODEL_ROOT_DIR}
@@ -41,12 +41,13 @@ EOT
 export PL_DEEPSPEED_CONFIG_PATH=$CONFIG_JSON
 ### End
 
+DATA_DIR="/hgxdata1/common_data/floyed/floyed.txt"
 DATA_ARGS="\
         --dataloader_workers 2 \
         --train_batchsize $MICRO_BATCH_SIZE  \
         --val_batchsize $MICRO_BATCH_SIZE \
         --test_batchsize $MICRO_BATCH_SIZE  \
-        --datasets_name wudao_180g \
+        --train_file $DATA_DIR \
         --limit_val_batches 0 \
         --limit_test_batches 0 \
         --num_sanity_val_steps 0 \
@@ -74,7 +75,7 @@ TRAINER_ARGS="\
         --gpus $GPUS_PER_NODE \
         --num_nodes $NNODES \
         --strategy deepspeed_stage_${ZERO_STAGE} \
-        --log_every_n_steps 1 \
+        --log_every_n_steps 1000 \
         --precision 16 \
         --default_root_dir ${MODEL_ROOT_DIR} \
         --replace_sampler_ddp False \
@@ -87,4 +88,4 @@ export options=" \
         $TRAINER_ARGS \
         "
 
-srun python3 pretrain_erlangshen.py $options
+srun python3 pretrain_wenzhong.py $options
