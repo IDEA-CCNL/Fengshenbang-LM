@@ -1,5 +1,7 @@
-# sys.path.append('./')
 import os
+import sys
+# sys.path.append('/cognitive_comp/wuziwei/codes/Fengshenbang-LM')
+os.environ["CUDA_VISIBLE_DEVICES"] = '2'
 import torch
 import argparse
 
@@ -109,7 +111,7 @@ def main():
     args_parser = GPT2Model.add_module_specific_args(args_parser)
     args_parser = UniversalCheckpoint.add_argparse_args(args_parser)
     args = args_parser.parse_args()
-
+    print('args parse done')
     tokenizer = GPT2Tokenizer.from_pretrained(args.model_path)
     collate_fn = GPTDataCollator(
         tokenizer=tokenizer,
@@ -118,7 +120,9 @@ def main():
     )
     collate_fn.setup()
     data_module = UniversalDataModule(tokenizer=tokenizer, args=args, collate_fn=collate_fn)
+    print('data load done')
     model = GPT2Model(args, tokenizer=tokenizer)
+    print('model load done')
     lr_monitor = LearningRateMonitor(logging_interval='step')
     checkpoint_callback = UniversalCheckpoint(args)
 

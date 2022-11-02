@@ -19,27 +19,27 @@ if [ ! -d ${MODEL_ROOT_DIR} ];then
 fi
 
 NNODES=1
-GPUS_PER_NODE=8
+GPUS_PER_NODE=1
 
-MICRO_BATCH_SIZE=32
+MICRO_BATCH_SIZE=4
 
 # 如果你不用Deepspeed的话 下面的一段话都可以删掉 Begin
-CONFIG_JSON="$MODEL_ROOT_DIR/${MODEL_NAME}.ds_config.json"
-ZERO_STAGE=1
-# Deepspeed figures out GAS dynamically from dynamic GBS via set_train_batch_size()
-cat <<EOT > $CONFIG_JSON
-{
-    "zero_optimization": {
-        "stage": ${ZERO_STAGE}
-    },
-    "fp16": {
-        "enabled": true
-    },
-    "gradient_clipping": 2,
-    "train_micro_batch_size_per_gpu": $MICRO_BATCH_SIZE
-}
-EOT
-export PL_DEEPSPEED_CONFIG_PATH=$CONFIG_JSON
+# CONFIG_JSON="$MODEL_ROOT_DIR/${MODEL_NAME}.ds_config.json"
+# ZERO_STAGE=1
+# # Deepspeed figures out GAS dynamically from dynamic GBS via set_train_batch_size()
+# cat <<EOT > $CONFIG_JSON
+# {
+#     "zero_optimization": {
+#         "stage": ${ZERO_STAGE}
+#     },
+#     "fp16": {
+#         "enabled": true
+#     },
+#     "gradient_clipping": 2,
+#     "train_micro_batch_size_per_gpu": $MICRO_BATCH_SIZE
+# }
+# EOT
+# export PL_DEEPSPEED_CONFIG_PATH=$CONFIG_JSON
 ### End
 
 DATA_ARGS="\
@@ -85,4 +85,4 @@ export options=" \
         $TRAINER_ARGS \
         "
 
-python3 pretrain_erlangshen.py $options
+python3 pretrain_wenzhong.py $options
