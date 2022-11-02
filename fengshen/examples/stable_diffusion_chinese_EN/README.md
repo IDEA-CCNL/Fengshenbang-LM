@@ -1,4 +1,4 @@
-# Taiyi-Stable-Diffusion-1B-Chinese-v0.1
+# Taiyi-Stable-Diffusion-1B-Chinese-EN-v0.1
 
 - Github: [Fengshenbang-LM](https://github.com/IDEA-CCNL/Fengshenbang-LM)
 - Docs: [Fengshenbang-Docs](https://fengshenbang-doc.readthedocs.io/)
