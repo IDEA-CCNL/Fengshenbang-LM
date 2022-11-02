@@ -16,6 +16,7 @@
 
 # Fengshenbang Big Event
 
+- [First Chinese stable diffusion model is open-sourced，IDEA Fengshenbang team opens the era of Chinese AI art](https://mp.weixin.qq.com/s/WrzkiJOxqNcFpdU24BKbMA) 2022.11.2
 - [Breaking the impossible triangle, comparable to 540B models, IDEA Fengshenbang team only has 200B models to achieve zero-shot SOTA](https://mp.weixin.qq.com/s/m0_W31mP4xKKla8jIwUXkw) 2022.10.25
 - [AIWIN champion solution, Fengshenbang proposed multi-task learning model Ubert](https://mp.weixin.qq.com/s/A9G0YLbIPShKgm98DnD2jA) 2022.07.21
 - [Just a simple Finetune, "Fengshenbang" pre-trained language model "Erlangshen" won the first place in SimCLUE benchmark](https://mp.weixin.qq.com/s/KXQtCgxZlCnv0HqSyQAteQ) 2022.07.14
@@ -145,6 +146,39 @@ sh finetune_classification.sh
 | :--------:    | :-----:  | :----:  | :-----:   | :----: | :----: | :----: | :----: |
 | roberta-wwm-ext-large | 0.7514      |   0.5872    | 0.6152      |   0.777    | 0.814    | 0.8914    | 0.86    |
 | Erlangshen-MegatronBert-1.3B | 0.7608      |   0.5996    | 0.6234      |   0.7917    | 0.81    | 0.9243    | 0.872    |
+
+## Taiyi
+
+Taiyi series models are mainly used in cross-modal scenarios, including text image generation, protein structure prediction, speech-text representation, etc. On November 1, 2022, Fengshenbang released the first Chinese version of the stable diffusion model "Taiyi Stable Diffusion".
+
+### Download the Models
+[Taiyi Stable Diffusion Chinese](https://huggingface.co/IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-v0.1)
+
+[Taiyi Stable Diffusion Chinese&English Bilingual](https://huggingface.co/IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-EN-v0.1)
+
+### Example of Usage
+
+``` python
+from diffusers import StableDiffusionPipeline
+
+pipe = StableDiffusionPipeline.from_pretrained("IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-v0.1").to("cuda")
+
+prompt = '飞流直下三千尺，油画'
+image = pipe(prompt, guidance_scale=7.5).images[0]  
+image.save("飞流.png")
+```
+
+### Performance
+
+|  铁马冰河入梦来，3D绘画。   |  飞流直下三千尺，油画。 | 女孩背影，日落，唯美插画。  |
+|  ----  | ----  | ----  |
+| ![](fengshen/examples/stable_diffusion_chinese/result_examples/tiema.png)  | ![](fengshen/examples/stable_diffusion_chinese/result_examples/feiliu.png)  | ![](fengshen/examples/stable_diffusion_chinese/result_examples/nvhai.jpg) |
+
+Advanced Prompt
+
+| 铁马冰河入梦来，概念画，科幻，玄幻，3D  | 中国海边城市，科幻，未来感，唯美，插画。 | 那人却在灯火阑珊处，色彩艳丽，古风，资深插画师作品，桌面高清壁纸。 |
+|  ----  | ----  | ----  |
+| ![](fengshen/examples/stable_diffusion_chinese/result_examples/tiema2.jpg)  | ![](fengshen/examples/stable_diffusion_chinese/result_examples/chengshi.jpg) | ![](fengshen/examples/stable_diffusion_chinese/result_examples/naren.jpg) |
 
 
 # Fengshen Framework
