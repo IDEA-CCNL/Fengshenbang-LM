@@ -1,65 +1,105 @@
-[**中文**](./README.md) | [**English**](./README_en.md)
+## 最新发布
+
+* \[2022.09.13\] [更新ErLangShen系列DeBERTa预训练代码](https://huggingface.co/IDEA-CCNL/Erlangshen-DeBERTa-v2-97M-Chinese)
+* \[2022.09.13\] [更新RanDeng系列Bart预训练代码](https://huggingface.co/IDEA-CCNL/Randeng-BART-139M)
+* \[2022.09.13\] [更新ErLangShen系列Bert预训练代码](https://huggingface.co/IDEA-CCNL/Erlangshen-MegatronBert-1.3B)
+* \[2022.05.11\] [更新TaiYi系列VIT多模态模型及下游任务示例](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/太乙系列/Taiyi-vit-87M-D.html)
+* \[2022.05.11\] [更新BiGan系列Transformer-XL去噪模型及下游任务示例](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/比干系列/Bigan-Transformer-XL-denoise-1.1B.html)
+* \[2022.05.11\] [更新ErLangShen系列下游任务示例](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/二郎神系列/Erlangshen-Roberta-110M-NLI.html)
 
 # 导航
+
+- [导航](#导航)
   - [框架简介](#框架简介)
   - [依赖环境](#依赖环境)
   - [项目结构](#项目结构)
-  - [三分钟上手](#三分钟上手)
-
+  - [设计思路](#设计思路)
+  - [分类下游任务](#分类下游任务)
 
 ## 框架简介
+
 FengShen训练框架是封神榜大模型开源计划的重要一环，在大模型的生产和应用中起到至关重要的作用。FengShen可以应用在基于海量数据的预训练以及各种下游任务的finetune中。封神榜专注于NLP大模型开源，然而模型的增大带来不仅仅是训练的问题，在使用上也存在诸多不便。为了解决训练和使用的问题，FengShen参考了目前开源的优秀方案并且重新设计了Pipeline，用户可以根据自己的需求，从封神榜中选取丰富的预训练模型，同时利用FengShen快速微调下游任务。
+
+目前所有实例以及文档可以查看我们的[Wiki](https://fengshenbang-doc.readthedocs.io/zh/latest/index.html)
+所有的模型可以在[Huggingface主页](https://huggingface.co/IDEA-CCNL)找到
+
+通过我们的框架，你可以快速享受到：
+
+1. 比原生torch更强的性能，训练速度提升<font color=#0000FF >**300%**</font>
+2. 支持更大的模型，支持<font color=#0000FF >**百亿级别**</font>内模型训练及微调
+3. 支持<font color=#0000FF >**TB级以上**</font>的数据集，在家用主机上即可享受预训练模型带来的效果提升
+3. 丰富的预训练、下游任务示例，一键开始训练
+4. 适应各种设备环境，支持在CPU、GPU、TPU等不同设备上运行
+5. 集成主流的分布式训练逻辑，无需修改代码即可支持DDP、Zero Optimizer等分布式优化技术
+
+![avartar](../pics/fengshen_pic.png)
 
 ## 依赖环境
 
-* Python >= 3.6
-* torch >= 1.1
+* Python >= 3.8
+* torch >= 1.8
 * transformers >= 3.2.0
+* pytorch-lightning >= 1.5.10
+
+在Fengshenbang-LM根目录下
+pip install --editable ./
 
 ## 项目结构
 
 ```
 ├── data                        # 支持多种数据处理方式以及数据集
 │   ├── cbart_dataloader
+|   ├── fs_datasets             # 基于transformers datasets的封装，新增中文数据集(开源计划中)
+|   ├── universal_datamodule    # 打通fs_datasets与lightning datamodule，减少重复开发工作量
 │   ├── megatron_dataloader     # 支持基于Megatron实现的TB级别数据集处理、训练
 │   ├── mmap_dataloader         # 通用的Memmap形式的数据加载
 │   └── task_dataloader         # 支持多种下游任务
-├── examples                    # 丰富的事例 快速上手
+├── examples                    # 丰富的示例，从预训练到下游任务，应有尽有。
 ├── metric                      # 提供各种metric计算，支持用户自定义metric
 ├── losses                      # 同样支持loss自定义，满足定制化需求
-├── tokenizer                   # 支持自定义tokenizer
+├── tokenizer                   # 支持自定义tokenizer，比如我们使用的SentencePiece训练代码等
 ├── models                      # 模型库
 │   ├── auto                    # 支持自动导入对应的模型
 │   ├── bart
 │   ├── longformer
 │   ├── megatron_t5
-│   ├── roformer
-│   ├── model_utils.py
-│   └── transformer_utils.py
-├── scripts                     # 第三方脚本
+│   └── roformer
 └── utils                       # 实用函数
 ```
 
-## 三分钟上手
+## 设计思路
 
-这里展示如何使用FengShen框架对模型进行Finetune，这里demo使用封神榜开源的35亿参数模型[闻仲](https://github.com/IDEA-CCNL/Fengshenbang-LM)做一个知识问答的下游任务Finetune。
-由于闻仲参数量过大，这里我们考虑使用Deepspeed对训练进行优化，使得能在单卡上对闻仲进行训练，这里测试使用一张A100进行。
-Deepspeed相关文档可以参考 https://deepspeed.readthedocs.io/en/latest/
+FengShen框架目前整体基于Pytorch-Lightning & Transformer进行开发，在底层框架上不断开源基于中文的预训练模型，同时提供丰富的examples，每一个封神榜的模型都能找到对应的预训练、下游任务代码。
 
-脚本位于scripts/fintune_wenzhong.sh，脚本内有部分slurm集群参数，用户可以根据需要保留或者删除。
-几乎所有的训练参数都被涵盖在脚本内，用户仅需要调整部分参数（数据集路径等等）即可快速复现。通过两步能快速修改我们的finetune脚本到用户自定义的下游任务上。
-整个训练的代码在fintune_wenzhong.py内。
+在FengShen上开发，整体可以按照下面的三个步骤进行：
 
-### Step 1 实现自己DataModule & Module
+1. 封装数据处理流程 -> pytorch_lightning.LightningDataModule
+2. 封装模型结构 -> pytorch_lightning.LightningModule
+3. 配置一些插件，比如log_monitor，checkpoint_callback等等。
 
-DataModule主要是封装了各种数据处理的操作下里面，具体的文档可以参照lightning的[官方文档](https://pytorch-lightning.readthedocs.io/en/stable/api/pytorch_lightning.core.datamodule.html?highlight=datamodule)
-这里我们实现了一个QA的DataModule可供参考 data/task_dataloader/medicalQADataset.py
-同时，用户需要对huggingface的model进行封装，在这里用户可以自定义metrics的计算方式、validation等等，采用LightningModule的方式进行封装，同样可以参考lightning的[官方文档](https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html?highlight=LightningModule)
-我们这里依旧提供了一个demo，可以参照fintune_wenzhong.py，针对下游不同的任务进行不同的封装。
+一个完整的DEMO可以看Randeng-BART系列实例 -> [文档](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/燃灯系列/BART-139M.html) [代码](https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/hf-ds/fengshen/examples/pretrain_bart)
 
-### Step 2 修改scrpit参数
+## 分类下游任务
 
-在scripts/fintune_wenzhong.sh内涵盖了此次训练的所有参数，包括learning rate、deepspeed配置等等。利用Deepspeed stage 3我们可以轻松在单卡上进行闻仲的下游finetune。
+ 在examples/classification目录下，我们提供丰富的分类任务的示例，其中我们提供三个一键式运行的示例。
 
-目前项目仍在快速推进当中，更多demo敬请期待
+* demo_classification_afqmc_roberta.sh              使用DDP微调roberta
+* demo_classification_afqmc_roberta_deepspeed.sh    结合deepspeed微调roberta，获得更快的运算速度
+* demo_classification_afqmc_erlangshen_offload.sh   仅需7G显存即可微调我们效果最好的二郎神系列模型
 
+ 上述示例均采用AFQMC的数据集，关于数据集的介绍可以在[这里](https://www.cluebenchmarks.com/introduce.html)找到。
+ 同时我们处理过的数据文件已经放在Huggingface上，点击[这里](https://huggingface.co/datasets/IDEA-CCNL/AFQMC)直达源文件。
+ 仅需要按我们的格式稍微处理一下数据集，即可适配下游不同的分类任务。
+ 在脚本示例中，仅需要修改如下参数即可适配本地文件
+
+ ```
+         --dataset_name IDEA-CCNL/AFQMC \
+
+ -------> 修改为
+
+         --data_dir $DATA_DIR \          # 数据目录
+         --train_data train.json \       # 数据文件
+         --valid_data dev.json \
+         --test_data test.json \
+
+ ```

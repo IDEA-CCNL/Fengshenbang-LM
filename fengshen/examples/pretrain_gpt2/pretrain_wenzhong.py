@@ -54,7 +54,7 @@ class GPTDataCollator:
 class GPT2Model(pl.LightningModule):
 
     @staticmethod
-    def add_model_specific_args(parent_args):
+    def add_module_specific_args(parent_args):
         parser = parent_args.add_argument_group('BaseModel')
         # parser.add_argument('--learning_rate', default=1e-4, type=float)
         # parser.add_argument('--weight_decay', default=0.1, type=float)
@@ -122,8 +122,7 @@ def main():
     lr_monitor = LearningRateMonitor(logging_interval='step')
     checkpoint_callback = UniversalCheckpoint(args)
 
-    if args.load_ckpt_path is not None and \
-            not os.path.exists(args.load_ckpt_path):
+    if args.load_ckpt_path is not None and not os.path.exists(args.load_ckpt_path):
         print('--------warning no checkpoint found--------, remove args')
         args.load_ckpt_path = None
     
