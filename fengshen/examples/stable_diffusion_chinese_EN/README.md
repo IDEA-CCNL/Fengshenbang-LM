@@ -5,36 +5,47 @@
 
 ## 简介 Brief Introduction
 
-首个开源的中文Stable Diffusion模型，基于0.2亿筛选过的中文图文对训练。
+首个开源的中英双语Stable Diffusion模型，基于0.2亿筛选过的中文图文对训练。
 
-The first open source Chinese Stable diffusion, which was trained on 20M filtered Chinese image-text pairs.
+The first open source Chinese&English Bilingual Stable diffusion, which was trained on 20M filtered Chinese image-text pairs.
 
 ## 模型分类 Model Taxonomy
 
 |  需求 Demand  | 任务 Task       | 系列 Series      | 模型 Model    | 参数 Parameter | 额外 Extra |
 |  :----:  | :----:  | :----:  | :----:  | :----:  | :----:  |
-| 特殊 Special | 多模态 Multimodal | 太乙 Taiyi | Stable Diffusion |    1B    |     Chinese     |
+| 特殊 Special | 多模态 Multimodal | 太乙 Taiyi | Stable Diffusion |    1B    |     Chinese and English     |
 
 ## 模型信息 Model Information
 
-我们将[Noah-Wukong](https://wukong-dataset.github.io/wukong-dataset/)数据集(100M)和[Zero](https://zero.so.com/)数据集(23M)用作预训练的数据集，先用[IDEA-CCNL/Taiyi-CLIP-RoBERTa-102M-ViT-L-Chinese](https://huggingface.co/IDEA-CCNL/Taiyi-CLIP-RoBERTa-102M-ViT-L-Chinese)对这两个数据集的图文对相似性进行打分，取CLIP Score大于0.2的图文对作为我们的训练集。 我们使用[IDEA-CCNL/Taiyi-CLIP-RoBERTa-102M-ViT-L-Chinese](https://huggingface.co/IDEA-CCNL/Taiyi-CLIP-RoBERTa-102M-ViT-L-Chinese)作为初始化的text encoder，冻住[stable-diffusion-v1-4](https://huggingface.co/CompVis/stable-diffusion-v1-4)([论文](https://arxiv.org/abs/2112.10752))模型的其他部分，只训练text encoder，以便保留原始模型的生成能力且实现中文概念的对齐。该模型目前在0.2亿图文对上训练了一个epoch。 我们在 32 x A100 训练了大约100小时。该版本只是一个初步的版本，我们将持续优化并开源后续模型，欢迎交流。
+我们将[Noah-Wukong](https://wukong-dataset.github.io/wukong-dataset/)数据集(100M)和[Zero](https://zero.so.com/)数据集(23M)用作预训练的数据集，先用[IDEA-CCNL/Taiyi-CLIP-RoBERTa-102M-ViT-L-Chinese](https://huggingface.co/IDEA-CCNL/Taiyi-CLIP-RoBERTa-102M-ViT-L-Chinese)对这两个数据集的图文对相似性进行打分，取CLIP Score大于0.2的图文对作为我们的训练集。 我们使用[stable-diffusion-v1-4](https://huggingface.co/CompVis/stable-diffusion-v1-4)([论文](https://arxiv.org/abs/2112.10752))模型进行继续训练，其中训练分为两个stage。
 
-We use [Noah-Wukong](https://wukong-dataset.github.io/wukong-dataset/)(100M) 和 [Zero](https://zero.so.com/)(23M) as our dataset, and take the image and text pairs with CLIP Score (based on [IDEA-CCNL/Taiyi-CLIP-RoBERTa-102M-ViT-L-Chinese](https://huggingface.co/IDEA-CCNL/Taiyi-CLIP-RoBERTa-102M-ViT-L-Chinese)) greater than 0.2 as our Training set. We use [IDEA-CCNL/Taiyi-CLIP-RoBERTa-102M-ViT-L-Chinese](https://huggingface.co/IDEA-CCNL/Taiyi-CLIP-RoBERTa-102M-ViT-L-Chinese) as our init text encoder. To keep the powerful generative capability of stable diffusion and align Chinese concepts with the images, We only train the text encoder and freeze other part of the [stable-diffusion-v1-4](https://huggingface.co/CompVis/stable-diffusion-v1-4)([paper](https://arxiv.org/abs/2112.10752)) model. It takes 100 hours to train this model based on 32 x A100. This model is a preliminary version and we will update this model continuously and open sourse. Welcome to exchange！
+第一个stage中冻住模型的其他部分，只训练text encoder，以便保留原始模型的生成能力且实现中文概念的对齐。
+
+第二个stage中将全部模型解冻，一起训练text encoder和diffusion model，以便diffusion model更好的适配中文guidance。
+
+第一个stage我们训练了80小时，第二个stage训练了100小时，两个stage都是用了8 x A100。该版本是一个初步的版本，我们将持续优化模型并开源，欢迎交流！
+
+We use [Noah-Wukong](https://wukong-dataset.github.io/wukong-dataset/)(100M) 和 [Zero](https://zero.so.com/)(23M) as our dataset, and take the image and text pairs with CLIP Score (based on [IDEA-CCNL/Taiyi-CLIP-RoBERTa-102M-ViT-L-Chinese](https://huggingface.co/IDEA-CCNL/Taiyi-CLIP-RoBERTa-102M-ViT-L-Chinese)) greater than 0.2 as our Training set. We finetune the [stable-diffusion-v1-4](https://huggingface.co/CompVis/stable-diffusion-v1-4)([paper](https://arxiv.org/abs/2112.10752)) model for two stage. 
+
+Stage 1: To keep the powerful generative capability of stable diffusion and align Chinese concepts with the images, We only train the text encoder and freeze other part of the model in the first stage. 
+
+Stage 2: We unfreeze both the text encoder and the diffusion model, therefore the diffusion model can have a better compatibility for the Chinese language guidance. 
+
+It takes 80 hours to train the first stage, 100 hours to train the second stage, both stages are based on 8 x A100. This model is a preliminary version and we will update this model continuously and open sourse. Welcome to exchange！
 
 ### Result
-Basic Prompt
 
-|  铁马冰河入梦来，3D绘画。   |  飞流直下三千尺，油画。 | 女孩背影，日落，唯美插画。  |
-|  ----  | ----  | ----  |
-| ![](result_examples/tiema.png)  | ![](result_examples/feiliu.png)  | ![](result_examples/nvhai.jpg) |
+小桥流水人家，Van Gogh style。
+![](result_examples/xiaoqiao_vangogh.png)
 
-Advanced Prompt
+小桥流水人家，水彩。
+![](result_examples/xiaoqiao_oil_painting.png)
 
-| 铁马冰河入梦来，概念画，科幻，玄幻，3D  | 中国海边城市，科幻，未来感，唯美，插画。 | 那人却在灯火阑珊处，色彩艳丽，古风，资深插画师作品，桌面高清壁纸。 |
-|  ----  | ----  | ----  |
-| ![](result_examples/tiema2.jpg)  | ![](result_examples/chengshi.jpg) | ![](result_examples/naren.jpg) |
+吃过桥米线的猫。
+![](result_examples/cat_eating_guoqiao_noodle.png)
 
-
+穿着宇航服的哈士奇。
+![](result_examples/huskiy_wearing_space_suit.png)
 ## 使用 Usage
 
 ### 全精度 Full precision
@@ -42,11 +53,11 @@ Advanced Prompt
 ```py
 from diffusers import StableDiffusionPipeline
 
-pipe = StableDiffusionPipeline.from_pretrained("IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-v0.1").to("cuda")
+pipe = StableDiffusionPipeline.from_pretrained("IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-EN-v0.1").to("cuda")
 
-prompt = '飞流直下三千尺，油画'
-image = pipe(prompt, guidance_scale=7.5).images[0]  
-image.save("飞流.png")
+prompt = '小桥流水人家，Van Gogh style'
+image = pipe(prompt, guidance_scale=10).images[0]  
+image.save("小桥.png")
 ```
 
 ### 半精度 Half precision FP16 (CUDA)
@@ -58,11 +69,11 @@ image.save("飞流.png")
 # !pip install git+https://github.com/huggingface/accelerate
 from diffusers import StableDiffusionPipeline
 
-pipe = StableDiffusionPipeline.from_pretrained("IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-v0.1", torch_dtype=torch.float16, device_map="auto")
+pipe = StableDiffusionPipeline.from_pretrained("IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-EN-v0.1", torch_dtype=torch.float16, device_map="auto")
 
-prompt = '飞流直下三千尺，油画'
-image = pipe(prompt, guidance_scale=7.5).images[0]  
-image.save("飞流.png")
+prompt = '小桥流水人家，Van Gogh style'
+image = pipe(prompt, guidance_scale=10.0).images[0]  
+image.save("小桥.png")
 ```
 
 
@@ -94,5 +105,3 @@ You can also cite our [website](https://github.com/IDEA-CCNL/Fengshenbang-LM/):
   howpublished={\url{https://github.com/IDEA-CCNL/Fengshenbang-LM}},
 }
 ```
-
-
