@@ -67,9 +67,12 @@ image.save("小桥.png")
 
 ```py
 # !pip install git+https://github.com/huggingface/accelerate
+import torch
 from diffusers import StableDiffusionPipeline
 
-pipe = StableDiffusionPipeline.from_pretrained("IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-EN-v0.1", torch_dtype=torch.float16, device_map="auto")
+torch.backends.cudnn.benchmark = True
+pipe = StableDiffusionPipeline.from_pretrained("IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-v0.1", torch_dtype=torch.float16)
+pipe.to('cuda')
 
 prompt = '小桥流水人家，Van Gogh style'
 image = pipe(prompt, guidance_scale=10.0).images[0]  
