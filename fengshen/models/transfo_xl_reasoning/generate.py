@@ -5,9 +5,8 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 from transformers import T5Tokenizer
 
-from .modeling_transfo_xl import TransfoXLModel
+from fengshen.models.transfo_xl_reasoning import TransfoXLModel
 from .sample_sequence import sample_sequence_batch
-
 
 def en_to_zh(sentence:str):
     en_pun = u",.!?[]()<>\"\"''"

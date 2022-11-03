@@ -1,2 +1,3 @@
+from fengshen.models.transfo_xl_denoise.modeling_transfo_xl_denoise import TransfoXLDenoiseModel as TransfoXLModel
 from .generate import deduction_generate, abduction_generate
-from .modeling_transfo_xl import TransfoXLModel
+# from .modeling_transfo_xl import TransfoXLModel
