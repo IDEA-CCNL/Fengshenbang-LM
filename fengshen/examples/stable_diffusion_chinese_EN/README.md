@@ -71,7 +71,7 @@ import torch
 from diffusers import StableDiffusionPipeline
 
 torch.backends.cudnn.benchmark = True
-pipe = StableDiffusionPipeline.from_pretrained("IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-v0.1", torch_dtype=torch.float16)
+pipe = StableDiffusionPipeline.from_pretrained("IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-EN-v0.1", torch_dtype=torch.float16)
 pipe.to('cuda')
 
 prompt = '小桥流水人家，Van Gogh style'
