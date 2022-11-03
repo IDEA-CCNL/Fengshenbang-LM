@@ -8,31 +8,21 @@ def top_k_logits(logits, top_k=0, top_p=0.0, filter_value=-float('Inf')):
     # https://medium.com/huggingface/how-to-build-a-state-of-the-art-conversational-ai-with-transfer-learning-2d818ac26313
     if top_k > 0:
         # Remove all tokens with a probability less than the last token of the top-k
-        indices_to_remove = logits < torch.topk(logits, top_k)[
-            0][..., -1, None]
+        indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
         logits[indices_to_remove] = filter_value
     if top_p > 0.0:
         # convert to 1D
-        #logits = logits.view(logits.size()[1]).contiguous()
-        #logits = logits.contiguous()
-        sorted_logits, sorted_indices = torch.sort(
-            logits, dim=-1, descending=True)
-        cumulative_probs = torch.cumsum(
-            F.softmax(sorted_logits, dim=-1), dim=-1)
+        sorted_logits, sorted_indices = torch.sort(logits, dim=-1, descending=True)
+        cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
         # Remove tokens with cumulative probability above the threshold
         sorted_indices_to_remove = cumulative_probs > top_p
         # Shift the indices to the right to keep also the first token above the threshold
-        sorted_indices_to_remove[...,
-                                 1:] = sorted_indices_to_remove[..., :-1].clone()
+        sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
         sorted_indices_to_remove[..., 0] = 0
 
         for i in range(sorted_indices.size()[0]):
             indices_to_remove = sorted_indices[i][sorted_indices_to_remove[i]]
             logits[i][indices_to_remove] = filter_value
-        #indices_to_remove = sorted_indices[sorted_indices_to_remove]
-        #logits[indices_to_remove] = filter_value
-        # going back to 2D
-        #logits = logits.view(1, -1).contiguous()
     return logits
 
 
@@ -58,6 +48,20 @@ def get_atten_mask(batch_size, seq_length, memory_length=0):
         torch.triu(memory_attention_mask, 1 - seq_length + memory_length), memory_length)
 
     return memory_attention_mask  # [bs, 1, seq_len, seq_len+M]
+
+
+def get_masks_and_position_ids(data, mem_length=None):
+    # Extract batch size and sequence length.
+    batch_size, seq_length = data.size()
+    # Attention mask (lower triangular).
+    attention_mask = torch.ones((1, seq_length, seq_length + mem_length), device=data.device)
+    attention_mask = torch.tril(torch.triu(attention_mask, 1 - seq_length + mem_length), mem_length)
+    attention_mask = attention_mask.unsqueeze(1)
+    # Position ids.
+    position_ids = torch.arange(seq_length, dtype=torch.long,
+                                device=data.device)
+    position_ids = position_ids.unsqueeze(0).expand_as(data)
+    return attention_mask, position_ids
 
 
 def sample_sequence_batch(model, context_tokens_tensor, context_length_tensor, max_out_seq=None, mems=None,

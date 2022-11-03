@@ -6,7 +6,8 @@ from torch.nn.utils.rnn import pad_sequence
 from transformers import T5Tokenizer
 
 from fengshen.models.transfo_xl_reasoning import TransfoXLModel
-from .sample_sequence import sample_sequence_batch
+from fengshen.utils import sample_sequence_batch
+
 
 def en_to_zh(sentence:str):
     en_pun = u",.!?[]()<>\"\"''"
@@ -82,7 +83,6 @@ def abduction_generate(
 
     if isinstance(input_text, str):
         input_text = [input_text]
-
 
     input_text = [f"<bos>之所以{text}，是因为" for text in input_text]
 

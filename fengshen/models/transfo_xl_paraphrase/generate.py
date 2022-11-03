@@ -1,44 +1,8 @@
 import torch
 import torch.nn.functional as F
 from fengshen.models.transfo_xl_paraphrase import TransfoXLModel
+from fengshen.utils import top_k_logits, get_masks_and_position_ids
 from transformers import T5Tokenizer
-
-
-def top_k_logits(logits, top_k=0, top_p=0.0, filter_value=-float('Inf')):
-    # This function has been mostly taken from huggingface conversational ai code at
-    # https://medium.com/huggingface/how-to-build-a-state-of-the-art-conversational-ai-with-transfer-learning-2d818ac26313
-    if top_k > 0:
-        # Remove all tokens with a probability less than the last token of the top-k
-        indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
-        logits[indices_to_remove] = filter_value
-    if top_p > 0.0:
-        # convert to 1D
-        sorted_logits, sorted_indices = torch.sort(logits, dim=-1, descending=True)
-        cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
-        # Remove tokens with cumulative probability above the threshold
-        sorted_indices_to_remove = cumulative_probs > top_p
-        # Shift the indices to the right to keep also the first token above the threshold
-        sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
-        sorted_indices_to_remove[..., 0] = 0
-
-        for i in range(sorted_indices.size()[0]):
-            indices_to_remove = sorted_indices[i][sorted_indices_to_remove[i]]
-            logits[i][indices_to_remove] = filter_value
-    return logits
-
-
-def get_masks_and_position_ids(data, mem_length=None):
-    # Extract batch size and sequence length.
-    batch_size, seq_length = data.size()
-    # Attention mask (lower triangular).
-    attention_mask = torch.ones((1, seq_length, seq_length + mem_length), device=data.device)
-    attention_mask = torch.tril(torch.triu(attention_mask, 1 - seq_length + mem_length), mem_length)
-    attention_mask = attention_mask.unsqueeze(1)
-    # Position ids.
-    position_ids = torch.arange(seq_length, dtype=torch.long,
-                                device=data.device)
-    position_ids = position_ids.unsqueeze(0).expand_as(data)
-    return attention_mask, position_ids
 
 
 def get_batch(context_tokens, mem_length, batch_size=1):
