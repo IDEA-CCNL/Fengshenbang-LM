@@ -152,4 +152,4 @@ if __name__ == '__main__':
                                              lr_monitor,
                                              checkpoint_callback])
 
-    trainer.fit(model, model, ckpt_path=args.load_ckpt_path)
+    trainer.fit(model, datamoule, ckpt_path=args.load_ckpt_path)
