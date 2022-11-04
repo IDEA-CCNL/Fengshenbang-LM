@@ -42,8 +42,8 @@ DATA_ARGS="\
         --train_batchsize $MICRO_BATCH_SIZE  \
         --val_batchsize $MICRO_BATCH_SIZE \
         --test_batchsize $MICRO_BATCH_SIZE  \
-        --datasets_path /cognitive_comp/lixiayu/data/zero_filtered \
-        --datasets_type txt \
+        --datasets_path /cognitive_comp/wangjunjie/data/pretrain_Data/wukong \
+        --datasets_type csv \
         --thres 0.22 \
         --resolution 512 \
         "

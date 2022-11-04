@@ -1,4 +1,4 @@
-import sys
+import os
 import torch
 import argparse
 from pytorch_lightning import (
@@ -24,7 +24,8 @@ from fengshen.data.taiyi_stable_diffusion_datasets.taiyi_datasets import add_dat
 class StableDiffusion(LightningModule):
     @staticmethod
     def add_module_specific_args(parent_parser):
-        parser = parent_parser.add_argument_group('Taiyi Stable Diffusion Module')
+        # parser = parent_parser.add_argument_group('Taiyi Stable Diffusion Module')
+        _ = parent_parser.add_argument_group('Taiyi Stable Diffusion Module')
         return parent_parser
 
     def __init__(self, args):
@@ -87,8 +88,8 @@ class StableDiffusion(LightningModule):
                     args.model_path, text_encoder=self.text_encoder, tokenizer=self.tokenizer,
                 )
                 self.trainer.current_epoch
-                pipeline.save_pretrained(sys.path.join(
-                    args.default_root, 'hf_out') + str(self.trainer.current_epoch))
+                pipeline.save_pretrained(os.path.join(
+                    args.default_root_dir, f'hf_out_{self.trainer.current_epoch}'))
 
         return {"loss": loss}
 
@@ -99,8 +100,8 @@ class StableDiffusion(LightningModule):
                 args.model_path, text_encoder=self.text_encoder, tokenizer=self.tokenizer,
             )
             self.trainer.current_epoch
-            pipeline.save_pretrained(sys.path.join(
-                args.default_root, 'hf_out') + str(self.trainer.current_epoch))
+            pipeline.save_pretrained(os.path.join(
+                args.default_root_dir, f'hf_out_{self.trainer.current_epoch}'))
 
     def on_load_checkpoint(self, checkpoint) -> None:
         # 兼容低版本lightning，低版本lightning从ckpt起来时steps数会被重置为0
