@@ -61,6 +61,7 @@ class StableDiffusion(LightningModule):
 
         # Sample noise that we'll add to the latents
         noise = torch.randn(latents.shape).to(latents.device)
+        noise = noise.to(dtype=self.unet.dtype)
         bsz = latents.shape[0]
         # Sample a random timestep for each image
         timesteps = torch.randint(
@@ -70,6 +71,7 @@ class StableDiffusion(LightningModule):
         # (this is the forward diffusion process)
 
         noisy_latents = self.noise_scheduler.add_noise(latents, noise, timesteps)
+        noisy_latents = noisy_latents.to(dtype=self.unet.dtype)
 
         # Get the text embedding for conditioning
         # with torch.no_grad():
@@ -82,7 +84,7 @@ class StableDiffusion(LightningModule):
         self.log("train_loss", loss.item(),  on_epoch=False, prog_bar=True, logger=True)
 
         if self.trainer.global_rank == 0:
-            if self.global_step % 5000 == 0:
+            if (self.global_step+1) % 5000 == 0:
                 print('saving model...')
                 pipeline = StableDiffusionPipeline.from_pretrained(
                     args.model_path, text_encoder=self.text_encoder, tokenizer=self.tokenizer,
