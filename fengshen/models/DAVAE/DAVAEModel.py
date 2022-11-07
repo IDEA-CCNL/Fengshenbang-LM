@@ -2,13 +2,12 @@ import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from transformers import BertConfig,BertTokenizer,TransfoXLConfig,T5Tokenizer
+from transformers import BertConfig,TransfoXLConfig
+from transformers.configuration_utils import PretrainedConfig
 from transformers.modeling_utils import PreTrainedModel
 from transformers.utils import cached_path,hf_bucket_url
-# from transformers.utils.hub import cached_file
-from fengshen.models.DAVAE.configuration_vae import VAEModelConfig
-from fengshen.models.DAVAE.gpt2_modeling import GPT2ModelForLatent
-from fengshen.models.DAVAE.modeling_bert import BertForLatentConnector
+from fengshen.models.DAVAE.GPT2ModelForLatent import GPT2ModelForLatent
+from fengshen.models.DAVAE.BertForLatentConnector import BertForLatentConnector
 from fengshen.models.DAVAE.run_latent_generation import *
 # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -34,8 +33,8 @@ class VAEPretrainedModel(PreTrainedModel):
         pass  # to bypass the not implement error
 
 class DAVAEModel(VAEPretrainedModel):
-    config_class = VAEModelConfig
-    def __init__(self, config:VAEModelConfig,*model_args, **model_kwargs):
+    config_class = PretrainedConfig
+    def __init__(self, config:PretrainedConfig,*model_args, **model_kwargs):
         super().__init__(config=config)
         self.config = config
         self.vae_model = DAVAEModel.load_model(self.config)

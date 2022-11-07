@@ -3,9 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from transformers.modeling_utils import PreTrainedModel
+from transformers.configuration_utils import PretrainedConfig
 
 from fengshen.models.DAVAE.DAVAEModel import DAVAEModel
-from fengshen.models.PPVAE.configuration_ppvae import PPVAEModelConfig
 from fengshen.models.PPVAE.utils import *
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -84,8 +84,8 @@ class PPVAEPretrainedModel(PreTrainedModel):
         pass  # to bypass the not implement error
 
 class PPVAEModel(PPVAEPretrainedModel):
-    config_class = PPVAEModelConfig
-    def __init__(self, config:PPVAEModelConfig) -> None:
+    config_class = PretrainedConfig
+    def __init__(self, config:PretrainedConfig) -> None:
         super().__init__(config=config)
         self.config =config
         self.pluginvae = PluginVAE(self.config)
