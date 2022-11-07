@@ -1,4 +1,3 @@
-import torch
 from pytorch_lightning import LightningModule
 from pytorch_lightning.strategies import DeepSpeedStrategy
 from deepspeed.ops.adam import DeepSpeedCPUAdam, FusedAdam
@@ -37,17 +36,17 @@ def get_default_update_params(pl_model: LightningModule):
     return optimizer_grouped_params
 
 
-def configure_optimizers(pl_model: LightningModule, update_params=None):
+def configure_optimizers(pl_model: LightningModule, model_params=None):
     '''
     Args:
         pl_model： lightning module
-        update_params： 需要更新的参数
+        model_params: 需要优化的模型参数
     '''
     # get params that optimizer need
-    if update_params == None:
+    if model_params is None:
         optimizer_grouped_params = get_default_update_params(pl_model)
     else:
-        optimizer_grouped_params = update_params
+        optimizer_grouped_params = model_params
     # Configure optimizer.
     if isinstance(pl_model.trainer.strategy, DeepSpeedStrategy):
         if 'offload_optimizer' in pl_model.trainer.training_type_plugin.config['zero_optimization']:

@@ -24,8 +24,8 @@ from fengshen.data.taiyi_stable_diffusion_datasets.taiyi_datasets import add_dat
 class StableDiffusion(LightningModule):
     @staticmethod
     def add_module_specific_args(parent_parser):
-        # parser = parent_parser.add_argument_group('Taiyi Stable Diffusion Module')
-        _ = parent_parser.add_argument_group('Taiyi Stable Diffusion Module')
+        parser = parent_parser.add_argument_group('Taiyi Stable Diffusion Module')
+        parser.add_argument('--train_whole_model', action='store_true', default=False)
         return parent_parser
 
     def __init__(self, args):
@@ -50,7 +50,10 @@ class StableDiffusion(LightningModule):
             print('Total steps: {}' .format(self.total_steps))
 
     def configure_optimizers(self):
-        return configure_optimizers(self, update_params=self.text_encoder.parameters())
+        model_params = [{'params': self.text_encoder.parameters()}]
+        if self.hparams.train_whole_model:
+            model_params.append({'params': self.unet.parameters()})
+        return configure_optimizers(self, model_params=model_params)
 
     def training_step(self, batch, batch_idx):
         self.text_encoder.train()
