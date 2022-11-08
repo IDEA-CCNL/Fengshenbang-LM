@@ -98,9 +98,15 @@ class CSVDataset(Dataset):
         if input_filename.endswith('.csv'):
             # print(f"Load Data from{input_filename}")
             df = pd.read_csv(input_filename, index_col=0)
+            '''
+            这个地方对数据的过滤跟数据集结构强相关，需要修改这部分的代码
             df = df[df['used'] == 1]
             df = df[df['score'] > thres]
-            self.images.extend(df[img_key].tolist())
+            df = df[df['success'] == 1]
+            '''
+            print(f'file {input_filename} datalen {len(df)}')
+            # 这个图片的路径也需要根据数据集的结构稍微做点修改
+            self.images.extend(k + '/' + v for k, v in zip(df['class'], df[img_key]))
             self.captions.extend(df[caption_key].tolist())
 
         # NOTE 中文的tokenizer
@@ -146,7 +152,7 @@ def process_pool_read_txt_dataset(args, input_root=None, tokenizer=None, thres=0
         each_folder_path = os.path.join(root_path, all_folders[i])
         # print(i, each_folder_path)
         res.append(p.submit(TXTDataset, each_folder_path, tokenizer,
-                   thres, args.resolution, args.center_crop))
+                            thres, args.resolution, args.center_crop))
     p.shutdown()
     for future in res:
         all_datasets.append(future.result())
@@ -156,16 +162,16 @@ def process_pool_read_txt_dataset(args, input_root=None, tokenizer=None, thres=0
 
 def process_pool_read_csv_dataset(args, input_root, tokenizer, thres=0.20):
     # here input_filename is a directory containing a CSV file
-    all_csvs = os.listdir(os.path.join(input_root, 'release'))[:5]
+    all_csvs = os.listdir(os.path.join(input_root, 'release'))
     image_root = os.path.join(input_root, 'images')
-    csv_with_score = [each for each in all_csvs if 'score' in each]
+    # csv_with_score = [each for each in all_csvs if 'score' in each]
     all_datasets = []
     res = []
     p = ProcessPoolExecutor(max_workers=24)
-    for i in range(len(csv_with_score)):
-        each_csv_path = os.path.join(input_root, 'release', csv_with_score[i])
+    for path in all_csvs:
+        each_csv_path = os.path.join(input_root, 'release', path)
         res.append(p.submit(CSVDataset, each_csv_path, image_root, tokenizer, img_key="name",
-                   caption_key="caption", thres=thres, size=args.resolution, center_crop=args.center_crop))
+                            caption_key="caption", thres=thres, size=args.resolution, center_crop=args.center_crop))
     p.shutdown()
     for future in res:
         all_datasets.append(future.result())
