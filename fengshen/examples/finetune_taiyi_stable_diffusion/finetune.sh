@@ -49,7 +49,7 @@ DATA_ARGS="\
         "
 
 MODEL_ARGS="\
-        --model_path $MODEL_ROOT_DIR/pretrain \
+        --model_path IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-v0.1 \
         --learning_rate 1e-4 \
         --weight_decay 1e-1 \
         --warmup_ratio 0.01 \
