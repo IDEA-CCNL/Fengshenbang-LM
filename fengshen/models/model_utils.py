@@ -1,5 +1,4 @@
 from pytorch_lightning import LightningModule
-
 from pytorch_lightning.strategies import DeepSpeedStrategy
 from deepspeed.ops.adam import DeepSpeedCPUAdam, FusedAdam
 from transformers.optimization import AdamW, TYPE_TO_SCHEDULER_FUNCTION
@@ -26,7 +25,7 @@ def add_module_args(parent_args):
     return parent_args
 
 
-def configure_optimizers(pl_model: LightningModule):
+def get_default_update_params(pl_model: LightningModule):
     no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight', 'layer_norm.', 'layernorm.']
     optimizer_grouped_params = [
         {'params': [p for n, p in pl_model.named_parameters() if not any(
@@ -34,9 +33,23 @@ def configure_optimizers(pl_model: LightningModule):
         {'params': [p for n, p in pl_model.named_parameters() if any(
             nd in n for nd in no_decay)], 'weight_decay': 0.0}
     ]
+    return optimizer_grouped_params
+
+
+def configure_optimizers(pl_model: LightningModule, model_params=None):
+    '''
+    Args:
+        pl_model： lightning module
+        model_params: 需要优化的模型参数
+    '''
+    # get params that optimizer need
+    if model_params is None:
+        optimizer_grouped_params = get_default_update_params(pl_model)
+    else:
+        optimizer_grouped_params = model_params
     # Configure optimizer.
     if isinstance(pl_model.trainer.strategy, DeepSpeedStrategy):
-        if 'offload_optimizer' in pl_model.trainer.training_type_plugin.config['zero_optimization']:
+        if 'offload_optimizer' in pl_model.trainer.strategy.config['zero_optimization']:
             optimizer = DeepSpeedCPUAdam(
                 optimizer_grouped_params, adamw_mode=True,
                 lr=pl_model.hparams.learning_rate,

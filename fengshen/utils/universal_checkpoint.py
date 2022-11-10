@@ -1,4 +1,5 @@
 from pytorch_lightning.callbacks import ModelCheckpoint
+import os
 
 
 class UniversalCheckpoint(ModelCheckpoint):
@@ -32,3 +33,9 @@ class UniversalCheckpoint(ModelCheckpoint):
                          save_last=args.save_last,
                          every_n_epochs=args.every_n_epochs,
                          save_on_train_epoch_end=args.save_on_train_epoch_end)
+
+        # 做兼容，如果目录不存在的话把这个参数去掉，不然会报错
+        if args.load_ckpt_path is not None and \
+                not os.path.exists(args.load_ckpt_path):
+            print('--------warning no checkpoint found--------, remove args')
+            args.load_ckpt_path = None
