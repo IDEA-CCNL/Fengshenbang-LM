@@ -180,6 +180,22 @@ Advanced Prompt
 |  ----  | ----  | ----  |
 | ![](fengshen/examples/stable_diffusion_chinese/result_examples/tiema2.jpg)  | ![](fengshen/examples/stable_diffusion_chinese/result_examples/chengshi.jpg) | ![](fengshen/examples/stable_diffusion_chinese/result_examples/naren.jpg) |
 
+### 怎样微调(How to finetune)
+
+可以参考(refer)
+
+https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples/finetune_taiyi_stable_diffusion
+
+### 配置webui(Configure webui)
+
+可以参考(refer)
+
+https://github.com/IDEA-CCNL/Fengshenbang-LM/issues/186
+
+### DreamBooth
+
+TODO
+
 # 封神框架
 
 为了让大家用好封神榜大模型，参与大模型的继续训练和下游应用，我们同步开源了以用户为中心的FengShen(封神)框架。详情请见：[FengShen(封神)框架](https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen)。
