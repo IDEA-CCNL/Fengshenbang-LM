@@ -20,7 +20,7 @@ fi
 NNODES=1
 GPUS_PER_NODE=1
 
-MICRO_BATCH_SIZE=2
+MICRO_BATCH_SIZE=1
 
 # 如果你不用Deepspeed的话 下面的一段话都可以删掉 Begin
 CONFIG_JSON="$MODEL_ROOT_DIR/${MODEL_NAME}.ds_config.json"
@@ -42,9 +42,8 @@ DATA_ARGS="\
         --train_batchsize $MICRO_BATCH_SIZE  \
         --val_batchsize $MICRO_BATCH_SIZE \
         --test_batchsize $MICRO_BATCH_SIZE  \
-        --datasets_path /cognitive_comp/wangjunjie/data/pretrain_Data/wukong \
-        --datasets_type csv \
-        --thres 0.22 \
+        --datasets_path ./demo_dataset \
+        --datasets_type txt \
         --resolution 512 \
         "
 

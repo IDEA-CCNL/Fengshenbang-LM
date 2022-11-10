@@ -38,15 +38,17 @@ class TXTDataset(Dataset):
         print(f'Loading folder data from {foloder_name}.')
         self.image_paths = []
         self.tokenizer = tokenizer
+        '''
+        暂时没有开源这部分文件
         score_data = pd.read_csv(os.path.join(foloder_name, 'score.csv'))
         img_path2score = {score_data['image_path'][i]: score_data['score'][i]
                           for i in range(len(score_data))}
+        '''
         # print(img_path2score)
         # 这里都存的是地址，避免初始化时间过多。
         for each_file in os.listdir(foloder_name):
             if each_file.endswith('.jpg'):
-                if img_path2score[os.path.join(foloder_name, each_file)] > thres:
-                    self.image_paths.append(os.path.join(foloder_name, each_file))
+                self.image_paths.append(os.path.join(foloder_name, each_file))
                 # self.image_paths.append(os.path.join(foloder_name, each_file))
 
         self.image_transforms = transforms.Compose(
@@ -144,13 +146,11 @@ def process_pool_read_txt_dataset(args, input_root=None, tokenizer=None, thres=0
     root_path = input_root
     p = ProcessPoolExecutor(max_workers=24)
     # 此处输入为文件夹。
-    all_folders = os.listdir(root_path)[:5]
+    all_folders = os.listdir(root_path)
     all_datasets = []
     res = []
-
-    for i in range(len(all_folders)):
-        each_folder_path = os.path.join(root_path, all_folders[i])
-        # print(i, each_folder_path)
+    for filename in all_folders:
+        each_folder_path = os.path.join(root_path, filename)
         res.append(p.submit(TXTDataset, each_folder_path, tokenizer,
                             thres, args.resolution, args.center_crop))
     p.shutdown()

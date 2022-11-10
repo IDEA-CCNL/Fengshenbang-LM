@@ -4,10 +4,26 @@
 
 ## 数据处理
 
+在./demo_dataset下有我们一个数据集的样例，其中一个sample由.jpg格式图片以及.txt文本文件组成，用户可以按照我们的格式处理然后直接将脚本内的datasets_path修改为自己的路径即可。(数据摘自[IDEA-CCNL/laion2B-multi-chinese-subset](https://huggingface.co/datasets/IDEA-CCNL/laion2B-multi-chinese-subset))
+
 ## 配置要求
 
-- 显存：
-- 内存：
+Finetune **IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-v0.1** 十亿级别参数，我们自己测试所需要的配置基础如下。batch_size设定为1
+
+fp32:
+
+- 显存：26G以上
+- 内存：64G以上
+
+fp16:
+
+- 显存：21G以上
+- 内存：64G以上
+
+fp16 + deepspeed offload
+
+- 显存：6G以上
+- 内存：80G以上
 
 ## 运行脚本
 

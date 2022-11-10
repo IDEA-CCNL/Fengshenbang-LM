@@ -86,6 +86,11 @@ class StableDiffusion(LightningModule):
         loss = F.mse_loss(noise_pred, noise, reduction="none").mean([1, 2, 3]).mean()
         self.log("train_loss", loss.item(),  on_epoch=False, prog_bar=True, logger=True)
 
+        if self.trainer.global_rank == 0 and self.global_step == 100:
+            # 打印显存占用
+            from fengshen.utils.utils import report_memory
+            report_memory('stable diffusion')
+
         if self.trainer.global_rank == 0:
             if (self.global_step+1) % 5000 == 0:
                 print('saving model...')
