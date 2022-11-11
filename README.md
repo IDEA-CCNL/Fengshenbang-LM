@@ -190,7 +190,7 @@ https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples/finetun
 
 可以参考(refer)
 
-https://github.com/IDEA-CCNL/Fengshenbang-LM/issues/186
+https://github.com/IDEA-CCNL/stable-diffusion-webui/blob/master/README.md
 
 ### DreamBooth
 
