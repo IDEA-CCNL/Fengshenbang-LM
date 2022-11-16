@@ -77,7 +77,7 @@
 
 这个世界需要一个答案。
 
-为了解决中文领域研究进展滞后和研究资源严重不足的问题，IDEA研究院正式宣布，开启 “封神榜”开源体系——一个以中文驱动的基础生态系统，其中包括了预训练大模型，特定任务的微调应用，基准和数据集等。我们的目标是构建一个全面的，标准化的，以用户为中心的生态系统。尽管这一目标可以通过多种方式去实现，但是我们经过对中文社区的重新审视与思考，提出了我们认为最为有效的方案：
+为了解决中文领域研究进展滞后和研究资源严重不足的问题，2021年11月22日，IDEA研究院创院理事长沈向洋在IDEA大会上正式宣布，开启 “封神榜”开源体系——一个以中文驱动的基础生态系统，其中包括了预训练大模型，特定任务的微调应用，基准和数据集等。我们的目标是构建一个全面的，标准化的，以用户为中心的生态系统。尽管这一目标可以通过多种方式去实现，但是我们经过对中文社区的重新审视与思考，提出了我们认为最为有效的方案：
 
 ![avatar](pics/fengshenbang_process1.png)
 
@@ -179,6 +179,22 @@ Advanced Prompt
 | 铁马冰河入梦来，概念画，科幻，玄幻，3D  | 中国海边城市，科幻，未来感，唯美，插画。 | 那人却在灯火阑珊处，色彩艳丽，古风，资深插画师作品，桌面高清壁纸。 |
 |  ----  | ----  | ----  |
 | ![](fengshen/examples/stable_diffusion_chinese/result_examples/tiema2.jpg)  | ![](fengshen/examples/stable_diffusion_chinese/result_examples/chengshi.jpg) | ![](fengshen/examples/stable_diffusion_chinese/result_examples/naren.jpg) |
+
+### 怎样微调(How to finetune)
+
+可以参考(refer)
+
+https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples/finetune_taiyi_stable_diffusion
+
+### 配置webui(Configure webui)
+
+可以参考(refer)
+
+https://github.com/IDEA-CCNL/stable-diffusion-webui/blob/master/README.md
+
+### DreamBooth
+
+TODO
 
 # 封神框架
 

@@ -79,7 +79,7 @@ The Chinese language as the world's largest spoken language (native speakers), h
 
 And the world needs an answer for this.
 
-IDEA (International Digital Economy Academy) officially announces the launch of "Fengshenbang" open source project —— a Chinese language driven foundation ecosystem, incorporates pre-trained models, task-specific fine-tune applications, benchmarks, and datasets. Our goal is to build a comprehensive, standardized and user-centered ecosystem. Although this can be instantiated in a variety of ways, we present the following design that we find to be particularly effective:
+On November 22nd, 2021, Harry Shum, the Founder and Chairman of the IDEA (International Digital Economy Academy) officially announces the launch of "Fengshenbang" open source project.  —— a Chinese language driven foundation ecosystem, incorporates pre-trained models, task-specific fine-tune applications, benchmarks, and datasets. Our goal is to build a comprehensive, standardized and user-centered ecosystem. Although this can be instantiated in a variety of ways, we present the following design that we find to be particularly effective:
 
 ![avatar](pics/fengshenbang_enprocess1.png)
 
