@@ -182,19 +182,15 @@ Advanced Prompt
 
 ### 怎样微调(How to finetune)
 
-可以参考(refer)
-
 https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples/finetune_taiyi_stable_diffusion
 
 ### 配置webui(Configure webui)
-
-可以参考(refer)
 
 https://github.com/IDEA-CCNL/stable-diffusion-webui/blob/master/README.md
 
 ### DreamBooth
 
-TODO
+https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples/stable_diffusion_dreambooth
 
 # 封神框架
 
