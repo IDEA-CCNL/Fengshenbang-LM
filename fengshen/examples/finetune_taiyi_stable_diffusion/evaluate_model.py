@@ -185,7 +185,7 @@ class InferenceFlickr:
     def __init__(self, sd_model_list, sample_num=20, guidance_scale=7.5, test_caption_path="/cognitive_comp/chenweifeng/project/dataset/mm_data/Flickr30k-CNA/test/flickr30k_cn_test.txt"):
         self.model_name_list = sd_model_list
         self.guidance_scale = guidance_scale
-        sefl.sample_num=sample_num
+        self.sample_num=sample_num
         self.score_model = FilterSystem()
         self.caption_path = test_caption_path
         self.score = dict()
@@ -252,7 +252,6 @@ class InferenceFlickr:
             average_watermark_score = watermark_score / len(self.score[model_name].keys())
             average_aesthetics_score = aesthetics_score / len(self.score[model_name].keys())
             self.final_score[model_name] = {"avg_clip": average_clip_score, "avg_watermark": average_watermark_score, 'avg_aesthetics': average_aesthetics_score}
-
 
 def main():
     model_list = [
