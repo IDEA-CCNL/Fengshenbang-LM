@@ -1,0 +1,8 @@
+diffusers>==0.7.2
+torchvision
+transformers>==4.24.0
+pytorch-lightning>==1.8.1
+ftfy
+tensorboard
+modelcards
+deepspeed>==0.5.10
