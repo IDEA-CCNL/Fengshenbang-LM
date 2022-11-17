@@ -1,5 +1,4 @@
 from torch.utils.data import Dataset, ConcatDataset
-from torchvision import transforms
 import os
 from PIL import Image
 from concurrent.futures import ProcessPoolExecutor
@@ -32,12 +31,30 @@ def add_data_args(parent_args):
     return parent_args
 
 
-class TXTDataset(Dataset):
+class TextImageBaseDataset(Dataset):
+    def __init__(self, data_filter_fn, data_process_fn):
+        super().__init__()
+        self.data_filter_fn = data_filter_fn
+        self.data_process_fn = data_process_fn
+        '''
+        data_filter_fn: 用来过滤数据的函数 def data_filter_fn(dataframe) -> dataframe
+        data_process_fn： 在__getitem__中用于数据处理的函数 def data_process_fn(image, text) -> sample
+                          兼容性可能没那么好，以后再改
+        '''
+        # data_process_fn 一定得自己实现一个
+        assert data_process_fn is not None
+
+
+class TXTDataset(TextImageBaseDataset):
     # 添加Txt数据集读取，主要是针对Zero23m数据集。
-    def __init__(self, foloder_name, tokenizer, thres=0.2, size=512, center_crop=False):
+    def __init__(self,
+                 foloder_name,
+                 thres=0.2,
+                 data_filter_fn=None,
+                 data_process_fn=None):
+        super().__init__(data_filter_fn=data_filter_fn, data_process_fn=data_process_fn)
         print(f'Loading folder data from {foloder_name}.')
         self.image_paths = []
-        self.tokenizer = tokenizer
         '''
         暂时没有开源这部分文件
         score_data = pd.read_csv(os.path.join(foloder_name, 'score.csv'))
@@ -49,16 +66,9 @@ class TXTDataset(Dataset):
         for each_file in os.listdir(foloder_name):
             if each_file.endswith('.jpg'):
                 self.image_paths.append(os.path.join(foloder_name, each_file))
-                # self.image_paths.append(os.path.join(foloder_name, each_file))
+                # 需要把读到的列表转换成dataframe，以便支持统一的过滤函数
+                # self.image_paths = self.data_filter_fn(self.image_paths)
 
-        self.image_transforms = transforms.Compose(
-            [
-                transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
-                transforms.CenterCrop(size) if center_crop else transforms.RandomCrop(size),
-                transforms.ToTensor(),
-                transforms.Normalize([0.5], [0.5]),
-            ]
-        )
         print('Done loading data. Len of images:', len(self.image_paths))
 
     def __len__(self):
@@ -66,60 +76,40 @@ class TXTDataset(Dataset):
 
     def __getitem__(self, idx):
         img_path = str(self.image_paths[idx])
-        example = {}
         instance_image = Image.open(img_path)
         if not instance_image.mode == "RGB":
             instance_image = instance_image.convert("RGB")
-
-        # 通过裁剪去水印！裁掉1/10的图片。
-        instance_image = instance_image.crop(
-            (0, 0, instance_image.size[0], instance_image.size[1] - instance_image.size[1] // 10))
-        example["instance_images"] = self.image_transforms(instance_image)
-
         caption_path = img_path.replace('.jpg', '.txt')  # 图片名称和文本名称一致。
         with open(caption_path, 'r') as f:
             caption = f.read()
-            example["instance_prompt_ids"] = self.tokenizer(
-                caption,
-                padding="do_not_pad",
-                truncation=True,
-                max_length=self.tokenizer.model_max_length,
-            ).input_ids
-        return example
+        return self.data_process_fn(instance_image, caption)
 
 
 # NOTE 加速读取数据，直接用原版的，在外部使用并行读取策略。30min->3min
-class CSVDataset(Dataset):
-    def __init__(self, input_filename, image_root, tokenizer, img_key, caption_key, thres=0.2, size=512, center_crop=False, sep="\t"):
+class CSVDataset(TextImageBaseDataset):
+    def __init__(self,
+                 input_filename,
+                 image_root,
+                 img_key,
+                 caption_key,
+                 thres=0.2,
+                 data_filter_fn=None,
+                 data_process_fn=None):
+        super().__init__(data_filter_fn=data_filter_fn, data_process_fn=data_process_fn)
         # logging.debug(f'Loading csv data from {input_filename}.')
         print(f'Loading csv data from {input_filename}.')
         self.images = []
         self.captions = []
-        self.tokenizer = tokenizer
 
         if input_filename.endswith('.csv'):
             # print(f"Load Data from{input_filename}")
             df = pd.read_csv(input_filename, index_col=0)
-            '''
-            这个地方对数据的过滤跟数据集结构强相关，需要修改这部分的代码
-            df = df[df['used'] == 1]
-            df = df[df['score'] > thres]
-            df = df[df['success'] == 1]
-            '''
+            if self.data_filter_fn is not None:
+                df = self.data_filter_fn(df)
             print(f'file {input_filename} datalen {len(df)}')
             # 这个图片的路径也需要根据数据集的结构稍微做点修改
-            self.images.extend(k + '/' + v for k, v in zip(df['class'], df[img_key]))
+            self.images.extend(df[img_key].tolist())
             self.captions.extend(df[caption_key].tolist())
-
-        # NOTE 中文的tokenizer
-        self.image_transforms = transforms.Compose(
-            [
-                transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
-                transforms.CenterCrop(size) if center_crop else transforms.RandomCrop(size),
-                transforms.ToTensor(),
-                transforms.Normalize([0.5], [0.5]),
-            ]
-        )
         self.image_root = image_root
 
     def __len__(self):
@@ -127,22 +117,17 @@ class CSVDataset(Dataset):
 
     def __getitem__(self, idx):
         img_path = os.path.join(self.image_root, str(self.images[idx]))
-        example = {}
         instance_image = Image.open(img_path)
         if not instance_image.mode == "RGB":
             instance_image = instance_image.convert("RGB")
-        example["instance_images"] = self.image_transforms(instance_image)
-
-        example["instance_prompt_ids"] = self.tokenizer(
-            str(self.captions[idx]),
-            padding="do_not_pad",
-            truncation=True,
-            max_length=self.tokenizer.model_max_length,
-        ).input_ids
-        return example
+        return self.data_process_fn(instance_image, self.captions[idx])
 
 
-def process_pool_read_txt_dataset(args, input_root=None, tokenizer=None, thres=0.2):
+def process_pool_read_txt_dataset(args,
+                                  input_root=None,
+                                  thres=0.2,
+                                  data_filter_fn=None,
+                                  data_process_fn=None):
     root_path = input_root
     p = ProcessPoolExecutor(max_workers=24)
     # 此处输入为文件夹。
@@ -151,8 +136,11 @@ def process_pool_read_txt_dataset(args, input_root=None, tokenizer=None, thres=0
     res = []
     for filename in all_folders:
         each_folder_path = os.path.join(root_path, filename)
-        res.append(p.submit(TXTDataset, each_folder_path, tokenizer,
-                            thres, args.resolution, args.center_crop))
+        res.append(p.submit(TXTDataset,
+                            each_folder_path,
+                            thres,
+                            data_filter_fn=data_filter_fn,
+                            data_process_fn=data_process_fn))
     p.shutdown()
     for future in res:
         all_datasets.append(future.result())
@@ -160,7 +148,11 @@ def process_pool_read_txt_dataset(args, input_root=None, tokenizer=None, thres=0
     return dataset
 
 
-def process_pool_read_csv_dataset(args, input_root, tokenizer, thres=0.20):
+def process_pool_read_csv_dataset(args,
+                                  input_root,
+                                  thres=0.20,
+                                  data_filter_fn=None,
+                                  data_process_fn=None):
     # here input_filename is a directory containing a CSV file
     all_csvs = os.listdir(os.path.join(input_root, 'release'))
     image_root = os.path.join(input_root, 'images')
@@ -170,8 +162,14 @@ def process_pool_read_csv_dataset(args, input_root, tokenizer, thres=0.20):
     p = ProcessPoolExecutor(max_workers=24)
     for path in all_csvs:
         each_csv_path = os.path.join(input_root, 'release', path)
-        res.append(p.submit(CSVDataset, each_csv_path, image_root, tokenizer, img_key="name",
-                            caption_key="caption", thres=thres, size=args.resolution, center_crop=args.center_crop))
+        res.append(p.submit(CSVDataset,
+                            each_csv_path,
+                            image_root,
+                            img_key="name",
+                            caption_key="caption",
+                            thres=thres,
+                            data_filter_fn=data_filter_fn,
+                            data_process_fn=data_process_fn))
     p.shutdown()
     for future in res:
         all_datasets.append(future.result())
@@ -179,17 +177,21 @@ def process_pool_read_csv_dataset(args, input_root, tokenizer, thres=0.20):
     return dataset
 
 
-def load_data(args, tokenizer):
+def load_data(args, data_filter_fn=None, data_process_fn=None):
     assert len(args.datasets_path) == len(args.datasets_type), \
         "datasets_path num not equal to datasets_type"
     all_datasets = []
     for path, type in zip(args.datasets_path, args.datasets_type):
         if type == 'txt':
             all_datasets.append(process_pool_read_txt_dataset(
-                args, input_root=path, tokenizer=tokenizer, thres=args.thres))
+                args, input_root=path, thres=args.thres,
+                data_filter_fn=data_filter_fn,
+                data_process_fn=data_process_fn))
         elif type == 'csv':
             all_datasets.append(process_pool_read_csv_dataset(
-                args, input_root=path, tokenizer=tokenizer, thres=args.thres))
+                args, input_root=path, thres=args.thres,
+                data_filter_fn=data_filter_fn,
+                data_process_fn=data_process_fn))
         else:
             raise ValueError('unsupport dataset type: %s' % type)
     return {'train': ConcatDataset(all_datasets)}

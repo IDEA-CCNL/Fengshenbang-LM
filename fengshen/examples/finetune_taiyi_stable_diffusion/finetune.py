@@ -19,6 +19,41 @@ from transformers import BertTokenizer, BertModel
 from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionPipeline, UNet2DConditionModel
 from torch.nn import functional as F
 from fengshen.data.taiyi_stable_diffusion_datasets.taiyi_datasets import add_data_args, load_data
+from torchvision import transforms
+
+
+def DataFrameFilte(dataframe):
+    '''
+    类似这些过滤条件，可以写在这个函数里面
+    # dataframe = dataframe[dataframe['success'] == 1]
+    '''
+    return dataframe
+
+
+class SingleDataProcessor:
+    def __init__(self, args, tokenizer):
+        self.image_transforms = transforms.Compose(
+            [
+                transforms.Resize(
+                    args.resolution, interpolation=transforms.InterpolationMode.BILINEAR),
+                transforms.CenterCrop(
+                    args.resolution) if args.center_crop else transforms.RandomCrop(args.resolution),
+                transforms.ToTensor(),
+                transforms.Normalize([0.5], [0.5]),
+            ]
+        )
+        self.tokenizer = tokenizer
+
+    def __call__(self, image, text):
+        example = {}
+        example["instance_images"] = self.image_transforms(image)
+        example["instance_prompt_ids"] = self.tokenizer(
+            str(text),
+            padding="do_not_pad",
+            truncation=True,
+            max_length=self.tokenizer.model_max_length,
+        ).input_ids
+        return example
 
 
 class StableDiffusion(LightningModule):
@@ -50,9 +85,19 @@ class StableDiffusion(LightningModule):
             print('Total steps: {}' .format(self.total_steps))
 
     def configure_optimizers(self):
-        model_params = [{'params': self.text_encoder.parameters()}]
+        no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight', 'layer_norm.', 'layernorm.']
+        model_params = [
+            {'params': [p for n, p in self.text_encoder.named_parameters() if not any(
+                nd in n for nd in no_decay)], 'weight_decay': self.hparams.weight_decay},
+            {'params': [p for n, p in self.text_encoder.named_parameters() if any(
+                nd in n for nd in no_decay)], 'weight_decay': 0.0}
+        ]
         if self.hparams.train_whole_model:
-            model_params.append({'params': self.unet.parameters()})
+            model_params += [
+                {'params': [p for n, p in self.unet.named_parameters() if not any(
+                    nd in n for nd in no_decay)], 'weight_decay': self.hparams.weight_decay},
+                {'params': [p for n, p in self.unet.named_parameters() if any(
+                    nd in n for nd in no_decay)], 'weight_decay': 0.0}]
         return configure_optimizers(self, model_params=model_params)
 
     def training_step(self, batch, batch_idx):
@@ -91,16 +136,6 @@ class StableDiffusion(LightningModule):
             from fengshen.utils.utils import report_memory
             report_memory('stable diffusion')
 
-        if self.trainer.global_rank == 0:
-            if (self.global_step+1) % 5000 == 0:
-                print('saving model...')
-                pipeline = StableDiffusionPipeline.from_pretrained(
-                    args.model_path, text_encoder=self.text_encoder, tokenizer=self.tokenizer,
-                )
-                self.trainer.current_epoch
-                pipeline.save_pretrained(os.path.join(
-                    args.default_root_dir, f'hf_out_{self.trainer.current_epoch}'))
-
         return {"loss": loss}
 
     def on_train_epoch_end(self):
@@ -133,7 +168,8 @@ if __name__ == '__main__':
 
     model = StableDiffusion(args)
     tokenizer = model.tokenizer
-    datasets = load_data(args, tokenizer=tokenizer)
+    data_process = SingleDataProcessor(args, tokenizer)
+    datasets = load_data(args, data_filter_fn=DataFrameFilte, data_process_fn=data_process)
 
     def collate_fn(examples):
         # print(examples)
