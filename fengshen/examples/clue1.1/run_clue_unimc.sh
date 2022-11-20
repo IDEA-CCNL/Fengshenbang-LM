@@ -11,7 +11,7 @@
 #SBATCH --qos=preemptive
 
 TASK=tnews #clue 上的任务 ，可选afqmc、tnews、iflytek、wsc、ocnli、csl、chid、c3
-DATA_ROOT_PATH=/cognitive_comp/yangping/data/ChineseCLUE_DATA/test  #数据集路径
+DATA_ROOT_PATH=./data  #数据集路径
 DATA_DIR=$DATA_ROOT_PATH/$TASK
 
 PRETRAINED_MODEL_PATH=IDEA-CCNL/Erlangshen-UniMC-RoBERTa-110M-Chinese  #预训练模型的路径
