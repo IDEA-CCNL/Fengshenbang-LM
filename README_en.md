@@ -180,6 +180,10 @@ Advanced Prompt
 |  ----  | ----  | ----  |
 | ![](fengshen/examples/stable_diffusion_chinese/result_examples/tiema2.jpg)  | ![](fengshen/examples/stable_diffusion_chinese/result_examples/chengshi.jpg) | ![](fengshen/examples/stable_diffusion_chinese/result_examples/naren.jpg) |
 
+### Handbook for Taiyi
+
+https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/examples/stable_diffusion_chinese/taiyi_handbook.md
+
 ### How to finetune
 
 https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples/finetune_taiyi_stable_diffusion
