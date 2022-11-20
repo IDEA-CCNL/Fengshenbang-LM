@@ -3,7 +3,9 @@
 版本：2022.11.20 (Ver 1)
 
 编撰团队：IDEA CCNL 封神榜团队  
-团队主页：https://github.com/IDEA-CCNL/Fengshenbang-LM  
+团队主页：https://github.com/IDEA-CCNL/Fengshenbang-LM 
+
+腾讯文档版本：太乙绘画使用手册1.0 https://docs.qq.com/doc/DWklwWkVvSFVwUE9Q
 
 感谢所有参与编撰以及投稿的“助理们”！（微信搜索：fengshenbang-lm）
 
@@ -417,16 +419,6 @@ Steps: 20, Sampler: PLMS, CFG scale: 7, Seed: 1419200315, Size: 256x256, Model h
   howpublished={\url{https://github.com/IDEA-CCNL/Fengshenbang-LM}},
 }
 ```
-
-# 联系我们
-
-IDEA研究院CCNL技术团队已创建封神榜开源讨论群，我们将在讨论群中不定期更新发布封神榜新模型与系列文章。请扫描下面二维码或者微信搜索“fengshenbang-lm”，添加封神空间小助手进群交流！
-
-![avartar](pics/wechat_icon.png)
-
-我们也在持续招人，欢迎投递简历！
-
-![avartar](pics/contactus.png)
 
 # 版权许可
 
