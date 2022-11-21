@@ -16,4 +16,4 @@
 from .models.longformer import LongformerConfig, LongformerModel
 from .models.roformer import RoFormerConfig, RoFormerModel
 from .models.megatron_t5 import T5Config, T5EncoderModel
-from .models.ubert import UbertPiplines, UbertModel
+from .models.ubert import UbertPipelines, UbertModel

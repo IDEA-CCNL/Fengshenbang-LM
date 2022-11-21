@@ -669,10 +669,10 @@ class extractModel:
         return batch_data
 
 
-class UbertPiplines:
+class UbertPipelines:
     @staticmethod
-    def piplines_args(parent_args):
-        total_parser = parent_args.add_argument_group("piplines args")
+    def pipelines_args(parent_args):
+        total_parser = parent_args.add_argument_group("pipelines args")
         total_parser.add_argument(
             '--pretrained_model_path', default='IDEA-CCNL/Erlangshen-Ubert-110M-Chinese', type=str)
         total_parser.add_argument('--output_save_path',
