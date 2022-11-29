@@ -8,6 +8,8 @@
 #SBATCH -p batch
 #SBATCH --qos=ai4cogsys
 
-export SCRIPT_PATH=./evaluate_model.py
+export SCRIPT_PATH=./evaluate_model.py 
 
-srun python $SCRIPT_PATH
+MODEL_PATH=''
+
+srun python $SCRIPT_PATH $MODEL_PATH

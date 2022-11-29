@@ -198,11 +198,33 @@ class InferenceFlickr:
             self.model_list.append(pipe)
 
     def generate_image_score(self, prompt_list, model_list):
+        generator = torch.Generator(device=0)
+        generator = generator.manual_seed(42)
+        # num_images = 1
+        # latents = None
+        # seeds = []
+        # for _ in range(num_images):
+        #     generator = generator.manual_seed(42)
+            
+        #     image_latents = torch.randn(
+        #         (1, pipe.unet.in_channels, 512 // 8, 512 // 8),
+        #         generator = generator,
+        #         device =1
+        #     )
+        #     latents = image_latents if latents is None else torch.cat((latents, image_latents))
         for i, model in enumerate(model_list):
             model_name = self.model_name_list[i]
             self.score[model_name] = dict()
             for j, prompt in tqdm(enumerate(prompt_list)):
-                image = model(prompt, guidance_scale=self.guidance_scale).images[0]
+                latents = None
+                image_latents = torch.randn(
+                    (1, model.unet.in_channels, 512 // 8, 512 // 8),
+                    generator = generator,
+                    device =0,
+                    dtype=torch.float16
+                )
+                latents = image_latents if latents is None else torch.cat((latents, image_latents))
+                image = model(prompt, guidance_scale=self.guidance_scale, latents=latents, torch_dtype=torch.float16).images[0]
                 image_feature = self.score_model.get_image_feature([image])
                 text_feature = self.score_model.get_text_feature(prompt)
                 image_clip_score = self.score_model.calculate_clip_score(image_feature, text_feature)
@@ -256,7 +278,10 @@ class InferenceFlickr:
 def main():
     model_list = [
         # '/cognitive_comp/chenweifeng/project/stable-diffusion-lightning/finetune_taiyi_v0.40_laion',
-        '/cognitive_comp/chenweifeng/project/stable-diffusion-chinese/finetune_taiyi0'
+        # '/cognitive_comp/chenweifeng/project/stable-diffusion-chinese/finetune_taiyi0'
+        # "/cognitive_comp/lixiayu/diffuser_models/wukong_epoch1"
+        # "/cognitive_comp/lixiayu/work/Fengshenbang-LM/fengshen/workspace/taiyi-stablediffusion-laion/60per_ckpt",
+        "/cognitive_comp/lixiayu/work/Fengshenbang-LM/fengshen/workspace/taiyi-stablediffusion-laion/80per_hf_out"
     ]
     score_model = InferenceFlickr(model_list, sample_num=1000)
     score_model.run()
