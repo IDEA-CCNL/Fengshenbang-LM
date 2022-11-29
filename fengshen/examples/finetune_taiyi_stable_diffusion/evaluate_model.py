@@ -5,6 +5,7 @@ import torch
 import timm
 from torchvision import transforms as T
 import open_clip
+import sys
 import torch
 import json
 from transformers import BertModel, BertTokenizer
@@ -276,12 +277,13 @@ class InferenceFlickr:
             self.final_score[model_name] = {"avg_clip": average_clip_score, "avg_watermark": average_watermark_score, 'avg_aesthetics': average_aesthetics_score}
 
 def main():
+    model_path = sys.argv[1]
     model_list = [
         # '/cognitive_comp/chenweifeng/project/stable-diffusion-lightning/finetune_taiyi_v0.40_laion',
         # '/cognitive_comp/chenweifeng/project/stable-diffusion-chinese/finetune_taiyi0'
         # "/cognitive_comp/lixiayu/diffuser_models/wukong_epoch1"
         # "/cognitive_comp/lixiayu/work/Fengshenbang-LM/fengshen/workspace/taiyi-stablediffusion-laion/60per_ckpt",
-        "/cognitive_comp/lixiayu/work/Fengshenbang-LM/fengshen/workspace/taiyi-stablediffusion-laion/80per_hf_out"
+        model_path
     ]
     score_model = InferenceFlickr(model_list, sample_num=1000)
     score_model.run()
