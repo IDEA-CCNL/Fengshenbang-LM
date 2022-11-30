@@ -40,7 +40,7 @@ class Collator():
 
     def __call__(self, inputs):
         examples = []
-        max_length = max([len(i['caption']) for i in inputs])
+        max_length = min(max([len(i['caption']) for i in inputs]), 512)
         for i in inputs:
             example = {}
             instance_image = Image.open(i['img_path'])
@@ -135,7 +135,7 @@ class StableDiffusion(LightningModule):
 
         return {"loss": loss}
 
-    def on_train_epoch_end(self):
+    def on_save_checkpoint(self, checkpoint) -> None:
         if self.trainer.global_rank == 0:
             print('saving model...')
             pipeline = StableDiffusionPipeline.from_pretrained(
