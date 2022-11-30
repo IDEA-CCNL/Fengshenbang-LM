@@ -32,7 +32,7 @@ cat <<EOT > $CONFIG_JSON
         "stage": ${ZERO_STAGE}
     },
     "bf16": {
-        "enabled": true,
+        "enabled": true
     },
     "train_micro_batch_size_per_gpu": $MICRO_BATCH_SIZE
 }

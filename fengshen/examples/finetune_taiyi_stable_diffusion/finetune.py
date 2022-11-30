@@ -50,8 +50,7 @@ class SingleDataProcessor:
         instance_image = Image.open(image_path)
         if not instance_image.mode == "RGB":
             instance_image = instance_image.convert("RGB")
-        image = self.image_transforms(instance_image)
-        example["instance_images"] = self.image_transforms(image)
+        example["instance_images"] = self.image_transforms(instance_image)
         example["instance_prompt_ids"] = self.tokenizer(
             str(text),
             padding="do_not_pad",
@@ -65,7 +64,7 @@ class StableDiffusion(LightningModule):
     @staticmethod
     def add_module_specific_args(parent_parser):
         parser = parent_parser.add_argument_group('Taiyi Stable Diffusion Module')
-        parser.add_argument('--train_whole_model', action='store_true', default=False)
+        parser.add_argument('--freeze_unet', action='store_true', default=False)
         return parent_parser
 
     def __init__(self, args):
@@ -78,12 +77,20 @@ class StableDiffusion(LightningModule):
             args.model_path, subfolder="vae")
         self.unet = UNet2DConditionModel.from_pretrained(
             args.model_path, subfolder="unet")
-        # 使用xformers配合deepspeed速度反而有下降
+        # TODO: 使用xformers配合deepspeed速度反而有下降(待确认
         self.unet.set_use_memory_efficient_attention_xformers(False)
 
         self.noise_scheduler = DDPMScheduler(
             beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000
         )
+
+        for param in self.vae.parameters():
+            param.requires_grad = False
+
+        if args.freeze_unet:
+            for param in self.unet.parameters():
+                param.requires_grad = False
+
         self.save_hyperparameters(args)
 
     def setup(self, stage) -> None:
@@ -92,27 +99,13 @@ class StableDiffusion(LightningModule):
             print('Total steps: {}' .format(self.total_steps))
 
     def configure_optimizers(self):
-        no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight', 'layer_norm.', 'layernorm.']
-        model_params = [
-            {'params': [p for n, p in self.text_encoder.named_parameters() if not any(
-                nd in n for nd in no_decay)], 'weight_decay': self.hparams.weight_decay},
-            {'params': [p for n, p in self.text_encoder.named_parameters() if any(
-                nd in n for nd in no_decay)], 'weight_decay': 0.0}
-        ]
-        if self.hparams.train_whole_model:
-            model_params += [
-                {'params': [p for n, p in self.unet.named_parameters() if not any(
-                    nd in n for nd in no_decay)], 'weight_decay': self.hparams.weight_decay},
-                {'params': [p for n, p in self.unet.named_parameters() if any(
-                    nd in n for nd in no_decay)], 'weight_decay': 0.0}]
-        return configure_optimizers(self, model_params=model_params)
+        return configure_optimizers(self)
 
     def training_step(self, batch, batch_idx):
         self.text_encoder.train()
 
-        with torch.no_grad():
-            latents = self.vae.encode(batch["pixel_values"]).latent_dist.sample()
-            latents = latents * 0.18215
+        latents = self.vae.encode(batch["pixel_values"]).latent_dist.sample()
+        latents = latents * 0.18215
 
         # Sample noise that we'll add to the latents
         noise = torch.randn(latents.shape).to(latents.device)
@@ -129,7 +122,6 @@ class StableDiffusion(LightningModule):
         noisy_latents = noisy_latents.to(dtype=self.unet.dtype)
 
         # Get the text embedding for conditioning
-        # with torch.no_grad():
         encoder_hidden_states = self.text_encoder(batch["input_ids"])[0]
 
         # Predict the noise residual
