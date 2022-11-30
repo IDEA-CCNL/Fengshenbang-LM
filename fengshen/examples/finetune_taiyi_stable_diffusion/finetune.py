@@ -140,7 +140,7 @@ class StableDiffusion(LightningModule):
             print('saving model...')
             pipeline = StableDiffusionPipeline.from_pretrained(
                 args.model_path, text_encoder=self.text_encoder, tokenizer=self.tokenizer,
-            )
+                unet=self.unet)
             self.trainer.current_epoch
             pipeline.save_pretrained(os.path.join(
                 args.default_root_dir, f'hf_out_{self.trainer.current_epoch}_{self.trainer.global_step}'))
