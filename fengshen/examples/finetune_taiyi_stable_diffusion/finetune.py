@@ -143,7 +143,7 @@ class StableDiffusion(LightningModule):
             )
             self.trainer.current_epoch
             pipeline.save_pretrained(os.path.join(
-                args.default_root_dir, f'hf_out_{self.trainer.current_epoch}'))
+                args.default_root_dir, f'hf_out_{self.trainer.current_epoch}_{self.trainer.global_step}'))
 
     def on_load_checkpoint(self, checkpoint) -> None:
         # 兼容低版本lightning，低版本lightning从ckpt起来时steps数会被重置为0
