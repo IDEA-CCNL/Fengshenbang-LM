@@ -86,15 +86,14 @@ class TCBertPipelines(Pipeline):
         self.model.num_data = len(train_data)
         self.trainer.fit(self.model, data_model)
 
-    def predict(self, test_data, cuda=True):
+    def predict(self, test_data, prompt_label, cuda=True):
     
         result = []
         start = 0
         if cuda:
             self.model = self.model.cuda()
         self.model.model.eval()
-        predict_model = TCBertPredict(
-            self.yes_token, self.no_token, self.model, self.tokenizer, self.args)
+        predict_model = TCBertPredict(self.model, self.tokenizer, self.args, prompt_label)
         while start < len(test_data):
             batch_data = test_data[start:start+self.args.batchsize]
             start += self.args.batchsize

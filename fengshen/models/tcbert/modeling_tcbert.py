@@ -62,7 +62,7 @@ class TCBertDataset(Dataset):
 
         if labeled:
             texta = '这一句描述{}的内容如下：'.format(item['label']) + item['content']
-            print('texta', texta)
+            # print('texta', texta)
             labels = self.label_classes[item['label']]
 
             encode_dict = self.tokenizer.encode_plus(texta,
@@ -129,17 +129,14 @@ class TCBertDataModel(pl.LightningDataModule):
         args.num_labels = len(self.label_classes)
 
         self.train_data = TCBertDataset(train_data, tokenizer, args, prompt_label, self.label_classes)
-        # print("self.train_data", next(iter(self.train_data)))
         self.valid_data = TCBertDataset(val_data, tokenizer, args, prompt_label, self.label_classes)
-        # print("self.valid_data", next(iter(self.valid_data)))
-    def get_label_classes(self, prompt_label):
 
+    def get_label_classes(self, prompt_label):
         label_classes = {}
         i = 0 
         for key in prompt_label.keys():
             label_classes[key] = i
             i+=1
-
         print("label_classes:",label_classes)
         return label_classes
 
@@ -167,7 +164,6 @@ class TCBertDataModel(pl.LightningDataModule):
 
         mlmlabels = None
         if 'mlmlabels' in batch_data:
-            # mlmlabels = torch.LongTensor(batch_data['mlmlabels'])
             mlmlabels = nn.utils.rnn.pad_sequence(batch_data['mlmlabels'],
                                                 batch_first=True,
                                                 padding_value=-100)
@@ -176,7 +172,6 @@ class TCBertDataModel(pl.LightningDataModule):
                                                 batch_first=True,
                                                 padding_value=0)
             
-
         token_type_ids = nn.utils.rnn.pad_sequence(token_type_ids,
                                                     batch_first=True,
                                                     padding_value=0)
@@ -201,7 +196,9 @@ class TCBertModel(nn.Module):
     def __init__(self, pre_train_dir, nlabels):
         super().__init__()
         self.config = AutoConfig.from_pretrained(pre_train_dir)
-        if self.config.model_type == 'megatron-bert':
+        print("pre_train_dir", pre_train_dir)
+        # if self.config.model_type == 'megatron-bert':
+        if "1.3B" in pre_train_dir:
             self.bert = MegatronBertForMaskedLM.from_pretrained(pre_train_dir)
         elif self.config.model_type == 'deberta-v2':
             self.bert = DebertaV2ForMaskedLM.from_pretrained(pre_train_dir)
@@ -249,7 +246,7 @@ class TCBertLitModel(pl.LightningModule):
     def __init__(self, args, model_path, nlabels):
         super().__init__()
         self.args = args
-        self.loss_fn = torch.nn.CrossEntropyLoss(reduction='mean')
+        self.loss_fn = torch.nn.CrossEntropyLoss()
         self.model = TCBertModel(model_path, nlabels)
 
     def setup(self, stage) -> None:
@@ -260,7 +257,6 @@ class TCBertLitModel(pl.LightningModule):
             print('Total training step:', self.total_step)
 
     def training_step(self, batch, batch_idx):
-        print("training_step batch", batch)
         labels = batch['labels']
         mlm_loss, logits, cls_logits = self.model(**batch)
         if labels is not None:
@@ -278,7 +274,6 @@ class TCBertLitModel(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        print("validation_step batch", batch)
         mlm_loss, logits, cls_logits = self.model(**batch)
         labels = batch['labels']
         
@@ -333,185 +328,25 @@ class TCBertPredict:
         self.data_model = TCBertDataModel(
             [], [], tokenizer, args, prompt_label)
         self.model = model
+    
+    def predict_inputs(self, batch):
+        #  Filter reduntant information(for example: 'sentence') that will be passed to model.forward()
+        inputs = {
+            'input_ids': batch['input_ids'].cuda(),
+            'attention_mask': batch['attention_mask'].cuda(),
+            'token_type_ids': batch['token_type_ids'].cuda(),
+        }
+        return inputs 
 
     def predict(self, batch_data):
         batch = [self.data_model.train_data.encode(
             sample, labeled=False) for sample in batch_data]
         batch = self.data_model.collate_fn(batch)
-        batch = {k: v.cuda() for k, v in batch.items()}
+        batch = self.predict_inputs(batch)
         _, logits, _ = self.model.model(**batch)
         probs = torch.nn.functional.softmax(logits, dim=-1)
         predicts = torch.argmax(probs, dim=-1).detach().cpu().numpy()
 
 
         return predicts
-
-
-class TCBertPipelines(Pipeline):
-    @staticmethod
-    def piplines_args(parent_args):
-        total_parser = parent_args.add_argument_group("piplines args")
-        total_parser.add_argument(
-            '--pretrained_model_path', default='', type=str)
-        total_parser.add_argument('--load_checkpoints_path',
-                                  default='', type=str)
-        total_parser.add_argument('--train', action='store_true')
-        total_parser.add_argument('--language',
-                                  default='chinese', type=str)
-
-        total_parser = TCBertDataModel.add_data_specific_args(total_parser)
-        total_parser = UniversalCheckpoint.add_argparse_args(total_parser)
-        total_parser = TCBertLitModel.add_model_specific_args(total_parser)
-        total_parser = pl.Trainer.add_argparse_args(parent_args)
-        return parent_args
-
-    def __init__(self, args, model_path, nlables):
-        self.args = args
-        self.checkpoint_callback = UniversalCheckpoint(args).callbacks
-        self.logger = loggers.TensorBoardLogger(save_dir=args.default_root_dir)
-        self.trainer = pl.Trainer.from_argparse_args(args,
-                                                     logger=self.logger,
-                                                     callbacks=[self.checkpoint_callback])
-        self.config = AutoConfig.from_pretrained(model_path)
-        if self.config.model_type == 'albert':
-            self.tokenizer = AlbertTokenizer.from_pretrained(
-                model_path)
-        else:
-            self.tokenizer = BertTokenizer.from_pretrained(
-                model_path)
-
-
-        if args.load_checkpoints_path != '':
-            self.model = TCBertLitModel.load_from_checkpoint(
-                args.load_checkpoints_path, args=args, model_path=model_path, nlables=nlables)
-            print('load model from: ', args.load_checkpoints_path)
-        else:
-            self.model = TCBertLitModel(
-                args, model_path=model_path, nlables=nlables)
-
-    def train(self, train_data, dev_data, process=True):
-        if process:
-            train_data = self.preprocess(train_data)
-            dev_data = self.preprocess(dev_data)
-        data_model = TCBertDataModel(
-            train_data, dev_data, self.tokenizer, self.args)
-        self.model.num_data = len(train_data)
-        self.trainer.fit(self.model, data_model)
-
-    def predict(self, test_data, cuda=True, process=True):
-        if process:
-            test_data = self.preprocess(test_data)
-
-        result = []
-        start = 0
-        if cuda:
-            self.model = self.model.cuda()
-        self.model.model.eval()
-        predict_model = TCBertPredict(
-            self.yes_token, self.no_token, self.model, self.tokenizer, self.args)
-        while start < len(test_data):
-            batch_data = test_data[start:start+self.args.batchsize]
-            start += self.args.batchsize
-            batch_result = predict_model.predict(batch_data)
-            result.extend(batch_result)
-        if process:
-            result = self.postprocess(result)
-        return result
-
-    
-    def _forward(self, model_inputs):
-        return self.model(**model_inputs)
-
-    def _sanitize_parameters(self, return_all_scores=None, function_to_apply=None, top_k="", **tokenizer_kwargs):
-        # Using "" as default argument because we're going to use `top_k=None` in user code to declare
-        # "No top_k"
-        preprocess_params = tokenizer_kwargs
-
-        postprocess_params = {}
-        if hasattr(self.model.config, "return_all_scores") and return_all_scores is None:
-            return_all_scores = self.model.config.return_all_scores
-
-        if isinstance(top_k, int) or top_k is None:
-            postprocess_params["top_k"] = top_k
-            postprocess_params["_legacy"] = False
-        elif return_all_scores is not None:
-            warnings.warn(
-                "`return_all_scores` is now deprecated,  if want a similar funcionality use `top_k=None` instead of"
-                " `return_all_scores=True` or `top_k=1` instead of `return_all_scores=False`.",
-                UserWarning,
-            )
-            if return_all_scores:
-                postprocess_params["top_k"] = None
-            else:
-                postprocess_params["top_k"] = 1
-
-        if function_to_apply is not None:
-            postprocess_params["function_to_apply"] = function_to_apply
-        return preprocess_params, {}, postprocess_params
-
-
-def load_data(data_path):
-    with open(data_path, 'r', encoding='utf8') as f:
-        lines = f.readlines()
-        samples = [json.loads(line) for line in tqdm(lines)]
-    return samples
-
-
-def comp_acc(pred_data, test_data):
-    corr = 0
-    for i in range(len(pred_data)):
-        if pred_data[i]['label'] == test_data[i]['label']:
-            corr += 1
-    return corr/len(pred_data)
-
-
-def main():
-    total_parser = argparse.ArgumentParser("TASK NAME")
-    total_parser.add_argument('--data_dir', default='./data', type=str)
-    total_parser.add_argument('--train_data', default='train.json', type=str)
-    total_parser.add_argument('--valid_data', default='dev.json', type=str)
-    total_parser.add_argument('--test_data', default='test.json', type=str)
-    total_parser.add_argument('--output_path', default='', type=str)
-    total_parser = TCBertPipelines.piplines_args(total_parser)
-    args = total_parser.parse_args()
-
-    train_data = load_data(os.path.join(args.data_dir, args.train_data))
-    dev_data = load_data(os.path.join(args.data_dir, args.valid_data))
-    test_data = load_data(os.path.join(args.data_dir, args.test_data))
-
-    dev_data_ori = copy.deepcopy(dev_data)
-
-    model = TCBertPipelines(args)
-
-    print(args.data_dir)
-
-    if args.train:
-        model.train(train_data, dev_data)
-    result = model.predict(dev_data)
-    for line in result[:20]:
-        print(line)
-
-    acc = comp_acc(result, dev_data_ori)
-    print('acc:', acc)
-
-    if args.output_path != '':
-        test_result = model.predict(test_data)
-        with open(args.output_path, 'w', encoding='utf8') as f:
-            for line in test_result:
-                json_data = json.dumps(line, ensure_ascii=False)
-                f.write(json_data+'\n')
-
-
-if __name__ == "__main__":
-    main()
-
-
-
-
-
-
-
-
-
-
 
