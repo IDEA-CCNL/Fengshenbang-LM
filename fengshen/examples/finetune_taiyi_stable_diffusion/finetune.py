@@ -20,6 +20,7 @@ from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionPipeline, UNe
 from torch.nn import functional as F
 from fengshen.data.taiyi_stable_diffusion_datasets.taiyi_datasets import add_data_args, load_data
 from torchvision import transforms
+from PIL import Image
 
 
 def DataFrameFilte(dataframe):
@@ -44,8 +45,12 @@ class SingleDataProcessor:
         )
         self.tokenizer = tokenizer
 
-    def __call__(self, image, text):
+    def __call__(self, image_path, text):
         example = {}
+        instance_image = Image.open(image_path)
+        if not instance_image.mode == "RGB":
+            instance_image = instance_image.convert("RGB")
+        image = self.image_transforms(instance_image)
         example["instance_images"] = self.image_transforms(image)
         example["instance_prompt_ids"] = self.tokenizer(
             str(text),
@@ -73,6 +78,8 @@ class StableDiffusion(LightningModule):
             args.model_path, subfolder="vae")
         self.unet = UNet2DConditionModel.from_pretrained(
             args.model_path, subfolder="unet")
+        # 使用xformers配合deepspeed速度反而有下降
+        self.unet.set_use_memory_efficient_attention_xformers(False)
 
         self.noise_scheduler = DDPMScheduler(
             beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000

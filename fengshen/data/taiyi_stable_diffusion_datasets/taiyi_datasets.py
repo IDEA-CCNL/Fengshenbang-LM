@@ -1,6 +1,5 @@
 from torch.utils.data import Dataset, ConcatDataset
 import os
-from PIL import Image
 from concurrent.futures import ProcessPoolExecutor
 import pandas as pd
 
@@ -13,7 +12,7 @@ def add_data_args(parent_args):
         help="A folder containing the training data of instance images.",
     )
     parser.add_argument(
-        "--datasets_type", type=str, default=None, required=True, choices=['txt', 'csv'], nargs='+',
+        "--datasets_type", type=str, default=None, required=True, choices=['txt', 'csv', 'fs_datasets'], nargs='+',
         help="dataset type, txt or csv, same len as datasets_path",
     )
     parser.add_argument(
@@ -27,7 +26,7 @@ def add_data_args(parent_args):
         "--center_crop", action="store_true", default=False,
         help="Whether to center crop images before resizing to resolution"
     )
-    parser.add_argument("--thres", type=float, default=0.2,)
+    parser.add_argument("--thres", type=float, default=0.2)
     return parent_args
 
 
@@ -42,7 +41,7 @@ class TextImageBaseDataset(Dataset):
                           兼容性可能没那么好，以后再改
         '''
         # data_process_fn 一定得自己实现一个
-        assert data_process_fn is not None
+        # assert data_process_fn is not None
 
 
 class TXTDataset(TextImageBaseDataset):
@@ -53,7 +52,7 @@ class TXTDataset(TextImageBaseDataset):
                  data_filter_fn=None,
                  data_process_fn=None):
         super().__init__(data_filter_fn=data_filter_fn, data_process_fn=data_process_fn)
-        print(f'Loading folder data from {foloder_name}.')
+        # print(f'Loading folder data from {foloder_name}.')
         self.image_paths = []
         '''
         暂时没有开源这部分文件
@@ -69,20 +68,17 @@ class TXTDataset(TextImageBaseDataset):
                 # 需要把读到的列表转换成dataframe，以便支持统一的过滤函数
                 # self.image_paths = self.data_filter_fn(self.image_paths)
 
-        print('Done loading data. Len of images:', len(self.image_paths))
+        # print('Done loading data. Len of images:', len(self.image_paths))
 
     def __len__(self):
         return len(self.image_paths)
 
     def __getitem__(self, idx):
         img_path = str(self.image_paths[idx])
-        instance_image = Image.open(img_path)
-        if not instance_image.mode == "RGB":
-            instance_image = instance_image.convert("RGB")
         caption_path = img_path.replace('.jpg', '.txt')  # 图片名称和文本名称一致。
         with open(caption_path, 'r') as f:
             caption = f.read()
-        return self.data_process_fn(instance_image, caption)
+        return self.data_process_fn(img_path, caption)
 
 
 # NOTE 加速读取数据，直接用原版的，在外部使用并行读取策略。30min->3min
@@ -103,7 +99,7 @@ class CSVDataset(TextImageBaseDataset):
 
         if input_filename.endswith('.csv'):
             # print(f"Load Data from{input_filename}")
-            df = pd.read_csv(input_filename, index_col=0)
+            df = pd.read_csv(input_filename, index_col=0, on_bad_lines='skip')
             if self.data_filter_fn is not None:
                 df = self.data_filter_fn(df)
             print(f'file {input_filename} datalen {len(df)}')
@@ -117,10 +113,15 @@ class CSVDataset(TextImageBaseDataset):
 
     def __getitem__(self, idx):
         img_path = os.path.join(self.image_root, str(self.images[idx]))
-        instance_image = Image.open(img_path)
-        if not instance_image.mode == "RGB":
-            instance_image = instance_image.convert("RGB")
-        return self.data_process_fn(instance_image, self.captions[idx])
+        return self.data_process_fn(img_path, self.captions[idx])
+
+
+def if_final_dir(path: str) -> bool:
+    # 如果当前目录有一个文件，那就算是终极目录
+    for f in os.scandir(path):
+        if f.is_file():
+            return True
+    return False
 
 
 def process_pool_read_txt_dataset(args,
@@ -128,19 +129,23 @@ def process_pool_read_txt_dataset(args,
                                   thres=0.2,
                                   data_filter_fn=None,
                                   data_process_fn=None):
-    root_path = input_root
-    p = ProcessPoolExecutor(max_workers=24)
-    # 此处输入为文件夹。
-    all_folders = os.listdir(root_path)
+    p = ProcessPoolExecutor(max_workers=20)
     all_datasets = []
     res = []
-    for filename in all_folders:
-        each_folder_path = os.path.join(root_path, filename)
-        res.append(p.submit(TXTDataset,
-                            each_folder_path,
-                            thres,
-                            data_filter_fn=data_filter_fn,
-                            data_process_fn=data_process_fn))
+
+    # 遍历该目录下所有的子目录
+    def traversal_files(path: str):
+        list_subfolders_with_paths = [f.path for f in os.scandir(path) if f.is_dir()]
+        for dir_path in list_subfolders_with_paths:
+            if if_final_dir(dir_path):
+                res.append(p.submit(TXTDataset,
+                                    dir_path,
+                                    thres,
+                                    data_filter_fn=data_filter_fn,
+                                    data_process_fn=data_process_fn))
+            else:
+                traversal_files(dir_path)
+    traversal_files(input_root)
     p.shutdown()
     for future in res:
         all_datasets.append(future.result())
@@ -159,7 +164,7 @@ def process_pool_read_csv_dataset(args,
     # csv_with_score = [each for each in all_csvs if 'score' in each]
     all_datasets = []
     res = []
-    p = ProcessPoolExecutor(max_workers=24)
+    p = ProcessPoolExecutor(max_workers=150)
     for path in all_csvs:
         each_csv_path = os.path.join(input_root, 'release', path)
         res.append(p.submit(CSVDataset,
@@ -177,7 +182,7 @@ def process_pool_read_csv_dataset(args,
     return dataset
 
 
-def load_data(args, data_filter_fn=None, data_process_fn=None):
+def load_data(args, data_filter_fn=None, data_process_fn=None, global_rank=0):
     assert len(args.datasets_path) == len(args.datasets_type), \
         "datasets_path num not equal to datasets_type"
     all_datasets = []
@@ -192,6 +197,11 @@ def load_data(args, data_filter_fn=None, data_process_fn=None):
                 args, input_root=path, thres=args.thres,
                 data_filter_fn=data_filter_fn,
                 data_process_fn=data_process_fn))
+        elif type == 'fs_datasets':
+            from fengshen.data.fs_datasets import load_dataset
+            all_datasets.append(load_dataset(path, num_proc=args.num_workers,
+                                             thres=args.thres, global_rank=global_rank)['train'])
         else:
             raise ValueError('unsupport dataset type: %s' % type)
+        print(f'load datasset {type} {path} len {len(all_datasets[-1])}')
     return {'train': ConcatDataset(all_datasets)}

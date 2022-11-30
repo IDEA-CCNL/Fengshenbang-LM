@@ -31,6 +31,9 @@ cat <<EOT > $CONFIG_JSON
     "zero_optimization": {
         "stage": ${ZERO_STAGE}
     },
+    "bf16": {
+        "enabled": true,
+    },
     "train_micro_batch_size_per_gpu": $MICRO_BATCH_SIZE
 }
 EOT
@@ -66,7 +69,7 @@ TRAINER_ARGS="\
         --num_nodes $NNODES \
         --strategy deepspeed_stage_${ZERO_STAGE} \
         --log_every_n_steps 100 \
-        --precision 32 \
+        --precision bf16 \
         --default_root_dir ${MODEL_ROOT_DIR} \
         --replace_sampler_ddp False \
         --num_sanity_val_steps 0 \

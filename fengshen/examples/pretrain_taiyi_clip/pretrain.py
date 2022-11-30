@@ -15,7 +15,6 @@ from fengshen.models.model_utils import (
     configure_optimizers,
     get_total_steps,
 )
-import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -28,6 +27,8 @@ from fengshen.data.universal_datamodule import UniversalDataModule
 from fengshen.data.taiyi_stable_diffusion_datasets.taiyi_datasets import add_data_args, load_data
 from fengshen.utils.universal_checkpoint import UniversalCheckpoint
 import os
+from PIL import Image
+from torch.utils.data._utils.collate import default_collate
 
 OPENAI_DATASET_MEAN = (0.48145466, 0.4578275, 0.40821073)
 OPENAI_DATASET_STD = (0.26862954, 0.26130258, 0.27577711)
@@ -126,8 +127,11 @@ class SingleDataProcessor:
             ])
             return Compose(transforms)
 
-    def __call__(self, image, text):
-        image = self.image_transforms(image)
+    def __call__(self, image_path, text):
+        instance_image = Image.open(image_path)
+        if not instance_image.mode == "RGB":
+            instance_image = instance_image.convert("RGB")
+        image = self.image_transforms(instance_image)
         text = self.tokenizer(text,
                               max_length=77,
                               padding='max_length',
@@ -142,6 +146,7 @@ class TaiyiCLIP(LightningModule):
         parser = parent_parser.add_argument_group('Taiyi CLIP')
         parser.add_argument('--loss_type', choices=['local', 'global'], default='local')
         parser.add_argument('--gather_with_grad', default=False, action='store_true')
+        parser.add_argument('--freeze_image_tower', default=False, action='store_true')
         return parent_parser
 
     def __init__(self, args, **kwargs) -> None:
@@ -150,15 +155,33 @@ class TaiyiCLIP(LightningModule):
 
         # 这里本来打算直接用CLIPVisionModel，可惜CLIPVisionModel没有带一层project_layer转换维度，feature_dim不一样
         # self.vision_model = CLIPVisionModel.from_pretrained(args.model_path, subfolder='vision_encoder')
-        vision_model = CLIPModel.from_pretrained(args.model_path, subfolder='vision_encoder')
+        vision_model = CLIPModel.from_pretrained(
+            args.model_path, subfolder='vision_encoder')
         # 这里没有用到CLIPModel的TextModel，删掉这部分
         del vision_model.text_model
         text_model = AutoModel.from_pretrained(args.model_path, subfolder='text_encoder')
-        self.tokenizer = AutoTokenizer.from_pretrained(args.model_path, subfolder='text_encoder')
+        # 需要手动更改clip里面的proj层
+        vision_model.text_projection = nn.Linear(
+            text_model.config.hidden_size, vision_model.config.projection_dim, bias=False)
+
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            args.model_path, subfolder='text_encoder')
         self.text_model = text_model
         self.vision_model = vision_model
 
+        # from flagai.model.mm.AltCLIP import CLIPHF
+        # self.vision_model = CLIPHF.from_pretrained(
+        #     '/cognitive_comp/gaoxinyu/huggingface_model/AltCLIP')
+        # self.text_model = self.vision_model.text_model
+        # self.tokenizer = AutoTokenizer.from_pretrained(
+        #     '/cognitive_comp/gaoxinyu/huggingface_model/AltCLIP')
+
         self.local_loss = args.loss_type == 'local'
+
+        if args.freeze_image_tower:
+            for param in self.vision_model.parameters():
+                param.requires_grad = False
+            self.vision_model.visual_projection.requires_grad = False
 
         # cache
         self.cache_labels = True
@@ -169,6 +192,8 @@ class TaiyiCLIP(LightningModule):
         if stage == 'fit':
             self.total_steps = get_total_steps(self.trainer, self.hparams)
             print('Total steps: {}' .format(self.total_steps))
+        elif stage == 'validate':
+            self.total_steps = 100
 
     def configure_optimizers(self):
         return configure_optimizers(self)
@@ -177,10 +202,11 @@ class TaiyiCLIP(LightningModule):
         assert image is not None
         assert text is not None
         image_features = self.vision_model.get_image_features(image)
-
+        # text_features = self.vision_model.get_text_features(text)
         text_outputs = self.text_model(input_ids=text)
         pooled_output = text_outputs[1]
         text_features = self.vision_model.text_projection(pooled_output)
+        # text_features = self.text_model(input_ids=text).logits
 
         image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
         text_features = text_features / text_features.norm(p=2, dim=-1, keepdim=True)
@@ -242,41 +268,67 @@ class TaiyiCLIP(LightningModule):
         with torch.no_grad():
             self.vision_model.logit_scale.clamp_(0, math.log(100))
 
-    def get_metrics(self, image_features, text_features, logit_scale):
+    def get_metrics(self, image_features, text_features, labels, logit_scale):
+        # 计算相似度，支持多个样本的情况（比如一个图片有多个caption）
+        # img2txt计算的时候要用到，因为一张图片可能对应多个文本。
+        # txt2img计算的时候不需要（一般一个text只有一个对应图片）
         metrics = {}
-        logits_per_image = (logit_scale * image_features @ text_features.t())
-        logits_per_text = logits_per_image.t()
+        logits_per_image = (logit_scale * image_features @ text_features.t()).detach().cpu()
+        logits_per_text = logits_per_image.t().detach().cpu()
 
         logits = {"image_to_text": logits_per_image, "text_to_image": logits_per_text}
-        ground_truth = torch.arange(len(text_features)).view(-1, 1)
+
+        label2idx = {}  # 计算label到idx的映射。
+        repeat_id = []
+        for i, label in enumerate(labels):
+            if label not in label2idx:
+                label2idx[label] = [i]
+            else:
+                # 表示该index的标签出现过，记录这个index，后续算txt2img分数的时候，这些index的权值要降低。
+                label2idx[label].append(i)
+                repeat_id.append(i)
+
+        ground_truth = [label2idx[label] for label in labels]
 
         for name, logit in logits.items():
-            ranking = torch.argsort(logit, descending=True).cpu()
-            preds = torch.where(ranking == ground_truth)[1]
-            preds = preds.numpy()
-            metrics[f"{name}_mean_rank"] = preds.mean() + 1
-            metrics[f"{name}_median_rank"] = np.floor(np.median(preds)) + 1
-            for k in [1, 5, 10]:
-                metrics[f"{name}_R@{k}"] = np.mean(preds < k)
+            if name == 'text_to_image':
+                logit[:, repeat_id] -= 1e8   # 这部分的分数要降低。（重复出现的图片，直接忽略）
+            r_stat = {1: [], 5: [], 10: []}
+            # r1_stat, r5_stat, r10_stat = [], [], []
+            # index of the largest element to the smallest
+            ranking = torch.argsort(logit, descending=True)
+            for i, each_query in enumerate(ranking[:, :10]):
+                for j, q in enumerate(each_query):
+                    found = False
+                    if q in ground_truth[i]:
+                        for k, v in r_stat.items():
+                            if j < k:
+                                found = True
+                                v.append(1)
+                    if found:
+                        break
+            for k, v in r_stat.items():
+                metrics[f'{name}_R@{k}'] = sum(v)/len(logit)
         return metrics
 
     def validation_step(self, batch, batch_idx):
-        image, text = batch[0], batch[1]
+        image, text, label = batch
         image_features, text_features, logit_scale = self(image, text)
-        return image_features, text_features, logit_scale, image.shape[0]
+        return image_features, text_features, logit_scale, image.shape[0], label
 
     def validation_epoch_end(self, val_outputs):
         all_image_features = []
         all_text_features = []
+        all_labels = []
         sample_size = 0
         for o in val_outputs:
             all_image_features.append(o[0])
             all_text_features.append(o[1])
             sample_size += o[3]
+            all_labels += o[4]
         all_image_features = torch.cat(all_image_features)
         all_text_features = torch.cat(all_text_features)
         logit_scale = val_outputs[0][2].mean()
-
         logits_per_image = logit_scale * all_image_features @ all_text_features.t()
         logits_per_text = logits_per_image.t()
 
@@ -287,7 +339,8 @@ class TaiyiCLIP(LightningModule):
         val_metrics = self.get_metrics(
             image_features=all_image_features,
             text_features=all_text_features,
-            logit_scale=logit_scale)
+            logit_scale=logit_scale,
+            labels=all_labels)
         loss = total_loss / sample_size
         self.log('val_loss', loss, sync_dist=True)
         for k, v in val_metrics.items():
@@ -309,6 +362,7 @@ class TaiyiCLIP(LightningModule):
                 os.mkdir(dir_path)
             self.vision_model.save_pretrained(os.path.join(dir_path, 'vision_encoder'))
             self.text_model.save_pretrained(os.path.join(dir_path, 'text_encoder'))
+            self.tokenizer.save_pretrained(os.path.join(dir_path, 'text_encoder'))
 
 
 if __name__ == '__main__':
@@ -321,10 +375,19 @@ if __name__ == '__main__':
     args_parser = UniversalCheckpoint.add_argparse_args(args_parser)
     args = args_parser.parse_args()
 
+    lr_monitor = LearningRateMonitor(logging_interval='step')
+    checkpoint_callback = UniversalCheckpoint(args)
+
+    trainer = Trainer.from_argparse_args(args,
+                                         callbacks=[
+                                             lr_monitor,
+                                             checkpoint_callback])
+
     model = TaiyiCLIP(args)
     tokenizer = model.tokenizer
     data_process = SingleDataProcessor(args, tokenizer, is_train=True)
-    datasets = load_data(args, data_filter_fn=DataFrameFilter, data_process_fn=data_process)
+    datasets = load_data(args, data_filter_fn=DataFrameFilter,
+                         data_process_fn=data_process, global_rank=trainer.global_rank)
 
     # 加载单个验证集：！！！验证代码有效性临时这样干的，验证完有效性会删除
     from fengshen.examples.pretrain_taiyi_clip.flickr_datasets import flickr30k_CNA
@@ -333,15 +396,14 @@ if __name__ == '__main__':
     val_data_process = SingleDataProcessor(args, tokenizer, is_train=False)
     datasets[args.val_datasets_field] = flickr30k_CNA(img_root, text_annot_path, val_data_process)
 
+    def train_collator(inputs):
+        samples = []
+        for i in inputs:
+            image, captions = data_process(i['img_path'], i['caption'])
+            samples.append((image, captions))
+        return default_collate(samples)
+
     datamoule = UniversalDataModule(
-        tokenizer=tokenizer, collate_fn=None, args=args, datasets=datasets)
-
-    lr_monitor = LearningRateMonitor(logging_interval='step')
-    checkpoint_callback = UniversalCheckpoint(args)
-
-    trainer = Trainer.from_argparse_args(args,
-                                         callbacks=[
-                                             lr_monitor,
-                                             checkpoint_callback])
+        tokenizer=tokenizer, collate_fn=train_collator, args=args, datasets=datasets)
 
     trainer.fit(model, datamoule, ckpt_path=args.load_ckpt_path)
