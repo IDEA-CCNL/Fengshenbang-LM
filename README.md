@@ -2,7 +2,7 @@
 
 # 封神榜科技成果
 > [**Fengshenbang 1.0**](https://arxiv.org/abs/2209.02970): 封神榜开源计划1.0中英双语总论文，旨在成为中文认知智能的基础设施。
-> 
+ 
 > [**BioBART**](https://arxiv.org/abs/2204.03905): 由清华大学和IDEA研究院一起提供的生物医疗领域的生成语言模型。(```BioNLP 2022```)
 
 > [**UniMC**](https://arxiv.org/abs/2210.08590): 针对zero-shot场景下基于标签数据集的统一模型。(```EMNLP 2022```)
