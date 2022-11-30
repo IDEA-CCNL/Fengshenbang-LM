@@ -79,7 +79,8 @@ result = model.predict(test_data)
 #### 标签映射 示例
 ##### 将真实标签映射为合适的两个字标签
 ```json
-prompt_label = {"体育活动":"体育", 
+prompt_label = {
+                "体育活动":"体育", 
                 "军事活动":"军事", 
                 "农业":"农业", 
                 "国际新闻":"国际", 
