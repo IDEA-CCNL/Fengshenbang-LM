@@ -35,7 +35,6 @@ def main():
         {"content": "国产舰载机首次现身，进度超过预期，将率先在滑跃航母测试", "label": "军事"}
     ]
 
-
     dev_data = [     # 验证数据
         {"content": "西游记后传中，灵儿最爱的女人是谁？不是碧游！", "label": "故事"},
         {"content": "小李子莱奥纳多有特别的提袋子技能，这些年他还有过哪些神奇的造型？", "label": "娱乐"},
@@ -52,8 +51,7 @@ def main():
         {"content": "特朗普退出《伊朗核协议》，对此你怎么看？", "label": "国际"},
         {"content": "卖水果利润怎么样？", "label": "农业"},
         {"content": "特种兵都是身材高大的猛男么？别再被电视骗了，超过1米8都不合格", "label": "军事"}
-        ]
-
+    ]
 
     test_data = [    # 测试数据
         {"content": "廖凡重出“江湖”再争影帝 亮相戛纳红毯霸气有型"},
@@ -68,6 +66,7 @@ def main():
                     "文化":"文化", "旅游":"旅游", "汽车":"汽车", "电竞":"电竞", 
                     "科技":"科技", "股票":"股票", "财经":"财经"
                     }
+                    
     model = TCBertPipelines(args, model_path=pretrained_model_path, nlabels=len(prompt_label))
 
     if args.train:
