@@ -21,17 +21,10 @@ from torch.nn import functional as F
 from fengshen.data.taiyi_stable_diffusion_datasets.taiyi_datasets import add_data_args, load_data
 from torchvision import transforms
 from PIL import Image
+from torch.utils.data._utils.collate import default_collate
 
 
-def DataFrameFilte(dataframe):
-    '''
-    类似这些过滤条件，可以写在这个函数里面
-    # dataframe = dataframe[dataframe['success'] == 1]
-    '''
-    return dataframe
-
-
-class SingleDataProcessor:
+class Collator():
     def __init__(self, args, tokenizer):
         self.image_transforms = transforms.Compose(
             [
@@ -45,19 +38,24 @@ class SingleDataProcessor:
         )
         self.tokenizer = tokenizer
 
-    def __call__(self, image_path, text):
-        example = {}
-        instance_image = Image.open(image_path)
-        if not instance_image.mode == "RGB":
-            instance_image = instance_image.convert("RGB")
-        example["instance_images"] = self.image_transforms(instance_image)
-        example["instance_prompt_ids"] = self.tokenizer(
-            str(text),
-            padding="do_not_pad",
-            truncation=True,
-            max_length=self.tokenizer.model_max_length,
-        ).input_ids
-        return example
+    def __call__(self, inputs):
+        examples = []
+        max_length = max([len(i['caption']) for i in inputs])
+        for i in inputs:
+            example = {}
+            instance_image = Image.open(i['img_path'])
+            if not instance_image.mode == "RGB":
+                instance_image = instance_image.convert("RGB")
+            example["pixel_values"] = self.image_transforms(instance_image)
+            example["input_ids"] = self.tokenizer(
+                i['caption'],
+                padding="max_length",
+                truncation=True,
+                max_length=max_length,
+                return_tensors='pt',
+            )['input_ids'][0]
+            examples.append(example)
+        return default_collate(examples)
 
 
 class StableDiffusion(LightningModule):
@@ -165,37 +163,19 @@ if __name__ == '__main__':
     args_parser = UniversalCheckpoint.add_argparse_args(args_parser)
     args = args_parser.parse_args()
 
-    model = StableDiffusion(args)
-    tokenizer = model.tokenizer
-    data_process = SingleDataProcessor(args, tokenizer)
-    datasets = load_data(args, data_filter_fn=DataFrameFilte, data_process_fn=data_process)
-
-    def collate_fn(examples):
-        # print(examples)
-        input_ids = [example["instance_prompt_ids"] for example in examples]
-        pixel_values = [example["instance_images"] for example in examples]
-
-        pixel_values = torch.stack(pixel_values)
-        pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
-
-        input_ids = tokenizer.pad({"input_ids": input_ids}, padding=True,
-                                  return_tensors="pt").input_ids
-        batch = {
-            "input_ids": input_ids,
-            "pixel_values": pixel_values,
-        }
-
-        return batch
-
-    datamoule = UniversalDataModule(
-        tokenizer=tokenizer, collate_fn=collate_fn, args=args, datasets=datasets)
-
     lr_monitor = LearningRateMonitor(logging_interval='step')
     checkpoint_callback = UniversalCheckpoint(args)
-
     trainer = Trainer.from_argparse_args(args,
                                          callbacks=[
                                              lr_monitor,
                                              checkpoint_callback])
+
+    model = StableDiffusion(args)
+    tokenizer = model.tokenizer
+    datasets = load_data(args, global_rank=trainer.global_rank)
+    collate_fn = Collator(args, tokenizer)
+
+    datamoule = UniversalDataModule(
+        tokenizer=tokenizer, collate_fn=collate_fn, args=args, datasets=datasets)
 
     trainer.fit(model, datamoule, ckpt_path=args.load_ckpt_path)

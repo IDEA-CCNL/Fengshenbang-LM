@@ -34,20 +34,6 @@ OPENAI_DATASET_MEAN = (0.48145466, 0.4578275, 0.40821073)
 OPENAI_DATASET_STD = (0.26862954, 0.26130258, 0.27577711)
 
 
-def DataFrameFilter(dataframe):
-    '''
-    类似这些过滤条件，可以写在这个函数里面
-    # dataframe = dataframe[dataframe['success'] == 1]
-    '''
-    dataframe = dataframe[dataframe['used'] == 1]
-    thres = 0.2  # NOTE 只读thres够大的数据
-    if thres:
-        # CLIP相似度分数。
-        if 'score' in dataframe.columns:
-            dataframe = dataframe[dataframe['score'] > thres]
-    return dataframe
-
-
 class ResizeMaxSize(nn.Module):
     def __init__(self, max_size, interpolation=InterpolationMode.BICUBIC, fn='max', fill=0):
         super().__init__()
@@ -74,7 +60,7 @@ class ResizeMaxSize(nn.Module):
         return img
 
 
-class SingleDataProcessor:
+class Collator():
     def __init__(self, args, tokenizer, is_train):
         self.image_transforms = self.image_transform(image_size=args.resolution,
                                                      is_train=is_train,
@@ -127,17 +113,21 @@ class SingleDataProcessor:
             ])
             return Compose(transforms)
 
-    def __call__(self, image_path, text):
-        instance_image = Image.open(image_path)
-        if not instance_image.mode == "RGB":
-            instance_image = instance_image.convert("RGB")
-        image = self.image_transforms(instance_image)
-        text = self.tokenizer(text,
-                              max_length=77,
-                              padding='max_length',
-                              truncation=True,
-                              return_tensors='pt')['input_ids'][0]
-        return image, text
+    def __call__(self, inputs):
+        samples = []
+        for i in inputs:
+            instance_image = Image.open(i['img_path'])
+            if not instance_image.mode == "RGB":
+                instance_image = instance_image.convert("RGB")
+            image = self.image_transforms(instance_image)
+            text = self.tokenizer(i['caption'],
+                                  max_length=77,
+                                  padding='max_length',
+                                  truncation=True,
+                                  return_tensors='pt')['input_ids'][0]
+
+            samples.append((image, text, i['labels'] if 'labels' in i else -100))
+        return default_collate(samples)
 
 
 class TaiyiCLIP(LightningModule):
@@ -160,21 +150,16 @@ class TaiyiCLIP(LightningModule):
         # 这里没有用到CLIPModel的TextModel，删掉这部分
         del vision_model.text_model
         text_model = AutoModel.from_pretrained(args.model_path, subfolder='text_encoder')
-        # 需要手动更改clip里面的proj层
-        vision_model.text_projection = nn.Linear(
-            text_model.config.hidden_size, vision_model.config.projection_dim, bias=False)
+        # 如果维度不对 需要手动更改clip里面的proj层
+        if vision_model.text_projection.in_features != text_model.config.hidden_size \
+                and vision_model.text_projection.out_features != vision_model.config.projection_dim:
+            vision_model.text_projection = nn.Linear(
+                text_model.config.hidden_size, vision_model.config.projection_dim, bias=False)
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             args.model_path, subfolder='text_encoder')
         self.text_model = text_model
         self.vision_model = vision_model
-
-        # from flagai.model.mm.AltCLIP import CLIPHF
-        # self.vision_model = CLIPHF.from_pretrained(
-        #     '/cognitive_comp/gaoxinyu/huggingface_model/AltCLIP')
-        # self.text_model = self.vision_model.text_model
-        # self.tokenizer = AutoTokenizer.from_pretrained(
-        #     '/cognitive_comp/gaoxinyu/huggingface_model/AltCLIP')
 
         self.local_loss = args.loss_type == 'local'
 
@@ -258,7 +243,7 @@ class TaiyiCLIP(LightningModule):
         return total_loss
 
     def training_step(self, batch):
-        image, text = batch
+        image, text, _ = batch
         image_features, text_features, logit_scale = self(image, text)
         total_loss = self.clip_loss(image_features, text_features, logit_scale)
         self.log('train_loss', total_loss, sync_dist=True)
@@ -385,25 +370,18 @@ if __name__ == '__main__':
 
     model = TaiyiCLIP(args)
     tokenizer = model.tokenizer
-    data_process = SingleDataProcessor(args, tokenizer, is_train=True)
-    datasets = load_data(args, data_filter_fn=DataFrameFilter,
-                         data_process_fn=data_process, global_rank=trainer.global_rank)
+    train_collate_fn = Collator(args, tokenizer, is_train=True)
+    datasets = load_data(args, global_rank=trainer.global_rank)
 
     # 加载单个验证集：！！！验证代码有效性临时这样干的，验证完有效性会删除
     from fengshen.examples.pretrain_taiyi_clip.flickr_datasets import flickr30k_CNA
     img_root = '/shared_space/ccnl/mm_data/Flickr30k-CNA/flickr30k/images'
     text_annot_path = '/shared_space/ccnl/mm_data/Flickr30k-CNA/test/flickr30k_cn_test.txt'
-    val_data_process = SingleDataProcessor(args, tokenizer, is_train=False)
-    datasets[args.val_datasets_field] = flickr30k_CNA(img_root, text_annot_path, val_data_process)
+    val_collate_fn = Collator(args, tokenizer, is_train=False)
 
-    def train_collator(inputs):
-        samples = []
-        for i in inputs:
-            image, captions = data_process(i['img_path'], i['caption'])
-            samples.append((image, captions))
-        return default_collate(samples)
+    datasets[args.val_datasets_field] = flickr30k_CNA(img_root, text_annot_path, val_collate_fn)
 
     datamoule = UniversalDataModule(
-        tokenizer=tokenizer, collate_fn=train_collator, args=args, datasets=datasets)
+        tokenizer=tokenizer, collate_fn=train_collate_fn, args=args, datasets=datasets)
 
     trainer.fit(model, datamoule, ckpt_path=args.load_ckpt_path)
