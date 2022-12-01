@@ -138,8 +138,9 @@ class StableDiffusion(LightningModule):
     def on_save_checkpoint(self, checkpoint) -> None:
         if self.trainer.global_rank == 0:
             print('saving model...')
-            pipeline = StableDiffusionPipeline.from_pretrained(
-                args.model_path, text_encoder=self.text_encoder, tokenizer=self.tokenizer,
+            pipeline = StableDiffusionPipeline(
+                text_encoder=self.text_encoder,
+                tokenizer=self.tokenizer,
                 unet=self.unet)
             self.trainer.current_epoch
             pipeline.save_pretrained(os.path.join(
