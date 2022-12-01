@@ -27,12 +27,10 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning import trainer, loggers
 from torch.utils.data import Dataset, DataLoader
 from transformers.optimization import get_linear_schedule_with_warmup
-from transformers import BertForMaskedLM, AlbertTokenizer
+from transformers import BertForMaskedLM
 from transformers import AutoConfig
 from transformers.pipelines.base import Pipeline
 from transformers import MegatronBertForMaskedLM
-from fengshen.models.deberta_v2.modeling_deberta_v2 import DebertaV2ForMaskedLM
-from fengshen.models.albert.modeling_albert import AlbertForMaskedLM
 import argparse
 import copy
 from fengshen.utils.universal_checkpoint import UniversalCheckpoint
@@ -41,7 +39,7 @@ from transformers import TextClassificationPipeline as HuggingfacePipe
 
 
 class TCBertDataset(Dataset):
-    def __init__(self, data, tokenizer, args, prompt_label, label_classes):
+    def __init__(self, data, tokenizer, args, prompt, label_classes):
         super().__init__()
 
         self.tokenizer = tokenizer
@@ -50,6 +48,7 @@ class TCBertDataset(Dataset):
         self.data = data
         self.args = args
         self.label_classes = label_classes
+        self.prompt = prompt
 
     def __len__(self):
         return len(self.data)
@@ -61,37 +60,45 @@ class TCBertDataset(Dataset):
     def encode(self, item, labeled=True):
 
         if labeled:
-            texta = '这一句描述{}的内容如下：'.format(item['label']) + item['content']
+            ori_texta = self.prompt.format(item['label']) + item['content']
+            mask_texta = self.prompt.format("[MASK]" * len(item['label'])) + item['content']
             # print('texta', texta)
             labels = self.label_classes[item['label']]
 
-            encode_dict = self.tokenizer.encode_plus(texta,
+            ori_encode_dict = self.tokenizer.encode_plus(ori_texta,
                                             max_length=self.max_length,
                                             padding="longest",
                                             truncation=True
                                             )
-        
-            input_ids = encode_dict['input_ids']
-            token_type_ids = encode_dict['token_type_ids']
-            attention_mask = encode_dict['attention_mask']
+            
+            mask_encode_dict = self.tokenizer.encode_plus(mask_texta,
+                                            max_length=self.max_length,
+                                            padding="longest",
+                                            truncation=True
+                                            )
 
-            mlmlabels = copy.deepcopy(input_ids)
-            mlmlabels[:] = [-100] * len(mlmlabels) 
-            mlmlabels[6:8] = input_ids[6:8]
-            input_ids[6:8] = [self.tokenizer.mask_token_id] * 2
+            ori_input_ids = torch.tensor(ori_encode_dict['input_ids']).long()
+            token_type_ids = torch.tensor(ori_encode_dict['token_type_ids']).long()
+            attention_mask = torch.tensor(ori_encode_dict['attention_mask']).float()
+
+            mask_input_ids = torch.tensor(mask_encode_dict['input_ids']).long()
+            mlmlabels = torch.where(mask_input_ids == self.tokenizer.mask_token_id, ori_input_ids, -100)
+
+            labels = torch.tensor(labels).long()
+            mlmlabels = torch.tensor(mlmlabels).long()
 
             encoded = {
                 "sentence": item["content"],
-                "input_ids": torch.tensor(input_ids).long(),
-                "token_type_ids": torch.tensor(token_type_ids).long(),
-                "attention_mask": torch.tensor(attention_mask).float(),
-                "labels": torch.tensor(labels).long(),
-                "mlmlabels": torch.tensor(mlmlabels).long(),
+                "input_ids": mask_input_ids,
+                "token_type_ids": token_type_ids,
+                "attention_mask": attention_mask,
+                "labels": labels,
+                "mlmlabels": mlmlabels,
             }
 
         else:
 
-            texta = '这一句描述{}的内容如下：'.format('[MASK][MASK]')  + item['content']
+            texta = self.prompt.format("[MASK]" * self.args.fixed_lablen)  + item['content']
 
             encode_dict = self.tokenizer.encode_plus(texta,
                                                 max_length=self.max_length,
@@ -120,16 +127,17 @@ class TCBertDataModel(pl.LightningDataModule):
         parser.add_argument('--num_workers', default=8, type=int)
         parser.add_argument('--batchsize', default=16, type=int)
         parser.add_argument('--max_length', default=512, type=int)
+        parser.add_argument('--fixed_lablen', default=2, type=int)
         return parent_args
 
-    def __init__(self, train_data, val_data, tokenizer, args, prompt_label):
+    def __init__(self, train_data, val_data, tokenizer, args, prompt, prompt_label):
         super().__init__()
         self.batchsize = args.batchsize
         self.label_classes = self.get_label_classes(prompt_label)
         args.num_labels = len(self.label_classes)
 
-        self.train_data = TCBertDataset(train_data, tokenizer, args, prompt_label, self.label_classes)
-        self.valid_data = TCBertDataset(val_data, tokenizer, args, prompt_label, self.label_classes)
+        self.train_data = TCBertDataset(train_data, tokenizer, args, prompt, self.label_classes)
+        self.valid_data = TCBertDataset(val_data, tokenizer, args, prompt, self.label_classes)
 
     def get_label_classes(self, prompt_label):
         label_classes = {}
@@ -200,10 +208,6 @@ class TCBertModel(nn.Module):
         # if self.config.model_type == 'megatron-bert':
         if "1.3B" in pre_train_dir:
             self.bert = MegatronBertForMaskedLM.from_pretrained(pre_train_dir)
-        elif self.config.model_type == 'deberta-v2':
-            self.bert = DebertaV2ForMaskedLM.from_pretrained(pre_train_dir)
-        elif self.config.model_type == 'albert':
-            self.bert = AlbertForMaskedLM.from_pretrained(pre_train_dir)
         else:
             self.bert = BertForMaskedLM.from_pretrained(pre_train_dir)
 
@@ -211,9 +215,8 @@ class TCBertModel(nn.Module):
         self.nlabels = nlabels
         self.linear_classifier = nn.Linear(self.config.hidden_size, self.nlabels)
 
-    def forward(self, input_ids, attention_mask, token_type_ids, position_ids=None, mlmlabels=None, clslabels=None, clslabels_mask=None, mlmlabels_mask=None, sentence=None, labels=None):
+    def forward(self, input_ids, attention_mask, token_type_ids, mlmlabels=None):
 
-        batch_size, seq_len = input_ids.shape
         outputs = self.bert(input_ids=input_ids,
                             attention_mask=attention_mask,
                             token_type_ids=token_type_ids,
@@ -256,13 +259,24 @@ class TCBertLitModel(pl.LightningModule):
                                   (max(1, num_gpus) * self.trainer.accumulate_grad_batches))
             print('Total training step:', self.total_step)
 
+
+    def train_inputs(self, batch):
+        inputs = {
+            'input_ids': batch['input_ids'].cuda(),
+            'attention_mask': batch['attention_mask'].cuda(),
+            'token_type_ids': batch['token_type_ids'].cuda(),
+            'mlmlabels': batch['mlmlabels'].cuda()
+        }
+        return inputs 
+
     def training_step(self, batch, batch_idx):
         labels = batch['labels']
-        mlm_loss, logits, cls_logits = self.model(**batch)
+        batch = self.train_inputs(batch)
+        mlm_loss, logits, _= self.model(**batch)
         if labels is not None:
             cls_loss = self.loss_fn(logits, labels.view(-1))
 
-        loss = cls_loss + 0.5 * mlm_loss
+        loss = cls_loss + mlm_loss
 
         ntotal = logits.size(0)
         ncorrect = (logits.argmax(dim=-1) == labels).long().sum()
@@ -274,17 +288,18 @@ class TCBertLitModel(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        mlm_loss, logits, cls_logits = self.model(**batch)
         labels = batch['labels']
-        
+        batch = self.train_inputs(batch)
+        mlm_loss, logits, _ = self.model(**batch)
         predict = logits.argmax(dim=-1).cpu().tolist()
+
         if labels is not None:
             cls_loss = self.loss_fn(logits, labels.view(-1))
 
-        loss = cls_loss + 0.5 * mlm_loss
+        loss = cls_loss + mlm_loss
         ntotal = logits.size(0)
         
-        ncorrect = int((logits.argmax(dim=-1) == batch['labels']).long().sum())
+        ncorrect = int((logits.argmax(dim=-1) == labels).long().sum())
         acc = ncorrect / ntotal
 
         self.log('valid_loss', loss, on_step=True, prog_bar=True)
@@ -322,11 +337,11 @@ class TCBertLitModel(pl.LightningModule):
 
 
 class TCBertPredict:
-    def __init__(self, model, tokenizer, args, prompt_label):
+    def __init__(self, model, tokenizer, args, prompt, prompt_label):
         self.tokenizer = tokenizer
         self.args = args
         self.data_model = TCBertDataModel(
-            [], [], tokenizer, args, prompt_label)
+            [], [], tokenizer, args, prompt, prompt_label)
         self.model = model
     
     def predict_inputs(self, batch):
@@ -346,7 +361,6 @@ class TCBertPredict:
         _, logits, _ = self.model.model(**batch)
         probs = torch.nn.functional.softmax(logits, dim=-1)
         predicts = torch.argmax(probs, dim=-1).detach().cpu().numpy()
-
 
         return predicts
 

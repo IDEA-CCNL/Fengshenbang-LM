@@ -24,7 +24,6 @@ from transformers import BertTokenizer
 import pytorch_lightning as pl
 
 from pytorch_lightning import trainer, loggers
-from transformers import AlbertTokenizer
 from transformers import AutoConfig
 from transformers.pipelines.base import Pipeline
 import argparse
@@ -64,12 +63,8 @@ class TCBertPipelines(Pipeline):
                                                      logger=self.logger,
                                                      callbacks=[self.checkpoint_callback])
         self.config = AutoConfig.from_pretrained(model_path)
-        if self.config.model_type == 'albert':
-            self.tokenizer = AlbertTokenizer.from_pretrained(
-                model_path)
-        else:
-            self.tokenizer = BertTokenizer.from_pretrained(
-                model_path)
+        self.tokenizer = BertTokenizer.from_pretrained(
+            model_path)
 
         if args.load_checkpoints_path != '':
             self.model = TCBertLitModel.load_from_checkpoint(
@@ -79,21 +74,21 @@ class TCBertPipelines(Pipeline):
             self.model = TCBertLitModel(
                 args, model_path=model_path, nlabels=nlabels)
 
-    def train(self, train_data, dev_data, prompt_label):
+    def train(self, train_data, dev_data, prompt, prompt_label):
         
         data_model = TCBertDataModel(
-            train_data, dev_data, self.tokenizer, self.args, prompt_label)
+            train_data, dev_data, self.tokenizer, self.args, prompt, prompt_label)
         self.model.num_data = len(train_data)
         self.trainer.fit(self.model, data_model)
 
-    def predict(self, test_data, prompt_label, cuda=True):
+    def predict(self, test_data, prompt, prompt_label, cuda=True):
     
         result = []
         start = 0
         if cuda:
             self.model = self.model.cuda()
         self.model.model.eval()
-        predict_model = TCBertPredict(self.model, self.tokenizer, self.args, prompt_label)
+        predict_model = TCBertPredict(self.model, self.tokenizer, self.args, prompt, prompt_label)
         while start < len(test_data):
             batch_data = test_data[start:start+self.args.batchsize]
             start += self.args.batchsize

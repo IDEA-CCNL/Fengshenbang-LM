@@ -4,7 +4,7 @@ from pytorch_lightning import seed_everything
 
 def main():
     seed_everything(123)
-    total_parser = argparse.ArgumentParser("TASK NAME")
+    total_parser = argparse.ArgumentParser("Topic Classification")
     total_parser = TCBertPipelines.piplines_args(total_parser)
     args = total_parser.parse_args()
 
@@ -14,8 +14,9 @@ def main():
     args.max_epochs = 5
     args.batchsize = 4
     args.train = 'train'
-    # args.gpus = 1   #使用GPU 需要配置相应GPU环境
     args.default_root_dir = './'
+    # args.gpus = 1   #注意：目前使用CPU进行训练，取消注释会使用GPU，但需要配置相应GPU环境版本
+    args.fixed_lablen = 2 #注意：可以设置固定标签长度，由于样本对应的标签长度可能不一致，建议选择适中的数值表示标签长度
 
     train_data = [    # 训练数据
         {"content": "真正的放养教育，放的是孩子的思维，养的是孩子的习惯", "label": "故事"},
@@ -59,19 +60,23 @@ def main():
         {"content": "买涡轮增压还是自然吸气车？今天终于有答案了！"},
     ]
 
-    #标签映射  将真实标签映射为合适的两个字的标签
+    #标签映射  将真实标签可以映射为更合适prompt的标签 
     prompt_label = {  
                     "体育":"体育", "军事":"军事", "农业":"农业",  "国际":"国际", 
-                    "娱乐":"娱乐", "房产":"房产",  "故事":"故事", "教育":"教育",
-                    "文化":"文化", "旅游":"旅游", "汽车":"汽车", "电竞":"电竞", 
+                    "娱乐":"娱乐", "房产":"房产", "故事":"故事",  "教育":"教育",
+                    "文化":"文化", "旅游":"旅游", "汽车":"汽车",  "电竞":"电竞", 
                     "科技":"科技", "股票":"股票", "财经":"财经"
                     }
+    
+    #不同的prompt会影响模型效果
+    #prompt = "这一句描述{}的内容如下："
+    prompt = "下面是一则关于{}的新闻："
                     
     model = TCBertPipelines(args, model_path=pretrained_model_path, nlabels=len(prompt_label))
 
     if args.train:
-        model.train(train_data, dev_data, prompt_label)
-    result = model.predict(test_data, prompt_label)
+        model.train(train_data, dev_data, prompt, prompt_label)
+    result = model.predict(test_data, prompt, prompt_label)
 
     for i, line in enumerate(result):
         print({"content":test_data[i]["content"], "label":list(prompt_label.keys())[line]})
