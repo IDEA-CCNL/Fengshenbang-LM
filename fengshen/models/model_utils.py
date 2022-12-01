@@ -29,9 +29,9 @@ def get_default_update_params(pl_model: LightningModule):
     no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight', 'layer_norm.', 'layernorm.']
     optimizer_grouped_params = [
         {'params': [p for n, p in pl_model.named_parameters() if not any(
-            nd in n for nd in no_decay)], 'weight_decay': pl_model.hparams.weight_decay},
+            nd in n for nd in no_decay) and p.requires_grad], 'weight_decay': pl_model.hparams.weight_decay},
         {'params': [p for n, p in pl_model.named_parameters() if any(
-            nd in n for nd in no_decay)], 'weight_decay': 0.0}
+            nd in n for nd in no_decay) and p.requires_grad], 'weight_decay': 0.0}
     ]
     return optimizer_grouped_params
 
@@ -59,6 +59,13 @@ def configure_optimizers(pl_model: LightningModule, model_params=None):
                 optimizer_grouped_params, adam_w_mode=True,
                 lr=pl_model.hparams.learning_rate,
                 betas=(pl_model.hparams.adam_beta1, pl_model.hparams.adam_beta2), eps=pl_model.hparams.adam_epsilon)
+    # elif isinstance(pl_model.trainer.strategy, ColossalAIStrategy):
+    #     from colossalai.nn.optimizer import HybridAdam
+    #     optimizer = HybridAdam(
+    #         optimizer_grouped_params,
+    #         lr=pl_model.hparams.learning_rate,
+    #         betas=(pl_model.hparams.adam_beta1, pl_model.hparams.adam_beta2),
+    #         eps=pl_model.hparams.adam_epsilon)
     else:
         optimizer = AdamW(optimizer_grouped_params, lr=pl_model.hparams.learning_rate,
                           betas=(pl_model.hparams.adam_beta1, pl_model.hparams.adam_beta2),

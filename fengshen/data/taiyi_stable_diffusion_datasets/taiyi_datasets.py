@@ -1,7 +1,5 @@
 from torch.utils.data import Dataset, ConcatDataset
-from torchvision import transforms
 import os
-from PIL import Image
 from concurrent.futures import ProcessPoolExecutor
 import pandas as pd
 
@@ -14,7 +12,7 @@ def add_data_args(parent_args):
         help="A folder containing the training data of instance images.",
     )
     parser.add_argument(
-        "--datasets_type", type=str, default=None, required=True, choices=['txt', 'csv'], nargs='+',
+        "--datasets_type", type=str, default=None, required=True, choices=['txt', 'csv', 'fs_datasets'], nargs='+',
         help="dataset type, txt or csv, same len as datasets_path",
     )
     parser.add_argument(
@@ -28,16 +26,18 @@ def add_data_args(parent_args):
         "--center_crop", action="store_true", default=False,
         help="Whether to center crop images before resizing to resolution"
     )
-    parser.add_argument("--thres", type=float, default=0.2,)
+    parser.add_argument("--thres", type=float, default=0.2)
     return parent_args
 
 
 class TXTDataset(Dataset):
     # 添加Txt数据集读取，主要是针对Zero23m数据集。
-    def __init__(self, foloder_name, tokenizer, thres=0.2, size=512, center_crop=False):
-        print(f'Loading folder data from {foloder_name}.')
+    def __init__(self,
+                 foloder_name,
+                 thres=0.2):
+        super().__init__()
+        # print(f'Loading folder data from {foloder_name}.')
         self.image_paths = []
-        self.tokenizer = tokenizer
         '''
         暂时没有开源这部分文件
         score_data = pd.read_csv(os.path.join(foloder_name, 'score.csv'))
@@ -49,77 +49,41 @@ class TXTDataset(Dataset):
         for each_file in os.listdir(foloder_name):
             if each_file.endswith('.jpg'):
                 self.image_paths.append(os.path.join(foloder_name, each_file))
-                # self.image_paths.append(os.path.join(foloder_name, each_file))
 
-        self.image_transforms = transforms.Compose(
-            [
-                transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
-                transforms.CenterCrop(size) if center_crop else transforms.RandomCrop(size),
-                transforms.ToTensor(),
-                transforms.Normalize([0.5], [0.5]),
-            ]
-        )
-        print('Done loading data. Len of images:', len(self.image_paths))
+        # print('Done loading data. Len of images:', len(self.image_paths))
 
     def __len__(self):
         return len(self.image_paths)
 
     def __getitem__(self, idx):
         img_path = str(self.image_paths[idx])
-        example = {}
-        instance_image = Image.open(img_path)
-        if not instance_image.mode == "RGB":
-            instance_image = instance_image.convert("RGB")
-
-        # 通过裁剪去水印！裁掉1/10的图片。
-        instance_image = instance_image.crop(
-            (0, 0, instance_image.size[0], instance_image.size[1] - instance_image.size[1] // 10))
-        example["instance_images"] = self.image_transforms(instance_image)
-
         caption_path = img_path.replace('.jpg', '.txt')  # 图片名称和文本名称一致。
         with open(caption_path, 'r') as f:
             caption = f.read()
-            example["instance_prompt_ids"] = self.tokenizer(
-                caption,
-                padding="do_not_pad",
-                truncation=True,
-                max_length=self.tokenizer.model_max_length,
-            ).input_ids
-        return example
+        return {'img_path': img_path, 'caption': caption}
 
 
 # NOTE 加速读取数据，直接用原版的，在外部使用并行读取策略。30min->3min
 class CSVDataset(Dataset):
-    def __init__(self, input_filename, image_root, tokenizer, img_key, caption_key, thres=0.2, size=512, center_crop=False, sep="\t"):
+    def __init__(self,
+                 input_filename,
+                 image_root,
+                 img_key,
+                 caption_key,
+                 thres=0.2):
+        super().__init__()
         # logging.debug(f'Loading csv data from {input_filename}.')
         print(f'Loading csv data from {input_filename}.')
         self.images = []
         self.captions = []
-        self.tokenizer = tokenizer
 
         if input_filename.endswith('.csv'):
             # print(f"Load Data from{input_filename}")
-            df = pd.read_csv(input_filename, index_col=0)
-            '''
-            这个地方对数据的过滤跟数据集结构强相关，需要修改这部分的代码
-            df = df[df['used'] == 1]
-            df = df[df['score'] > thres]
-            df = df[df['success'] == 1]
-            '''
+            df = pd.read_csv(input_filename, index_col=0, on_bad_lines='skip')
             print(f'file {input_filename} datalen {len(df)}')
             # 这个图片的路径也需要根据数据集的结构稍微做点修改
-            self.images.extend(k + '/' + v for k, v in zip(df['class'], df[img_key]))
+            self.images.extend(df[img_key].tolist())
             self.captions.extend(df[caption_key].tolist())
-
-        # NOTE 中文的tokenizer
-        self.image_transforms = transforms.Compose(
-            [
-                transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
-                transforms.CenterCrop(size) if center_crop else transforms.RandomCrop(size),
-                transforms.ToTensor(),
-                transforms.Normalize([0.5], [0.5]),
-            ]
-        )
         self.image_root = image_root
 
     def __len__(self):
@@ -127,32 +91,35 @@ class CSVDataset(Dataset):
 
     def __getitem__(self, idx):
         img_path = os.path.join(self.image_root, str(self.images[idx]))
-        example = {}
-        instance_image = Image.open(img_path)
-        if not instance_image.mode == "RGB":
-            instance_image = instance_image.convert("RGB")
-        example["instance_images"] = self.image_transforms(instance_image)
-
-        example["instance_prompt_ids"] = self.tokenizer(
-            str(self.captions[idx]),
-            padding="do_not_pad",
-            truncation=True,
-            max_length=self.tokenizer.model_max_length,
-        ).input_ids
-        return example
+        return {'img_path': img_path, 'caption': self.captions[idx]}
 
 
-def process_pool_read_txt_dataset(args, input_root=None, tokenizer=None, thres=0.2):
-    root_path = input_root
-    p = ProcessPoolExecutor(max_workers=24)
-    # 此处输入为文件夹。
-    all_folders = os.listdir(root_path)
+def if_final_dir(path: str) -> bool:
+    # 如果当前目录有一个文件，那就算是终极目录
+    for f in os.scandir(path):
+        if f.is_file():
+            return True
+    return False
+
+
+def process_pool_read_txt_dataset(args,
+                                  input_root=None,
+                                  thres=0.2):
+    p = ProcessPoolExecutor(max_workers=20)
     all_datasets = []
     res = []
-    for filename in all_folders:
-        each_folder_path = os.path.join(root_path, filename)
-        res.append(p.submit(TXTDataset, each_folder_path, tokenizer,
-                            thres, args.resolution, args.center_crop))
+
+    # 遍历该目录下所有的子目录
+    def traversal_files(path: str):
+        list_subfolders_with_paths = [f.path for f in os.scandir(path) if f.is_dir()]
+        for dir_path in list_subfolders_with_paths:
+            if if_final_dir(dir_path):
+                res.append(p.submit(TXTDataset,
+                                    dir_path,
+                                    thres))
+            else:
+                traversal_files(dir_path)
+    traversal_files(input_root)
     p.shutdown()
     for future in res:
         all_datasets.append(future.result())
@@ -160,18 +127,24 @@ def process_pool_read_txt_dataset(args, input_root=None, tokenizer=None, thres=0
     return dataset
 
 
-def process_pool_read_csv_dataset(args, input_root, tokenizer, thres=0.20):
+def process_pool_read_csv_dataset(args,
+                                  input_root,
+                                  thres=0.20):
     # here input_filename is a directory containing a CSV file
     all_csvs = os.listdir(os.path.join(input_root, 'release'))
     image_root = os.path.join(input_root, 'images')
     # csv_with_score = [each for each in all_csvs if 'score' in each]
     all_datasets = []
     res = []
-    p = ProcessPoolExecutor(max_workers=24)
+    p = ProcessPoolExecutor(max_workers=150)
     for path in all_csvs:
         each_csv_path = os.path.join(input_root, 'release', path)
-        res.append(p.submit(CSVDataset, each_csv_path, image_root, tokenizer, img_key="name",
-                            caption_key="caption", thres=thres, size=args.resolution, center_crop=args.center_crop))
+        res.append(p.submit(CSVDataset,
+                            each_csv_path,
+                            image_root,
+                            img_key="name",
+                            caption_key="caption",
+                            thres=thres))
     p.shutdown()
     for future in res:
         all_datasets.append(future.result())
@@ -179,17 +152,22 @@ def process_pool_read_csv_dataset(args, input_root, tokenizer, thres=0.20):
     return dataset
 
 
-def load_data(args, tokenizer):
+def load_data(args, global_rank=0):
     assert len(args.datasets_path) == len(args.datasets_type), \
         "datasets_path num not equal to datasets_type"
     all_datasets = []
     for path, type in zip(args.datasets_path, args.datasets_type):
         if type == 'txt':
             all_datasets.append(process_pool_read_txt_dataset(
-                args, input_root=path, tokenizer=tokenizer, thres=args.thres))
+                args, input_root=path, thres=args.thres))
         elif type == 'csv':
             all_datasets.append(process_pool_read_csv_dataset(
-                args, input_root=path, tokenizer=tokenizer, thres=args.thres))
+                args, input_root=path, thres=args.thres))
+        elif type == 'fs_datasets':
+            from fengshen.data.fs_datasets import load_dataset
+            all_datasets.append(load_dataset(path, num_proc=args.num_workers,
+                                             thres=args.thres, global_rank=global_rank)['train'])
         else:
             raise ValueError('unsupport dataset type: %s' % type)
+        print(f'load datasset {type} {path} len {len(all_datasets[-1])}')
     return {'train': ConcatDataset(all_datasets)}

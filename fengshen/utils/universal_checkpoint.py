@@ -7,14 +7,14 @@ class UniversalCheckpoint(ModelCheckpoint):
     def add_argparse_args(parent_args):
         parser = parent_args.add_argument_group('universal checkpoint callback')
 
-        parser.add_argument('--monitor', default='train_loss', type=str)
-        parser.add_argument('--mode', default='min', type=str)
+        parser.add_argument('--monitor', default='step', type=str)
+        parser.add_argument('--mode', default='max', type=str)
         parser.add_argument('--save_ckpt_path', default='./ckpt/', type=str)
         parser.add_argument('--load_ckpt_path', default='./ckpt/', type=str)
         parser.add_argument(
-            '--filename', default='model-{epoch:02d}-{train_loss:.4f}', type=str)
+            '--filename', default='model-ep{epoch:02d}-st{step:d}', type=str)
         parser.add_argument('--save_last', action='store_true', default=False)
-        parser.add_argument('--save_top_k', default=3, type=float)
+        parser.add_argument('--save_top_k', default=10, type=float)
         parser.add_argument('--every_n_train_steps', default=None, type=float)
         parser.add_argument('--save_weights_only', action='store_true', default=False)
         parser.add_argument('--every_n_epochs', default=None, type=int)

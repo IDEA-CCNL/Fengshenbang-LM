@@ -19,13 +19,51 @@ from transformers import BertTokenizer, BertModel
 from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionPipeline, UNet2DConditionModel
 from torch.nn import functional as F
 from fengshen.data.taiyi_stable_diffusion_datasets.taiyi_datasets import add_data_args, load_data
+from torchvision import transforms
+from PIL import Image
+from torch.utils.data._utils.collate import default_collate
+
+
+class Collator():
+    def __init__(self, args, tokenizer):
+        self.image_transforms = transforms.Compose(
+            [
+                transforms.Resize(
+                    args.resolution, interpolation=transforms.InterpolationMode.BILINEAR),
+                transforms.CenterCrop(
+                    args.resolution) if args.center_crop else transforms.RandomCrop(args.resolution),
+                transforms.ToTensor(),
+                transforms.Normalize([0.5], [0.5]),
+            ]
+        )
+        self.tokenizer = tokenizer
+
+    def __call__(self, inputs):
+        examples = []
+        max_length = min(max([len(i['caption']) for i in inputs]), 512)
+        for i in inputs:
+            example = {}
+            instance_image = Image.open(i['img_path'])
+            if not instance_image.mode == "RGB":
+                instance_image = instance_image.convert("RGB")
+            example["pixel_values"] = self.image_transforms(instance_image)
+            example["input_ids"] = self.tokenizer(
+                i['caption'],
+                padding="max_length",
+                truncation=True,
+                max_length=max_length,
+                return_tensors='pt',
+            )['input_ids'][0]
+            examples.append(example)
+        return default_collate(examples)
 
 
 class StableDiffusion(LightningModule):
     @staticmethod
     def add_module_specific_args(parent_parser):
         parser = parent_parser.add_argument_group('Taiyi Stable Diffusion Module')
-        parser.add_argument('--train_whole_model', action='store_true', default=False)
+        parser.add_argument('--freeze_unet', action='store_true', default=False)
+        parser.add_argument('--freeze_text_encoder', action='store_true', default=False)
         return parent_parser
 
     def __init__(self, args):
@@ -38,10 +76,24 @@ class StableDiffusion(LightningModule):
             args.model_path, subfolder="vae")
         self.unet = UNet2DConditionModel.from_pretrained(
             args.model_path, subfolder="unet")
+        # TODO: 使用xformers配合deepspeed速度反而有下降(待确认
+        self.unet.set_use_memory_efficient_attention_xformers(False)
 
         self.noise_scheduler = DDPMScheduler(
             beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000
         )
+
+        for param in self.vae.parameters():
+            param.requires_grad = False
+
+        if args.freeze_text_encoder:
+            for param in self.unet.parameters():
+                param.requires_grad = False
+
+        if args.freeze_unet:
+            for param in self.unet.parameters():
+                param.requires_grad = False
+
         self.save_hyperparameters(args)
 
     def setup(self, stage) -> None:
@@ -50,17 +102,13 @@ class StableDiffusion(LightningModule):
             print('Total steps: {}' .format(self.total_steps))
 
     def configure_optimizers(self):
-        model_params = [{'params': self.text_encoder.parameters()}]
-        if self.hparams.train_whole_model:
-            model_params.append({'params': self.unet.parameters()})
-        return configure_optimizers(self, model_params=model_params)
+        return configure_optimizers(self)
 
     def training_step(self, batch, batch_idx):
         self.text_encoder.train()
 
-        with torch.no_grad():
-            latents = self.vae.encode(batch["pixel_values"]).latent_dist.sample()
-            latents = latents * 0.18215
+        latents = self.vae.encode(batch["pixel_values"]).latent_dist.sample()
+        latents = latents * 0.18215
 
         # Sample noise that we'll add to the latents
         noise = torch.randn(latents.shape).to(latents.device)
@@ -77,7 +125,6 @@ class StableDiffusion(LightningModule):
         noisy_latents = noisy_latents.to(dtype=self.unet.dtype)
 
         # Get the text embedding for conditioning
-        # with torch.no_grad():
         encoder_hidden_states = self.text_encoder(batch["input_ids"])[0]
 
         # Predict the noise residual
@@ -91,27 +138,18 @@ class StableDiffusion(LightningModule):
             from fengshen.utils.utils import report_memory
             report_memory('stable diffusion')
 
-        if self.trainer.global_rank == 0:
-            if (self.global_step+1) % 5000 == 0:
-                print('saving model...')
-                pipeline = StableDiffusionPipeline.from_pretrained(
-                    args.model_path, text_encoder=self.text_encoder, tokenizer=self.tokenizer,
-                )
-                self.trainer.current_epoch
-                pipeline.save_pretrained(os.path.join(
-                    args.default_root_dir, f'hf_out_{self.trainer.current_epoch}'))
-
         return {"loss": loss}
 
-    def on_train_epoch_end(self):
+    def on_save_checkpoint(self, checkpoint) -> None:
         if self.trainer.global_rank == 0:
             print('saving model...')
-            pipeline = StableDiffusionPipeline.from_pretrained(
-                args.model_path, text_encoder=self.text_encoder, tokenizer=self.tokenizer,
-            )
+            pipeline = StableDiffusionPipeline(
+                text_encoder=self.text_encoder,
+                tokenizer=self.tokenizer,
+                unet=self.unet)
             self.trainer.current_epoch
             pipeline.save_pretrained(os.path.join(
-                args.default_root_dir, f'hf_out_{self.trainer.current_epoch}'))
+                args.default_root_dir, f'hf_out_{self.trainer.current_epoch}_{self.trainer.global_step}'))
 
     def on_load_checkpoint(self, checkpoint) -> None:
         # 兼容低版本lightning，低版本lightning从ckpt起来时steps数会被重置为0
@@ -131,36 +169,19 @@ if __name__ == '__main__':
     args_parser = UniversalCheckpoint.add_argparse_args(args_parser)
     args = args_parser.parse_args()
 
-    model = StableDiffusion(args)
-    tokenizer = model.tokenizer
-    datasets = load_data(args, tokenizer=tokenizer)
-
-    def collate_fn(examples):
-        # print(examples)
-        input_ids = [example["instance_prompt_ids"] for example in examples]
-        pixel_values = [example["instance_images"] for example in examples]
-
-        pixel_values = torch.stack(pixel_values)
-        pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
-
-        input_ids = tokenizer.pad({"input_ids": input_ids}, padding=True,
-                                  return_tensors="pt").input_ids
-        batch = {
-            "input_ids": input_ids,
-            "pixel_values": pixel_values,
-        }
-
-        return batch
-
-    datamoule = UniversalDataModule(
-        tokenizer=tokenizer, collate_fn=collate_fn, args=args, datasets=datasets)
-
     lr_monitor = LearningRateMonitor(logging_interval='step')
     checkpoint_callback = UniversalCheckpoint(args)
-
     trainer = Trainer.from_argparse_args(args,
                                          callbacks=[
                                              lr_monitor,
                                              checkpoint_callback])
+
+    model = StableDiffusion(args)
+    tokenizer = model.tokenizer
+    datasets = load_data(args, global_rank=trainer.global_rank)
+    collate_fn = Collator(args, tokenizer)
+
+    datamoule = UniversalDataModule(
+        tokenizer=tokenizer, collate_fn=collate_fn, args=args, datasets=datasets)
 
     trainer.fit(model, datamoule, ckpt_path=args.load_ckpt_path)
