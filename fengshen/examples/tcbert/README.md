@@ -75,7 +75,7 @@ result = model.predict(test_data, prompt, prompt_label)
 
 对每个不同的数据集，选择合适的模板```Prompt```
 Dataset      | Prompt    
-|------------|------------|----------|
+|------------|------------|
 | TNEWS | 下面是一则关于{}的新闻：       |
 | CSLDCP | 这一句描述{}的内容如下：       |
 | IFLYTEK | 这一句描述{}的内容如下：       |
