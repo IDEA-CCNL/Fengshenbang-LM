@@ -262,10 +262,10 @@ class TCBertLitModel(pl.LightningModule):
 
     def train_inputs(self, batch):
         inputs = {
-            'input_ids': batch['input_ids'].cuda(),
-            'attention_mask': batch['attention_mask'].cuda(),
-            'token_type_ids': batch['token_type_ids'].cuda(),
-            'mlmlabels': batch['mlmlabels'].cuda()
+            'input_ids': batch['input_ids'],
+            'attention_mask': batch['attention_mask'],
+            'token_type_ids': batch['token_type_ids'],
+            'mlmlabels': batch['mlmlabels']
         }
         return inputs 
 
