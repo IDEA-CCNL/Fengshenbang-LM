@@ -5,10 +5,9 @@ from pytorch_lightning import (
 from pytorch_lightning.callbacks import (
     LearningRateMonitor,
 )
-from transformers import (
-    CLIPModel,
-    AutoModel,
-    AutoTokenizer,
+from fengshen.models.clip import (
+    TaiYiCLIPModel,
+    TaiYiCLIPProcessor,
 )
 from fengshen.models.model_utils import (
     add_module_args,
@@ -16,11 +15,7 @@ from fengshen.models.model_utils import (
     get_total_steps,
 )
 import torch
-from torch import nn
 import torch.nn.functional as F
-from typing import Optional, Tuple
-from torchvision.transforms import Normalize, Compose, RandomResizedCrop, InterpolationMode, ToTensor, Resize, \
-    CenterCrop
 import argparse
 import math
 from fengshen.data.universal_datamodule import UniversalDataModule
@@ -28,106 +23,29 @@ from fengshen.data.taiyi_stable_diffusion_datasets.taiyi_datasets import add_dat
 from fengshen.utils.universal_checkpoint import UniversalCheckpoint
 import os
 from PIL import Image
-from torch.utils.data._utils.collate import default_collate
-
-OPENAI_DATASET_MEAN = (0.48145466, 0.4578275, 0.40821073)
-OPENAI_DATASET_STD = (0.26862954, 0.26130258, 0.27577711)
-
-
-class ResizeMaxSize(nn.Module):
-    def __init__(self, max_size, interpolation=InterpolationMode.BICUBIC, fn='max', fill=0):
-        super().__init__()
-        if not isinstance(max_size, int):
-            raise TypeError(f"Size should be int. Got {type(max_size)}")
-        self.max_size = max_size
-        self.interpolation = interpolation
-        self.fn = min if fn == 'min' else min
-        self.fill = fill
-
-    def forward(self, img):
-        if isinstance(img, torch.Tensor):
-            height, width = img.shape[:2]
-        else:
-            width, height = img.size
-        scale = self.max_size / float(max(height, width))
-        if scale != 1.0:
-            new_size = tuple(round(dim * scale) for dim in (height, width))
-            img = F.resize(img, new_size, self.interpolation)
-            pad_h = self.max_size - new_size[0]
-            pad_w = self.max_size - new_size[1]
-            img = F.pad(img, padding=[pad_w//2, pad_h//2, pad_w -
-                                      pad_w//2, pad_h - pad_h//2], fill=self.fill)
-        return img
 
 
 class Collator():
-    def __init__(self, args, tokenizer, is_train):
-        self.image_transforms = self.image_transform(image_size=args.resolution,
-                                                     is_train=is_train,
-                                                     mean=None,
-                                                     std=None)
-        self.tokenizer = tokenizer
-
-    def image_transform(
-        self,
-        image_size: int,
-        is_train: bool,
-        mean: Optional[Tuple[float, ...]] = None,
-        std: Optional[Tuple[float, ...]] = None,
-        resize_longest_max: bool = False,
-        fill_color: int = 0,
-    ):
-        mean = mean or OPENAI_DATASET_MEAN
-        if not isinstance(mean, (list, tuple)):
-            mean = (mean,) * 3
-
-        std = std or OPENAI_DATASET_STD
-        if not isinstance(std, (list, tuple)):
-            std = (std,) * 3
-
-        if isinstance(image_size, (list, tuple)) and image_size[0] == image_size[1]:
-            # for square size, pass size as int so that Resize() uses aspect preserving shortest edge
-            image_size = image_size[0]
-
-        normalize = Normalize(mean=mean, std=std)
-        if is_train:
-            return Compose([
-                RandomResizedCrop(image_size, scale=(0.9, 1.0),
-                                  interpolation=InterpolationMode.BICUBIC),
-                ToTensor(),
-                normalize,
-            ])
-        else:
-            if resize_longest_max:
-                transforms = [
-                    ResizeMaxSize(image_size, fill=fill_color)
-                ]
-            else:
-                transforms = [
-                    Resize(image_size, interpolation=InterpolationMode.BICUBIC),
-                    CenterCrop(image_size),
-                ]
-            transforms.extend([
-                ToTensor(),
-                normalize,
-            ])
-            return Compose(transforms)
+    def __init__(self, processor):
+        self.processor = processor
 
     def __call__(self, inputs):
-        samples = []
+        max_length = min(77, max([len(i['caption']) for i in inputs]))
+        images = []
+        texts = []
+        labels = []
         for i in inputs:
             instance_image = Image.open(i['img_path'])
-            if not instance_image.mode == "RGB":
-                instance_image = instance_image.convert("RGB")
-            image = self.image_transforms(instance_image)
-            text = self.tokenizer(i['caption'],
-                                  max_length=77,
-                                  padding='max_length',
-                                  truncation=True,
-                                  return_tensors='pt')['input_ids'][0]
-
-            samples.append((image, text, i['labels'] if 'labels' in i else -100))
-        return default_collate(samples)
+            images.append(instance_image)
+            texts.append(i['caption'])
+            labels.append(i['labels'] if 'labels' in i else -100)
+        images_input = self.processor(images=images, return_tensors="pt")
+        texts_input = self.processor(text=texts,
+                                     max_length=max_length,
+                                     padding='max_length',
+                                     truncation=True,
+                                     return_tensors='pt')
+        return images_input, texts_input, labels
 
 
 class TaiyiCLIP(LightningModule):
@@ -143,30 +61,15 @@ class TaiyiCLIP(LightningModule):
         super().__init__()
         self.save_hyperparameters(args)
 
-        # 这里本来打算直接用CLIPVisionModel，可惜CLIPVisionModel没有带一层project_layer转换维度，feature_dim不一样
-        # self.vision_model = CLIPVisionModel.from_pretrained(args.model_path, subfolder='vision_encoder')
-        vision_model = CLIPModel.from_pretrained(
-            args.model_path, subfolder='vision_encoder')
-        # 这里没有用到CLIPModel的TextModel，删掉这部分
-        del vision_model.text_model
-        text_model = AutoModel.from_pretrained(args.model_path, subfolder='text_encoder')
-        # 如果维度不对 需要手动更改clip里面的proj层
-        if vision_model.text_projection.in_features != text_model.config.hidden_size \
-                and vision_model.text_projection.out_features != vision_model.config.projection_dim:
-            vision_model.text_projection = nn.Linear(
-                text_model.config.hidden_size, vision_model.config.projection_dim, bias=False)
-
-        self.tokenizer = AutoTokenizer.from_pretrained(
-            args.model_path, subfolder='text_encoder')
-        self.text_model = text_model
-        self.vision_model = vision_model
+        self.model = TaiYiCLIPModel.from_pretrained(args.model_path)
+        self.processor = TaiYiCLIPProcessor.from_pretrained(args.model_path)
 
         self.local_loss = args.loss_type == 'local'
 
         if args.freeze_image_tower:
-            for param in self.vision_model.parameters():
+            for param in self.model.vision_model.parameters():
                 param.requires_grad = False
-            self.vision_model.visual_projection.requires_grad = False
+            self.model.visual_projection.requires_grad = False
 
         # cache
         self.cache_labels = True
@@ -186,17 +89,13 @@ class TaiyiCLIP(LightningModule):
     def forward(self, image, text):
         assert image is not None
         assert text is not None
-        image_features = self.vision_model.get_image_features(image)
-        # text_features = self.vision_model.get_text_features(text)
-        text_outputs = self.text_model(input_ids=text)
-        pooled_output = text_outputs[1]
-        text_features = self.vision_model.text_projection(pooled_output)
-        # text_features = self.text_model(input_ids=text).logits
+        image_features = self.model.get_image_features(**image)
+        text_features = self.model.get_text_features(**text)
 
         image_features = image_features / image_features.norm(p=2, dim=-1, keepdim=True)
         text_features = text_features / text_features.norm(p=2, dim=-1, keepdim=True)
 
-        return image_features, text_features, self.vision_model.logit_scale.exp()
+        return image_features, text_features, self.model.logit_scale.exp()
 
     def gather_features(self, image_features, text_features):
         all_image_features = self.all_gather(
@@ -246,12 +145,12 @@ class TaiyiCLIP(LightningModule):
         image, text, _ = batch
         image_features, text_features, logit_scale = self(image, text)
         total_loss = self.clip_loss(image_features, text_features, logit_scale)
-        self.log('train_loss', total_loss, sync_dist=True)
+        self.log('train_loss', total_loss, sync_dist=False)
         return total_loss
 
     def on_train_batch_end(self, outputs, batch, batch_idx: int) -> None:
         with torch.no_grad():
-            self.vision_model.logit_scale.clamp_(0, math.log(100))
+            self.model.logit_scale.clamp_(0, math.log(100))
 
     def get_metrics(self, image_features, text_features, labels, logit_scale):
         # 计算相似度，支持多个样本的情况（比如一个图片有多个caption）
@@ -299,7 +198,7 @@ class TaiyiCLIP(LightningModule):
     def validation_step(self, batch, batch_idx):
         image, text, label = batch
         image_features, text_features, logit_scale = self(image, text)
-        return image_features, text_features, logit_scale, image.shape[0], label
+        return image_features, text_features, logit_scale, text['input_ids'].shape[0], label
 
     def validation_epoch_end(self, val_outputs):
         all_image_features = []
@@ -311,6 +210,8 @@ class TaiyiCLIP(LightningModule):
             all_text_features.append(o[1])
             sample_size += o[3]
             all_labels += o[4]
+        if len(all_image_features) == 0 or len(all_text_features) == 0:
+            return
         all_image_features = torch.cat(all_image_features)
         all_text_features = torch.cat(all_text_features)
         logit_scale = val_outputs[0][2].mean()
@@ -327,9 +228,9 @@ class TaiyiCLIP(LightningModule):
             logit_scale=logit_scale,
             labels=all_labels)
         loss = total_loss / sample_size
-        self.log('val_loss', loss, sync_dist=True)
+        self.log('val_loss', loss, sync_dist=False)
         for k, v in val_metrics.items():
-            self.log(f'val_{k}', v, sync_dist=True)
+            self.log(f'val_{k}', v, sync_dist=False)
 
     def on_load_checkpoint(self, checkpoint) -> None:
         # 兼容低版本lightning，低版本lightning从ckpt起来时steps数会被重置为0
@@ -345,9 +246,8 @@ class TaiyiCLIP(LightningModule):
                 self.hparams.default_root_dir, f'hf_out_{self.trainer.current_epoch}_{self.trainer.global_step}')
             if not os.path.exists(dir_path):
                 os.mkdir(dir_path)
-            self.vision_model.save_pretrained(os.path.join(dir_path, 'vision_encoder'))
-            self.text_model.save_pretrained(os.path.join(dir_path, 'text_encoder'))
-            self.tokenizer.save_pretrained(os.path.join(dir_path, 'text_encoder'))
+            self.model.save_pretrained(dir_path)
+            self.processor.save_pretrained(dir_path)
 
 
 if __name__ == '__main__':
@@ -369,19 +269,18 @@ if __name__ == '__main__':
                                              checkpoint_callback])
 
     model = TaiyiCLIP(args)
-    tokenizer = model.tokenizer
-    train_collate_fn = Collator(args, tokenizer, is_train=True)
+    processor = model.processor
+    collate_fn = Collator(processor)
     datasets = load_data(args, global_rank=trainer.global_rank)
 
     # 加载单个验证集：！！！验证代码有效性临时这样干的，验证完有效性会删除
     from fengshen.examples.pretrain_taiyi_clip.flickr_datasets import flickr30k_CNA
     img_root = '/shared_space/ccnl/mm_data/Flickr30k-CNA/flickr30k/images'
     text_annot_path = '/shared_space/ccnl/mm_data/Flickr30k-CNA/test/flickr30k_cn_test.txt'
-    val_collate_fn = Collator(args, tokenizer, is_train=False)
 
-    datasets[args.val_datasets_field] = flickr30k_CNA(img_root, text_annot_path, val_collate_fn)
+    datasets[args.val_datasets_field] = flickr30k_CNA(img_root, text_annot_path, collate_fn)
 
     datamoule = UniversalDataModule(
-        tokenizer=tokenizer, collate_fn=train_collate_fn, args=args, datasets=datasets)
+        tokenizer=None, collate_fn=collate_fn, args=args, datasets=datasets)
 
     trainer.fit(model, datamoule, ckpt_path=args.load_ckpt_path)
