@@ -34,7 +34,7 @@ class MEDQADataset():
         super().__init__()
         # raw_datasets = load_dataset("super_glue", data_args.dataset_name)
         raw_datasets = load_dataset(
-                path="../tasks/medqa_2views.py",
+                path="./tasks/data_process/medqa_2views.py",
                 cache_dir="./data_2views_medqa/")
         #pdb.set_trace()
         self.tokenizer = tokenizer

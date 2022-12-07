@@ -33,7 +33,7 @@ class OBQADataset():
         super().__init__()
         # raw_datasets = load_dataset("super_glue", data_args.dataset_name)
         raw_datasets = load_dataset(
-                path="../tasks/obqa_2views.py",
+                path="./tasks/data_process/obqa_2views.py",
                 cache_dir="./data_2views_obqa_leadboard")
         #pdb.set_trace()
         self.tokenizer = tokenizer

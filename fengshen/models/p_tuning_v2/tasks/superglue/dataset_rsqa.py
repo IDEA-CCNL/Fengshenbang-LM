@@ -32,7 +32,7 @@ class RSQADataset():
         super().__init__()
         # raw_datasets = load_dataset("super_glue", data_args.dataset_name)
         raw_datasets = load_dataset(
-                path="../tasks/rsqa_2views.py",
+                path="./tasks/data_process/rsqa_2views.py",
                 cache_dir="./data_2views_rsqa/")
         #pdb.set_trace()
         self.tokenizer = tokenizer

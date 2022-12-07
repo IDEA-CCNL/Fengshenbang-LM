@@ -32,7 +32,7 @@ class SIQADataset():
         super().__init__()
         # raw_datasets = load_dataset("super_glue", data_args.dataset_name)
         raw_datasets = load_dataset(
-                path="../tasks/siqa.py",
+                path="./tasks/data_process/siqa.py",
                 cache_dir="./data_siqa/")
         #pdb.set_trace()
         self.tokenizer = tokenizer

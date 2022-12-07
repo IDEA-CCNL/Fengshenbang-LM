@@ -32,7 +32,7 @@ class CSQADataset():
         super().__init__()
         # raw_datasets = load_dataset("super_glue", data_args.dataset_name)
         raw_datasets = load_dataset(
-                path="../tasks/csqa_3views.py",
+                path="./tasks/data_process/csqa_3views.py",
                 cache_dir="./data_3views_no_annoated/")
         #pdb.set_trace()
         self.tokenizer = tokenizer

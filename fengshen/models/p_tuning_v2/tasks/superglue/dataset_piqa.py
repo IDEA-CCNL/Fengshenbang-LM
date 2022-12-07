@@ -32,7 +32,7 @@ class PIQADataset():
         super().__init__()
         # raw_datasets = load_dataset("super_glue", data_args.dataset_name)
         raw_datasets = load_dataset(
-                path="../tasks/piqa.py",
+                path="./tasks/data_process/piqa.py",
                 cache_dir="./data_piqa/")
         #pdb.set_trace()
         self.tokenizer = tokenizer
