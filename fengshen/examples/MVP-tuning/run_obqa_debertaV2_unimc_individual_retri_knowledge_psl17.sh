@@ -11,7 +11,7 @@ psl=17
 epoch=240
 used_triplets_type=individual_retri
 
-python3 run.py \
+python3 ../../models/p_tuning_v2/run.py \
   --model_name_or_path unimc-deberta-v2-xxlarge  \
   --task_name $TASK_NAME \
   --dataset_name $DATASET_NAME \
