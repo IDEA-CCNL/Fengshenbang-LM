@@ -36,7 +36,7 @@ def configure_optimizers(pl_model: LightningModule):
     ]
     # Configure optimizer.
     if isinstance(pl_model.trainer.strategy, DeepSpeedStrategy):
-        if 'offload_optimizer' in pl_model.trainer.training_type_plugin.config['zero_optimization']:
+        if 'offload_optimizer' in pl_model.trainer.strategy.config['zero_optimization']:
             optimizer = DeepSpeedCPUAdam(
                 optimizer_grouped_params, adamw_mode=True,
                 lr=pl_model.hparams.learning_rate,
