@@ -25,6 +25,54 @@ from __future__ import print_function
 import torch
 import torch.nn.functional as F
 
+from fengshen.data.universal_datamodule import UniversalDataModule
+from torch.utils.data import DataLoader, DistributedSampler
+
+
+class GPTDataModule(UniversalDataModule):
+    def __init__(self, tokenizer, collate_fn, collate_fn_eval, args, datasets=None, **kwargs):
+        super().__init__(tokenizer, collate_fn, args, datasets, **kwargs)
+        self.collate_fn_eval = collate_fn_eval
+
+    def val_dataloader(self):
+        ds = self.datasets[self.hparams.val_datasets_field]
+        collate_fn = self.collate_fn_eval
+        if collate_fn is None and hasattr(ds, 'collater'):
+            collate_fn = ds.collater
+
+        return DataLoader(
+            ds,
+            batch_size=self.hparams.val_batchsize,
+            shuffle=False,
+            num_workers=self.hparams.dataloader_workers,
+            collate_fn=collate_fn,
+            sampler=DistributedSampler(
+                ds, shuffle=False),
+            pin_memory=True,
+        )
+
+        # return DataLoader(
+        #     ds, shuffle=False, batch_size=self.hparams.val_batchsize, pin_memory=False, collate_fn=collate_fn,
+        # )
+
+    def test_dataloader(self):
+        ds = self.datasets[self.hparams.test_datasets_field]
+
+        collate_fn = self.collate_fn_eval
+        if collate_fn is None and hasattr(ds, 'collater'):
+            collate_fn = ds.collater
+
+        return DataLoader(
+            ds,
+            batch_size=self.hparams.test_batchsize,
+            shuffle=False,
+            num_workers=self.hparams.dataloader_workers,
+            collate_fn=collate_fn,
+            sampler=DistributedSampler(
+                ds, shuffle=False),
+            pin_memory=True,
+        )
+
 
 class LabelSmoothingCrossEntropy(torch.nn.Module):
     def __init__(self, smoothing=0.1):

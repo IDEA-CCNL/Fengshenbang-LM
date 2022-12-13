@@ -42,9 +42,9 @@ class Collator:
         parser.add_argument('--max_tgt_length', default=128, type=int)
         return parent_args
 
-    def __init__(self, tokenizer, args):
+    def __init__(self, tokenizer, args, do_eval=False):
         if args.collator == "dial":
-            self.collator = DialoCollator(tokenizer, args)
+            self.collator = DialoCollator(tokenizer, args, do_eval)
         elif args.collator == "nokno_dial":
             self.collator = NoKnoDialoCollator(tokenizer, args)
         else:
@@ -52,6 +52,11 @@ class Collator:
 
     def __call__(self, samples):
         return self.collator.__call__(samples)
+
+# Data example
+# {"kno": "第一步：贴假睫毛前，先把睫毛卷起来，以免造成真假睫毛脱层。剪的时候分为三段，从睫毛根部开始，剪中间和末端。第二步：夹紧睫毛后涂一层睫毛膏，使睫毛定型，保持卷曲不下垂。第三步：戴假睫毛前先修剪一下。建议把假睫毛剪下来，分成三段，如图。选择中间部分使用。第四步：对假睫毛进行柔软的身体锻炼，握住假睫毛的两端，前后弯曲，
+# 使假睫毛更贴合你的眼睛。第五步：将胶水涂在假睫毛的茎上，胶水半干时，从眼尾到眼中部贴在真睫毛上。第六步：再次睫毛膏，加强头部睫毛的密度，让真睫毛和假睫毛融合在一起。第七步：用眼线填充睫毛根部的缝隙，掩盖胶水的痕迹。第八步：扬起睫毛膏，下睫毛，让下睫毛也有存在感。第九步：贴完假睫毛后，别忘了用电动睫毛棒从根部梳理，让真假睫毛的曲度一致。第十步：之后，用眼线笔填充眼睛末端的线条，使眼线笔线条更加流畅。（来源：视觉中国）",
+# "ctx": ["我不会贴假睫毛呀，好难！"], "tgt": "这个我专门了解过的。先把真睫毛涂一层睫毛膏卷起来定型，然后把假睫毛剪下来揉软，再把睫毛贴上胶水贴到眼皮上。", "idx": 0, "topic": ["购物", "化妆品", ""], "loc": "安徽省芜湖市", "query": "怎么贴假睫毛"}
 
 
 @dataclass
@@ -71,10 +76,11 @@ class DialoCollator:
         parser.add_argument('--max_tgt_length', default=128, type=int)
         return parent_args
 
-    def __init__(self, tokenizer, args):
+    def __init__(self, tokenizer, args, do_eval=False):
         self.tokenizer = tokenizer
         self.args = args
         self.max_seq_length = args.max_seq_length
+        self.do_eval = do_eval
 
     def set_pad_100(self, x):
         x1 = x.clone().detach()
@@ -120,7 +126,7 @@ class DialoCollator:
             source = truncate_sequence(user_prompt+s["ctx"][-1], 32-1)
             target = truncate_sequence(res_prompt+s["tgt"], self.args.max_tgt_length)
 
-            if self.args.do_eval_only or test:
+            if self.args.do_eval_only or self.do_eval:
                 x = f'{knowledge}{sep_token}{context}{sep_token}{source}{sep_token}{res_prompt}'
             else:
                 x = f'{knowledge}{sep_token}{context}{sep_token}{source}{sep_token}{target}'
@@ -289,12 +295,6 @@ class GPT2Finetuner(LightningModule):
         self.log('val_loss', output.loss, sync_dist=True)
         self.log('val_acc', acc, sync_dist=True)
         # self.log('val_ppl', torch.exp(output.loss), sync_dist=True)
-
-        # batch = self.collator.encode
-        eval_input = batch["input_ids"].clone()
-        eval_input[0][-self.hparams.max_tgt_length+2:] = -100
-        print(eval_input)
-        print("eval input")
 
         cond_output = self.generate(batch)
 
