@@ -14,4 +14,4 @@
 # limitations under the License.
 
 
-from .modeling_ubert import UbertPiplines, UbertModel, UbertDataset
+from .modeling_ubert import UbertPipelines, UbertModel, UbertDataset

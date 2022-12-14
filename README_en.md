@@ -16,6 +16,7 @@
 
 # Fengshenbang Big Event
 
+- [First Chinese stable diffusion model is open-sourced，IDEA Fengshenbang team opens the era of Chinese AI art](https://mp.weixin.qq.com/s/WrzkiJOxqNcFpdU24BKbMA) 2022.11.2
 - [Breaking the impossible triangle, comparable to 540B models, IDEA Fengshenbang team only has 200B models to achieve zero-shot SOTA](https://mp.weixin.qq.com/s/m0_W31mP4xKKla8jIwUXkw) 2022.10.25
 - [AIWIN champion solution, Fengshenbang proposed multi-task learning model Ubert](https://mp.weixin.qq.com/s/A9G0YLbIPShKgm98DnD2jA) 2022.07.21
 - [Just a simple Finetune, "Fengshenbang" pre-trained language model "Erlangshen" won the first place in SimCLUE benchmark](https://mp.weixin.qq.com/s/KXQtCgxZlCnv0HqSyQAteQ) 2022.07.14
@@ -56,8 +57,8 @@
 |:---:|:---:|:---:|:---:|---|
 |[Erlangshen](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BA%8C%E9%83%8E%E7%A5%9E%E7%B3%BB%E5%88%97/index.html)|General|NLU|97M-3.9B|Erlangshen was designed to solve NLU tasks; The largest BERT when publicly released; SOTA on FewCLUE and ZeroCLUE in 2021.|
 |[Wenzhong](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E9%97%BB%E4%BB%B2%E7%B3%BB%E5%88%97/index.html)|General|NLG|1B-3.5B|Wenzhong focuses on NLG tasks; Provides several generative models with different scales, such as GPT2, etc.|
-|[Randeng](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E7%87%83%E7%81%AF%E7%B3%BB%E5%88%97/index.html)|General|NLT|770M-0.7B|Randeng handles natural language transformation (NLT) type tasks that convert from source text to target text, such as machine translation, text summarization, etc.|
-|[Taiyi](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%A4%AA%E4%B9%99%E7%B3%BB%E5%88%97/index.html)|Speical|MultiModal|87M-0.1B|Taiyi was applied to cross-modality scenarios, including text image generation, protein structure prediction, speech-text representation, etc.|
+|[Randeng](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E7%87%83%E7%81%AF%E7%B3%BB%E5%88%97/index.html)|General|NLT|770M-5B|Randeng handles natural language transformation (NLT) type tasks that convert from source text to target text, such as machine translation, text summarization, etc.|
+|[Taiyi](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%A4%AA%E4%B9%99%E7%B3%BB%E5%88%97/index.html)|Speical|MultiModal|87M-1B|Taiyi was applied to cross-modality scenarios, including text image generation, protein structure prediction, speech-text representation, etc.|
 |[Yuyuan](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BD%99%E5%85%83%E7%B3%BB%E5%88%97/index.html)|Speical|Domain|0.1B-3.5B|Yuyuan was applied to specific domains such as healthcare, finance, law, programming, etc; The largest open-source GPT2 medical model|
 |-TBD-|Special|Exploration|-Unknown-|This series hopes to develop experimental models on NLP with various technology companies and universities. Currently there are:[Zhouwenwang](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%91%A8%E6%96%87%E7%8E%8B%E7%B3%BB%E5%88%97/index.html)|
 
@@ -78,7 +79,7 @@ The Chinese language as the world's largest spoken language (native speakers), h
 
 And the world needs an answer for this.
 
-IDEA (International Digital Economy Academy) officially announces the launch of "Fengshenbang" open source project —— a Chinese language driven foundation ecosystem, incorporates pre-trained models, task-specific fine-tune applications, benchmarks, and datasets. Our goal is to build a comprehensive, standardized and user-centered ecosystem. Although this can be instantiated in a variety of ways, we present the following design that we find to be particularly effective:
+On November 22nd, 2021, Harry Shum, the Founder and Chairman of the IDEA (International Digital Economy Academy) officially announces the launch of "Fengshenbang" open source project.  —— a Chinese language driven foundation ecosystem, incorporates pre-trained models, task-specific fine-tune applications, benchmarks, and datasets. Our goal is to build a comprehensive, standardized and user-centered ecosystem. Although this can be instantiated in a variety of ways, we present the following design that we find to be particularly effective:
 
 ![avatar](pics/fengshenbang_enprocess1.png)
 
@@ -146,6 +147,54 @@ sh finetune_classification.sh
 | roberta-wwm-ext-large | 0.7514      |   0.5872    | 0.6152      |   0.777    | 0.814    | 0.8914    | 0.86    |
 | Erlangshen-MegatronBert-1.3B | 0.7608      |   0.5996    | 0.6234      |   0.7917    | 0.81    | 0.9243    | 0.872    |
 
+## Taiyi
+
+Taiyi series models are mainly used in cross-modal scenarios, including text image generation, protein structure prediction, speech-text representation, etc. On November 1, 2022, Fengshenbang released the first Chinese version of the stable diffusion model "Taiyi Stable Diffusion".
+
+### Download the Models
+[Taiyi Stable Diffusion Chinese](https://huggingface.co/IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-v0.1)
+
+[Taiyi Stable Diffusion Chinese&English Bilingual](https://huggingface.co/IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-EN-v0.1)
+
+### Example of Usage
+
+``` python
+from diffusers import StableDiffusionPipeline
+
+pipe = StableDiffusionPipeline.from_pretrained("IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-v0.1").to("cuda")
+
+prompt = '飞流直下三千尺，油画'
+image = pipe(prompt, guidance_scale=7.5).images[0]  
+image.save("飞流.png")
+```
+
+### Performance
+
+|  铁马冰河入梦来，3D绘画。   |  飞流直下三千尺，油画。 | 女孩背影，日落，唯美插画。  |
+|  ----  | ----  | ----  |
+| ![](fengshen/examples/stable_diffusion_chinese/result_examples/tiema.png)  | ![](fengshen/examples/stable_diffusion_chinese/result_examples/feiliu.png)  | ![](fengshen/examples/stable_diffusion_chinese/result_examples/nvhai.jpg) |
+
+Advanced Prompt
+
+| 铁马冰河入梦来，概念画，科幻，玄幻，3D  | 中国海边城市，科幻，未来感，唯美，插画。 | 那人却在灯火阑珊处，色彩艳丽，古风，资深插画师作品，桌面高清壁纸。 |
+|  ----  | ----  | ----  |
+| ![](fengshen/examples/stable_diffusion_chinese/result_examples/tiema2.jpg)  | ![](fengshen/examples/stable_diffusion_chinese/result_examples/chengshi.jpg) | ![](fengshen/examples/stable_diffusion_chinese/result_examples/naren.jpg) |
+
+### Handbook for Taiyi
+
+https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/examples/stable_diffusion_chinese/taiyi_handbook.md
+
+### How to finetune
+
+https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples/finetune_taiyi_stable_diffusion
+
+### Configure webui
+
+https://github.com/IDEA-CCNL/stable-diffusion-webui/blob/master/README.md
+
+### DreamBooth
+
+https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples/stable_diffusion_dreambooth
 
 # Fengshen Framework
 
