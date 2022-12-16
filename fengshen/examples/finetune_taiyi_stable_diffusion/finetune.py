@@ -144,6 +144,7 @@ class StableDiffusion(LightningModule):
         if self.trainer.global_rank == 0:
             print('saving model...')
             pipeline = StableDiffusionPipeline.from_pretrained(
+                self.hparams.model_path,
                 text_encoder=self.text_encoder,
                 tokenizer=self.tokenizer,
                 unet=self.unet)
