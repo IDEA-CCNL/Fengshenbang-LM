@@ -102,6 +102,8 @@ class GPT2Config(PretrainedConfig):
             Scale attention weights by dividing by sqrt(hidden_size)..
         use_cache (:obj:`bool`, `optional`, defaults to :obj:`True`):
             Whether or not the model should return the last key/values attentions (not used by all models).
+        use_gau (:obj:`bool`, `optional`, defaults to :obj:`True`):
+            Whether or not use the Gated Attention Unit rather than Attention.
         scale_attn_by_inverse_layer_idx (:obj:`bool`, `optional`, defaults to :obj:`False`):
             Whether to additionally scale attention weights by ``1 / layer_idx + 1``.
         reorder_and_upcast_attn (:obj:`bool`, `optional`, defaults to :obj:`False`):

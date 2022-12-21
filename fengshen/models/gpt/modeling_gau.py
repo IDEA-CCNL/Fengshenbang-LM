@@ -1,3 +1,21 @@
+'''
+Copyright 2022 The International Digital Economy Academy (IDEA). CCNL team. All rights reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+@File    :   modeling_gau.py
+@Time    :   2022/12/17 18:23
+@Author  :   Qi Yang
+@Version :   1.0
+@Contact :   yangqi@idea.edu.cn
+@License :   (C)Copyright 2022-2023, CCNL-IDEA
+'''
 import torch
 from torch import nn
 from typing import Optional, Tuple, Union
@@ -7,15 +25,16 @@ from fengshen.models.gpt.relative_pos import T5RelativePositionBias
 
 class ScaleOffset(nn.Module):
     """
-    x = x * gamma + beta
-
-    gamma = torch.tensor([[10,10]])
-    beta = torch.tensor([[0.1,0.1]])
-    out = tensor([[[[10.1000, 20.1000]],
-                   [[30.1000, 40.1000]]]])
-    x = torch.randn(1, 4, 2) #heads, seq_length, qk_dim
-    scaleoff = ScaleOffset(dim=2,heads=1) #qk_dim, heads
-    scaleoff(x)
+    This is the scale offset layer (x = x * gamma + beta).
+    Args:
+        dim: int
+            The last dimention of input x.
+    Example:
+        out = tensor([[[[10.1000, 20.1000]],
+                    [[30.1000, 40.1000]]]])
+        x = torch.randn(1, 4, 2) # heads, seq_length, qk_dim
+        scaleoff = ScaleOffset(dim=2,heads=1) # qk_dim, heads
+        scaleoff(x)
     """
 
     def __init__(self, dim):
@@ -25,19 +44,17 @@ class ScaleOffset(nn.Module):
         nn.init.normal_(self.gamma, std=0.02)
 
     def forward(self, x):
-        # out = torch.einsum('... d, hd -> ... hd', x, self.gamma) + self.beta
         out = x * self.gamma + self.beta
-        # 移除指定维度，返回一个元组，包含了沿着指定维切片后的各个切片
-        # return out.unbind(dim = -2)
         return out
 
 
 class GatedAttentionUnit(nn.Module):
-    """Gate Attention Unit in Flash-quad
+    """
+    This is a class of Gate Attention Unit (Flash-quad)
     paper: https://readpaper.com/paper/4594890495981789185
     Args:
-        config: GPT2Config
-        dropout: Dropout prob
+        config (GPT2Config): special config of gpt2 models with use_gau=True
+        dropout (float): Dropout prob
         x (tensor,dtype=float): (heads, seq_length, qk_dim)
     Example:
         x = torch.randint(0,100,(1, 4, 2), dtype=torch.float) #heads, seq_length, qk_dim
@@ -140,24 +157,24 @@ class GatedAttentionUnit(nn.Module):
         v = self.v_layer(x)
         gate = self.gate_layer(x)
         # same as v, gate = to_hidden_layer(x).chunk(2,dim=-1)
-        print("v", v.shape)
-        print("gate", gate.shape)
+        # print("v", v.shape)
+        # print("gate", gate.shape)
 
         q, k = self.q_scaleoff(x), self.k_scaleoff(x)
-        print("q", q, q.shape)
-        print("k", k, k.shape)
+        # print("q", q, q.shape)
+        # print("k", k, k.shape)
 
         o, attn = self._attn(q, k, v, attention_mask, head_mask, causal)
 
         o = o * gate  # o
-        print("gate", gate.shape)
-        print("o", o.shape)
+        # print("gate", gate.shape)
+        # print("o", o.shape)
 
         o = self.output_layer(o)  # o
         if add_residual:
             o = o + x
 
-        print("o", o.shape)
+        # print("o", o.shape)
         if layer_past is not None:
             past_key, past_value = layer_past
             k = torch.cat((past_key, k), dim=-2)
@@ -176,14 +193,15 @@ class GatedAttentionUnit(nn.Module):
 
 
 class GAUBlock(nn.Module):
-    """GAU(FLASH-QUAD) + LayerNorm Layer
+    """The is a class of GAU(FLASH-QUAD) + LayerNorm Layer
     paper: https://readpaper.com/paper/4594890495981789185
     Args:
-        config : GPT2Config
-        layer_idx: the index of layer (2 x Attn)
+        config (GPT2Config): config with use_gau=True
+        layer_idx (int): the index of layer (2 x Attn)
     Examples:
+        gau = GAUBlock(config)
         x = torch.randint(low,high,(config.n_head, config.n_positions, config.n_embd),dtype=torch.float) # heads, seq_length, qk_dim
-        x = forward(x)
+        x = gau.forward(x)
     """
 
     def __init__(self, config, layer_idx=None):
