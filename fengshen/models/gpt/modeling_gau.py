@@ -1,0 +1,227 @@
+import torch
+from torch import nn
+from typing import Optional, Tuple, Union
+
+from fengshen.models.gpt.relative_pos import T5RelativePositionBias
+
+
+class ScaleOffset(nn.Module):
+    """
+    x = x * gamma + beta
+
+    gamma = torch.tensor([[10,10]])
+    beta = torch.tensor([[0.1,0.1]])
+    out = tensor([[[[10.1000, 20.1000]],
+                   [[30.1000, 40.1000]]]])
+    x = torch.randn(1, 4, 2) #heads, seq_length, qk_dim
+    scaleoff = ScaleOffset(dim=2,heads=1) #qk_dim, heads
+    scaleoff(x)
+    """
+
+    def __init__(self, dim):
+        super().__init__()
+        self.gamma = nn.Parameter(torch.ones(dim))
+        self.beta = nn.Parameter(torch.zeros(dim))
+        nn.init.normal_(self.gamma, std=0.02)
+
+    def forward(self, x):
+        # out = torch.einsum('... d, hd -> ... hd', x, self.gamma) + self.beta
+        out = x * self.gamma + self.beta
+        # 移除指定维度，返回一个元组，包含了沿着指定维切片后的各个切片
+        # return out.unbind(dim = -2)
+        return out
+
+
+class GatedAttentionUnit(nn.Module):
+    """Gate Attention Unit in Flash-quad
+    paper: https://readpaper.com/paper/4594890495981789185
+    Args:
+        config: GPT2Config
+        dropout: Dropout prob
+        x (tensor,dtype=float): (heads, seq_length, qk_dim)
+    Example:
+        x = torch.randint(0,100,(1, 4, 2), dtype=torch.float) #heads, seq_length, qk_dim
+        x = gau.forward(x)
+    """
+
+    def __init__(self, config, layer_idx=None):
+        super().__init__()
+        self.max_positions = config.n_positions
+        self.register_buffer(
+            "causal_mask",
+            torch.ones((self.max_positions, self.max_positions), dtype=torch.bool).triu(1)  # seq_len=4
+        )
+        self.register_buffer("masked_bias", torch.tensor(-1e4))
+
+        self.embed_dim = config.n_embd
+        self.head_dim = config.n_embd // config.n_head  # ? qk_dim cannot find in config, do they equal
+        self.inner_dim = config.n_inner
+        self.num_heads = config.n_head
+
+        if self.head_dim * self.num_heads != self.embed_dim:
+            raise ValueError(
+                f"`embed_dim` must be divisible by num_heads (got `embed_dim`: {self.embed_dim} and `num_heads`:"
+                f" {self.num_heads})."
+            )
+        self.scale_attn_weights = config.scale_attn_weights
+        self.scale_attn_by_inverse_layer_idx = config.scale_attn_by_inverse_layer_idx
+        self.layer_idx = layer_idx
+
+        # hidden dim usually 2 x dim
+        # init module
+        self.q_scaleoff = ScaleOffset(dim=self.embed_dim)
+        self.k_scaleoff = ScaleOffset(dim=self.embed_dim)  # qk_dim
+
+        # input_layer = nn.Linear(2, 4) # dim, hidden_dim * 2   the input x to v & gate
+        # in flash code they use only 1 layer to generate v and gate and chunk then
+        # we use v_layer and gate layer seperately
+        self.v_layer = nn.Linear(self.embed_dim, self.embed_dim)  # dim , dim
+        self.gate_layer = nn.Linear(self.embed_dim, self.embed_dim)
+        # to_hidden_layer = nn.Linear(2,4) split
+
+        # similarly, flash code calculate q k together(heads=2) and unbind
+        # we use two layer seperately and remove unbind
+        self.qk_layer = nn.Linear(self.embed_dim, self.head_dim)  # dim, qk_dim
+        self.output_layer = nn.Linear(self.embed_dim, self.embed_dim)  # hidden_dim , dim     the concat result to output
+        self.attn_fn = nn.functional.relu  # activation funcation
+        self.rel_pos_bias = T5RelativePositionBias(self.head_dim**0.5, causal=True)
+
+        # self.norm = nn.LayerNorm(dim) # dim # move to Block
+        self.dropout = nn.Dropout(config.embd_pdrop)  # dropout weight
+
+    def _attn(self, q, k, v, attention_mask=None, head_mask=None, causal=True):
+        # nm 维度相乘求和, qk is similarity, qk
+        attn = torch.einsum('...ns,...ms -> ...nm', q, k)
+        # print("qk",qk, qk.shape)
+
+        # scale
+        if self.scale_attn_weights:
+            attn = attn / torch.full(
+                [], v.size(-1) ** 0.5, dtype=attn.dtype, device=attn.device
+            )
+
+        # Layer-wise attention scaling
+        if self.scale_attn_by_inverse_layer_idx:
+            attn = attn / float(self.layer_idx + 1)
+
+        # option
+        # relative position bias
+        attn = attn + self.rel_pos_bias(attn)  # qk
+
+        # causal attention mask
+        if causal:
+            attn = attn.masked_fill(self.causal_mask, 0.)
+            print("causal_mask", self.causal_mask.shape)
+            print("attn", attn.shape)
+
+        if attention_mask is not None:
+            attn = attn + attention_mask
+
+        attn = self.attn_fn(attn) ** 2
+        attn = self.dropout(attn)
+        # print("attn",attn, attn.shape)
+
+        if head_mask is not None:
+            attn = attn * head_mask
+
+        o = torch.einsum('...nm,...me -> ...ne', attn, v)  # o
+        return o, attn
+
+    def forward(self,
+                x: Optional[Tuple[torch.FloatTensor]],
+                attention_mask: Optional[torch.FloatTensor] = None,
+                head_mask: Optional[torch.FloatTensor] = None,
+                output_attentions: Optional[bool] = False,
+                layer_past: Optional[Tuple[torch.Tensor]] = None,
+                use_cache: Optional[bool] = True,
+                causal: Optional[bool] = True,
+                add_residual: Optional[bool] = False,
+                ) -> Tuple[Union[torch.Tensor, Tuple[torch.Tensor]], ...]:
+        v = self.v_layer(x)
+        gate = self.gate_layer(x)
+        # same as v, gate = to_hidden_layer(x).chunk(2,dim=-1)
+        print("v", v.shape)
+        print("gate", gate.shape)
+
+        q, k = self.q_scaleoff(x), self.k_scaleoff(x)
+        print("q", q, q.shape)
+        print("k", k, k.shape)
+
+        o, attn = self._attn(q, k, v, attention_mask, head_mask, causal)
+
+        o = o * gate  # o
+        print("gate", gate.shape)
+        print("o", o.shape)
+
+        o = self.output_layer(o)  # o
+        if add_residual:
+            o = o + x
+
+        print("o", o.shape)
+        if layer_past is not None:
+            past_key, past_value = layer_past
+            k = torch.cat((past_key, k), dim=-2)
+            v = torch.cat((past_value, v), dim=-2)
+
+        if use_cache:
+            present = (k, v)
+        else:
+            present = None
+
+        o = (o, present)
+        if output_attentions:
+            o += (attn,)
+
+        return o  # output, (k,v), attention
+
+
+class GAUBlock(nn.Module):
+    """GAU(FLASH-QUAD) + LayerNorm Layer
+    paper: https://readpaper.com/paper/4594890495981789185
+    Args:
+        config : GPT2Config
+        layer_idx: the index of layer (2 x Attn)
+    Examples:
+        x = torch.randint(low,high,(config.n_head, config.n_positions, config.n_embd),dtype=torch.float) # heads, seq_length, qk_dim
+        x = forward(x)
+    """
+
+    def __init__(self, config, layer_idx=None):
+        super().__init__()
+        self.ln = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_epsilon)
+        self.gau_attn = GatedAttentionUnit(
+            config=config,
+            layer_idx=layer_idx,
+        )
+        # config.n_layer should x 2 to aligned with Attn+FFN in one Block
+
+    def forward(
+        self,
+        hidden_states: Optional[Tuple[torch.FloatTensor]],
+        layer_past: Optional[Tuple[torch.Tensor]] = None,
+        attention_mask: Optional[torch.FloatTensor] = None,
+        head_mask: Optional[torch.FloatTensor] = None,
+        encoder_hidden_states: Optional[torch.Tensor] = None,
+        encoder_attention_mask: Optional[torch.FloatTensor] = None,
+        use_cache: Optional[bool] = False,
+        output_attentions: Optional[bool] = False,
+    ) -> Union[Tuple[torch.Tensor], Optional[Tuple[torch.Tensor, Tuple[torch.FloatTensor, ...]]]]:
+        hidden_states = self.ln(hidden_states)
+        attn_outputs = self.gau_attn(
+            x=hidden_states,
+            attention_mask=attention_mask,
+            head_mask=head_mask,
+            causal=True,
+            add_residual=True,
+            use_cache=use_cache,
+            output_attentions=output_attentions
+        )
+        attn_output = attn_outputs[0]
+        outputs = attn_outputs[1:]
+
+        if use_cache:
+            outputs = (attn_output,) + outputs
+        else:
+            outputs = (attn_output,) + outputs[1:]
+
+        return outputs  # hidden_states, present, (attentions, cross_attentions)
