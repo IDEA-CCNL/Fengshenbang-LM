@@ -16,11 +16,12 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 @Contact :   yangqi@idea.edu.cn
 @License :   (C)Copyright 2022-2023, CCNL-IDEA
 '''
+from fengshen.models.gpt.relative_pos import T5RelativePositionBias
 import torch
 from torch import nn
 from typing import Optional, Tuple, Union
-
-from fengshen.models.gpt.relative_pos import T5RelativePositionBias
+import sys
+sys.path.append("../../../")
 
 
 class ScaleOffset(nn.Module):
@@ -71,14 +72,15 @@ class GatedAttentionUnit(nn.Module):
         self.register_buffer("masked_bias", torch.tensor(-1e4))
 
         self.embed_dim = config.n_embd
-        self.head_dim = config.n_embd // config.n_head  # ? qk_dim cannot find in config, do they equal
-        self.inner_dim = config.n_inner
+        # self.head_dim = config.n_embd // config.n_head # ? qk_dim = 128 default
+        self.head_dim = 128
+        self.inner_dim = config.n_inner  # e = int(d ∗ expansion_factor)
         self.num_heads = config.n_head
 
-        if self.head_dim * self.num_heads != self.embed_dim:
+        if self.inner_dim <= self.embed_dim:
             raise ValueError(
-                f"`embed_dim` must be divisible by num_heads (got `embed_dim`: {self.embed_dim} and `num_heads`:"
-                f" {self.num_heads})."
+                f"`n_inner` must be int(n_embd ∗ expansion_factor) (got `n_embd`: {self.n_embd} and `n_inner`:"
+                f" {self.inner_dim})."
             )
         self.scale_attn_weights = config.scale_attn_weights
         self.scale_attn_by_inverse_layer_idx = config.scale_attn_by_inverse_layer_idx
@@ -86,20 +88,21 @@ class GatedAttentionUnit(nn.Module):
 
         # hidden dim usually 2 x dim
         # init module
-        self.q_scaleoff = ScaleOffset(dim=self.embed_dim)
-        self.k_scaleoff = ScaleOffset(dim=self.embed_dim)  # qk_dim
+        self.q_scaleoff = ScaleOffset(dim=self.head_dim)
+        self.k_scaleoff = ScaleOffset(dim=self.head_dim)  # qk_dim/head_dim
 
         # input_layer = nn.Linear(2, 4) # dim, hidden_dim * 2   the input x to v & gate
         # in flash code they use only 1 layer to generate v and gate and chunk then
         # we use v_layer and gate layer seperately
-        self.v_layer = nn.Linear(self.embed_dim, self.embed_dim)  # dim , dim
-        self.gate_layer = nn.Linear(self.embed_dim, self.embed_dim)
+        self.v_layer = nn.Sequential(nn.Linear(self.embed_dim, self.inner_dim), nn.SiLU())  # dim , dim * expansion factor
+        self.gate_layer = nn.Sequential(nn.Linear(self.embed_dim, self.inner_dim), nn.SiLU())
+        self.input_layer = nn.Sequential(nn.Linear(self.embed_dim, self.head_dim), nn.SiLU())
         # to_hidden_layer = nn.Linear(2,4) split
 
         # similarly, flash code calculate q k together(heads=2) and unbind
         # we use two layer seperately and remove unbind
-        self.qk_layer = nn.Linear(self.embed_dim, self.head_dim)  # dim, qk_dim
-        self.output_layer = nn.Linear(self.embed_dim, self.embed_dim)  # hidden_dim , dim     the concat result to output
+        self.qk_layer = nn.Sequential(nn.Linear(self.embed_dim, self.head_dim), nn.SiLU())  # dim, qk_dim
+        self.output_layer = nn.Linear(self.inner_dim, self.embed_dim)  # hidden_dim , dim     the concat result to output
         self.attn_fn = nn.functional.relu  # activation funcation
         self.rel_pos_bias = T5RelativePositionBias(self.head_dim**0.5, causal=True)
 
@@ -107,8 +110,7 @@ class GatedAttentionUnit(nn.Module):
         self.dropout = nn.Dropout(config.embd_pdrop)  # dropout weight
 
     def _attn(self, q, k, v, attention_mask=None, head_mask=None, causal=True):
-        # nm 维度相乘求和, qk is similarity, qk
-        attn = torch.einsum('...ns,...ms -> ...nm', q, k)
+        attn = torch.einsum('...ns,...ms ->...nm', q, k)
         # print("qk",qk, qk.shape)
 
         # scale
@@ -122,6 +124,126 @@ class GatedAttentionUnit(nn.Module):
             attn = attn / float(self.layer_idx + 1)
 
         # option
+        attn = attn + self.rel_pos_bias(attn)  # qk
+
+        # causal attention mask
+        if causal:
+            attn = attn.masked_fill(self.causal_mask, 0.)
+            print("causal_mask", self.causal_mask.shape)
+            print("attn", attn.shape)
+
+        if attention_mask is not None:
+            attn = attn + attention_mask
+
+        attn = self.attn_fn(attn) ** 2
+        attn = self.dropout(attn)
+        print("attn", attn, attn.shape)
+
+        if head_mask is not None:
+            attn = attn * head_mask
+
+        o = torch.einsum('...nm,...me -> ...ne', attn, v)  # o
+        return o, attn
+
+    def forward(self,
+                x: Optional[Tuple[torch.FloatTensor]],
+                attention_mask: Optional[torch.FloatTensor] = None,
+                head_mask: Optional[torch.FloatTensor] = None,
+                output_attentions: Optional[bool] = False,
+                use_cache: Optional[bool] = True,
+                causal: Optional[bool] = True,
+                add_residual: Optional[bool] = False,
+                ) -> Tuple[Union[torch.Tensor, Tuple[torch.Tensor]], ...]:
+
+        v = self.v_layer(x)
+        gate = self.gate_layer(x)
+        # same as v, gate = to_hidden_layer(x).chunk(2,dim=-1)
+        x = self.input_layer(x)
+
+        q, k = self.q_scaleoff(x), self.k_scaleoff(x)
+
+        o, attn = self._attn(q, k, v, attention_mask, head_mask, causal)
+
+        o = o * gate  # o
+        o = self.output_layer(o)  # o
+        if add_residual:
+            o = o + x
+
+        print("o", o.shape)
+        if use_cache:
+            present = (k, v)
+        else:
+            present = None
+
+        o = (o, present)
+        if output_attentions:
+            o += (attn,)
+
+        return o  # output, (k,v), attention
+
+
+class MixedChunkAttention(nn.Module):
+    def __init__(self, config, layer_idx=None):
+        super().__init__()
+        self.max_positions = config.n_positions
+        self.register_buffer(
+            "causal_mask",
+            torch.ones((self.max_positions, self.max_positions), dtype=torch.bool).triu(1)  # seq_len=4
+        )
+        self.register_buffer("masked_bias", torch.tensor(-1e4))
+
+        self.embed_dim = config.n_embd
+        # self.head_dim = config.n_embd // config.n_head # ? qk_dim = 128 default
+        self.head_dim = 128
+        self.inner_dim = config.n_inner  # e = int(d ∗ expansion_factor)
+        self.num_heads = config.n_head
+
+        if self.inner_dim <= self.embed_dim:
+            raise ValueError(
+                f"`n_inner` must be int(n_embd ∗ expansion_factor) (got `n_embd`: {self.n_embd} and `n_inner`:"
+                f" {self.inner_dim})."
+            )
+        self.scale_attn_weights = config.scale_attn_weights
+        self.scale_attn_by_inverse_layer_idx = config.scale_attn_by_inverse_layer_idx
+        self.layer_idx = layer_idx
+
+        # hidden dim usually 2 x dim
+        # init module
+        self.q_scaleoff = ScaleOffset(dim=self.head_dim)
+        self.k_scaleoff = ScaleOffset(dim=self.head_dim)  # qk_dim/head_dim
+
+        # input_layer = nn.Linear(2, 4) # dim, hidden_dim * 2   the input x to v & gate
+        # in flash code they use only 1 layer to generate v and gate and chunk then
+        # we use v_layer and gate layer seperately
+        self.v_layer = nn.Sequential(nn.Linear(self.embed_dim, self.inner_dim), nn.SiLU())  # dim , dim * expansion factor
+        self.gate_layer = nn.Sequential(nn.Linear(self.embed_dim, self.inner_dim), nn.SiLU())
+        self.input_layer = nn.Sequential(nn.Linear(self.embed_dim, self.head_dim), nn.SiLU())
+        # to_hidden_layer = nn.Linear(2,4) split
+
+        # similarly, flash code calculate q k together(heads=2) and unbind
+        # we use two layer seperately and remove unbind
+        self.qk_layer = nn.Sequential(nn.Linear(self.embed_dim, self.head_dim), nn.SiLU())  # dim, qk_dim
+        self.output_layer = nn.Linear(self.inner_dim, self.embed_dim)  # hidden_dim , dim     the concat result to output
+        self.attn_fn = nn.functional.relu  # activation funcation
+        self.rel_pos_bias = T5RelativePositionBias(self.head_dim**0.5, causal=True)
+
+        # self.norm = nn.LayerNorm(dim) # dim # move to Block
+        self.dropout = nn.Dropout(config.embd_pdrop)  # dropout weight
+
+    def _local_quadratic_attn(self, q, k, v, attention_mask, head_mask, causal=True):
+        """the normal attn in o(n^2) complexity"""
+        attn = torch.einsum('...ns,...ms ->...nm', q, k)
+
+        # scale
+        if self.scale_attn_weights:
+            attn = attn / torch.full(
+                [], v.size(-1) ** 0.5, dtype=attn.dtype, device=attn.device
+            )
+
+        # Layer-wise attention scaling
+        if self.scale_attn_by_inverse_layer_idx:
+            attn = attn / float(self.layer_idx + 1)
+
         # relative position bias
         attn = attn + self.rel_pos_bias(attn)  # qk
 
@@ -136,7 +258,7 @@ class GatedAttentionUnit(nn.Module):
 
         attn = self.attn_fn(attn) ** 2
         attn = self.dropout(attn)
-        # print("attn",attn, attn.shape)
+        print("attn", attn, attn.shape)
 
         if head_mask is not None:
             attn = attn * head_mask
@@ -144,12 +266,28 @@ class GatedAttentionUnit(nn.Module):
         o = torch.einsum('...nm,...me -> ...ne', attn, v)  # o
         return o, attn
 
+    def _global_linear_attn(self, q, k, v, causal=True):
+        if causal:
+            attn = torch.einsum('...cs,...ce -> ...se', k, v)
+            attn = torch.cumsum(attn, dim=1) - attn  # tf.cumsum with exclusive=True
+            # todo: segment id
+            o = torch.einsum('...cs,...se -> ...ce', q, attn)
+            return o, attn
+        else:
+            attn = torch.einsum('...cs,...ce -> ...bse', k, v)
+            o = torch.einsum('...gcs,...se -> ...gce', q, attn)
+            return o, attn
+
+    def _attn(self, q, k, v, attention_mask=None, head_mask=None, causal=True):
+        v_quad, attn_quad = self._local_quadratic_attn(q, k, v, attention_mask, head_mask, causal)
+        v_lin, attn_lin = self._global_linear_attn(q, k, v, causal)
+        return v_quad+v_lin, (attn_quad, attn_lin)
+
     def forward(self,
                 x: Optional[Tuple[torch.FloatTensor]],
                 attention_mask: Optional[torch.FloatTensor] = None,
                 head_mask: Optional[torch.FloatTensor] = None,
                 output_attentions: Optional[bool] = False,
-                layer_past: Optional[Tuple[torch.Tensor]] = None,
                 use_cache: Optional[bool] = True,
                 causal: Optional[bool] = True,
                 add_residual: Optional[bool] = False,
@@ -157,29 +295,19 @@ class GatedAttentionUnit(nn.Module):
         v = self.v_layer(x)
         gate = self.gate_layer(x)
         # same as v, gate = to_hidden_layer(x).chunk(2,dim=-1)
-        # print("v", v.shape)
-        # print("gate", gate.shape)
+        x = self.input_layer(x)
 
         q, k = self.q_scaleoff(x), self.k_scaleoff(x)
-        # print("q", q, q.shape)
-        # print("k", k, k.shape)
 
         o, attn = self._attn(q, k, v, attention_mask, head_mask, causal)
 
         o = o * gate  # o
-        # print("gate", gate.shape)
-        # print("o", o.shape)
 
         o = self.output_layer(o)  # o
         if add_residual:
             o = o + x
 
-        # print("o", o.shape)
-        if layer_past is not None:
-            past_key, past_value = layer_past
-            k = torch.cat((past_key, k), dim=-2)
-            v = torch.cat((past_value, v), dim=-2)
-
+        print("o", o.shape)
         if use_cache:
             present = (k, v)
         else:
@@ -187,7 +315,7 @@ class GatedAttentionUnit(nn.Module):
 
         o = (o, present)
         if output_attentions:
-            o += (attn,)
+            o += attn
 
         return o  # output, (k,v), attention
 
