@@ -16,7 +16,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 @Contact :   yangqi@idea.edu.cn
 @License :   (C)Copyright 2022-2023, CCNL-IDEA
 '''
-from fengshen.models.gpt.relative_pos import T5RelativePositionBias
+
+from fengshen.models.gpt.relative_pos import T5RelativePositionBias, RotaryEmbedding
 import torch
 from torch import nn
 from typing import Optional, Tuple, Union
@@ -76,6 +77,7 @@ class GatedAttentionUnit(nn.Module):
         self.head_dim = 128
         self.inner_dim = config.n_inner  # e = int(d ∗ expansion_factor)
         self.num_heads = config.n_head
+        self.pos_embd = config.pos_embd
 
         if self.inner_dim <= self.embed_dim:
             raise ValueError(
@@ -104,10 +106,18 @@ class GatedAttentionUnit(nn.Module):
         self.qk_layer = nn.Sequential(nn.Linear(self.embed_dim, self.head_dim), nn.SiLU())  # dim, qk_dim
         self.output_layer = nn.Linear(self.inner_dim, self.embed_dim)  # hidden_dim , dim     the concat result to output
         self.attn_fn = nn.functional.relu  # activation funcation
-        self.rel_pos_bias = T5RelativePositionBias(self.head_dim**0.5, causal=True)
-
         # self.norm = nn.LayerNorm(dim) # dim # move to Block
-        self.dropout = nn.Dropout(config.embd_pdrop)  # dropout weight
+        self.dropout = nn.Dropout(config.embd_pdrop)
+
+        # relative position embeddings tyle
+        if self.pos_embd == "t5":
+            self.rel_pos_bias = T5RelativePositionBias(self.head_dim**0.5, causal=True)
+        elif self.pos_embd == "rope":
+            self.rotary_embd = RotaryEmbedding(self.num_heads)
+        else:
+            raise ValueError(
+                f"pos embedding style should be in [\"t5\" \"rope\"] but got {self.config.pos_emd}"
+            )
 
     def _attn(self, q, k, v, attention_mask=None, head_mask=None, causal=True):
         attn = torch.einsum('...ns,...ms ->...nm', q, k)
@@ -124,7 +134,8 @@ class GatedAttentionUnit(nn.Module):
             attn = attn / float(self.layer_idx + 1)
 
         # option
-        attn = attn + self.rel_pos_bias(attn)  # qk
+        if self.pos_embd == "t5":
+            attn = attn + self.rel_pos_bias(attn)  # qk
 
         # causal attention mask
         if causal:
@@ -161,11 +172,14 @@ class GatedAttentionUnit(nn.Module):
         x = self.input_layer(x)
 
         q, k = self.q_scaleoff(x), self.k_scaleoff(x)
+        if self.pos_embd == "rope":
+            q, k = self.rotary_embd.rotate_queries_or_keys(q), self.rotary_embd.rotate_queries_or_keys(k)
 
         o, attn = self._attn(q, k, v, attention_mask, head_mask, causal)
 
         o = o * gate  # o
         o = self.output_layer(o)  # o
+
         if add_residual:
             o = o + x
 
@@ -183,6 +197,18 @@ class GatedAttentionUnit(nn.Module):
 
 
 class MixedChunkAttention(nn.Module):
+    """
+    This is a class of Gate Attention Unit (Flash-linear)
+    paper: https://readpaper.com/paper/4594890495981789185
+    Args:
+        config (GPT2Config): special config of gpt2 models with use_gau=True
+        dropout (float): Dropout prob
+        x (tensor,dtype=float): (heads, seq_length, qk_dim)
+    Example:
+        x = torch.randint(0,100,(1, 4, 2), dtype=torch.float) #heads, seq_length, qk_dim
+        x = gau.forward(x)
+    """
+
     def __init__(self, config, layer_idx=None):
         super().__init__()
         self.max_positions = config.n_positions
@@ -197,6 +223,7 @@ class MixedChunkAttention(nn.Module):
         self.head_dim = 128
         self.inner_dim = config.n_inner  # e = int(d ∗ expansion_factor)
         self.num_heads = config.n_head
+        self.pos_embd = config.pos_embd
 
         if self.inner_dim <= self.embed_dim:
             raise ValueError(
@@ -225,10 +252,18 @@ class MixedChunkAttention(nn.Module):
         self.qk_layer = nn.Sequential(nn.Linear(self.embed_dim, self.head_dim), nn.SiLU())  # dim, qk_dim
         self.output_layer = nn.Linear(self.inner_dim, self.embed_dim)  # hidden_dim , dim     the concat result to output
         self.attn_fn = nn.functional.relu  # activation funcation
-        self.rel_pos_bias = T5RelativePositionBias(self.head_dim**0.5, causal=True)
-
         # self.norm = nn.LayerNorm(dim) # dim # move to Block
         self.dropout = nn.Dropout(config.embd_pdrop)  # dropout weight
+
+        # relative position embeddings tyle
+        if self.pos_embd == "t5":
+            self.rel_pos_bias = T5RelativePositionBias(self.head_dim**0.5, causal=True)
+        elif self.pos_embd == "rope":
+            self.rotary_embd = RotaryEmbedding(self.num_heads)
+        else:
+            raise ValueError(
+                f"pos embedding style should be in [\"t5\" \"rope\"] but got {self.config.pos_emd}"
+            )
 
     def _local_quadratic_attn(self, q, k, v, attention_mask, head_mask, causal=True):
         """the normal attn in o(n^2) complexity"""
@@ -278,10 +313,8 @@ class MixedChunkAttention(nn.Module):
             o = torch.einsum('...gcs,...se -> ...gce', q, attn)
             return o, attn
 
-    def _attn(self, q, k, v, attention_mask=None, head_mask=None, causal=True):
-        v_quad, attn_quad = self._local_quadratic_attn(q, k, v, attention_mask, head_mask, causal)
-        v_lin, attn_lin = self._global_linear_attn(q, k, v, causal)
-        return v_quad+v_lin, (attn_quad, attn_lin)
+    def _rope(self, x):
+        return self.rotary_embd.rotate_queries_or_keys(x)
 
     def forward(self,
                 x: Optional[Tuple[torch.FloatTensor]],
@@ -295,21 +328,27 @@ class MixedChunkAttention(nn.Module):
         v = self.v_layer(x)
         gate = self.gate_layer(x)
         # same as v, gate = to_hidden_layer(x).chunk(2,dim=-1)
-        x = self.input_layer(x)
+        x_ = self.input_layer(x)
 
-        q, k = self.q_scaleoff(x), self.k_scaleoff(x)
+        quad_q, quad_k = self.quadq_scaleoff(x_), self.quadk_scaleoff(x_)
+        lin_q, lin_k = self.linq_scaleoff(x_), self.link_scaleoff(x_)
+        if self.pos_embd == "rope":
+            quad_q, quad_k = self._rope(quad_q), self._rope(quad_k)
+            lin_q, lin_k = self._rope(lin_q), self._rope(lin_k)
 
-        o, attn = self._attn(q, k, v, attention_mask, head_mask, causal)
+        v_quad, attn_quad = self._local_quadratic_attn(quad_q, quad_k, v, attention_mask, head_mask, causal)
+        v_lin, attn_lin = self._global_linear_attn(lin_q, lin_k, v, causal)
+        o, attn = v_quad+v_lin, (attn_quad, attn_lin)
 
         o = o * gate  # o
-
         o = self.output_layer(o)  # o
+
         if add_residual:
             o = o + x
+            o = self.dropout(o)
 
-        print("o", o.shape)
         if use_cache:
-            present = (k, v)
+            present = (quad_k, v)
         else:
             present = None
 
@@ -335,10 +374,20 @@ class GAUBlock(nn.Module):
     def __init__(self, config, layer_idx=None):
         super().__init__()
         self.ln = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_epsilon)
-        self.gau_attn = GatedAttentionUnit(
-            config=config,
-            layer_idx=layer_idx,
-        )
+        if config.use_gau == "gau":
+            self.gau_attn = GatedAttentionUnit(
+                config=config,
+                layer_idx=layer_idx,
+            )
+        elif config.use_gau == "flash":
+            self.gau_attn = MixedChunkAttention(
+                config=config,
+                layer_idx=layer_idx
+            )
+        else:
+            raise ValueError(
+                f"config.use_gau should be in [\"gau\",\"flash\"]. got {config.use_gau}"
+            )
         # config.n_layer should x 2 to aligned with Attn+FFN in one Block
 
     def forward(
