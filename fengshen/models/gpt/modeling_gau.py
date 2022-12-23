@@ -107,13 +107,16 @@ class GatedAttentionUnit(nn.Module):
         self.output_layer = nn.Linear(self.inner_dim, self.embed_dim)  # hidden_dim , dim     the concat result to output
         self.attn_fn = nn.functional.relu  # activation funcation
         # self.norm = nn.LayerNorm(dim) # dim # move to Block
-        self.dropout = nn.Dropout(config.embd_pdrop)
+        self.attn_dropout = nn.Dropout(config.attn_pdrop)  # dropout weight
+        self.resi_dropout = nn.Dropout(config.resid_pdrop)
 
         # relative position embeddings tyle
         if self.pos_embd == "t5":
             self.rel_pos_bias = T5RelativePositionBias(self.head_dim**0.5, causal=True)
         elif self.pos_embd == "rope":
             self.rotary_embd = RotaryEmbedding(self.num_heads)
+        elif self.pos_embd == "None":
+            pass
         else:
             raise ValueError(
                 f"pos embedding style should be in [\"t5\" \"rope\"] but got {self.config.pos_emd}"
@@ -147,7 +150,7 @@ class GatedAttentionUnit(nn.Module):
             attn = attn + attention_mask
 
         attn = self.attn_fn(attn) ** 2
-        attn = self.dropout(attn)
+        attn = self.attn_dropout(attn)
         print("attn", attn, attn.shape)
 
         if head_mask is not None:
@@ -182,8 +185,8 @@ class GatedAttentionUnit(nn.Module):
 
         if add_residual:
             o = o + x
+            o = self.resi_dropout(o)
 
-        print("o", o.shape)
         if use_cache:
             present = (k, v)
         else:
@@ -253,13 +256,16 @@ class MixedChunkAttention(nn.Module):
         self.output_layer = nn.Linear(self.inner_dim, self.embed_dim)  # hidden_dim , dim     the concat result to output
         self.attn_fn = nn.functional.relu  # activation funcation
         # self.norm = nn.LayerNorm(dim) # dim # move to Block
-        self.dropout = nn.Dropout(config.embd_pdrop)  # dropout weight
+        self.attn_dropout = nn.Dropout(config.attn_pdrop)  # dropout weight
+        self.resi_dropout = nn.Dropout(config.resid_pdrop)
 
         # relative position embeddings tyle
         if self.pos_embd == "t5":
             self.rel_pos_bias = T5RelativePositionBias(self.head_dim**0.5, causal=True)
         elif self.pos_embd == "rope":
             self.rotary_embd = RotaryEmbedding(self.num_heads)
+        elif self.pos_embd == "None":
+            pass
         else:
             raise ValueError(
                 f"pos embedding style should be in [\"t5\" \"rope\"] but got {self.config.pos_emd}"
@@ -279,8 +285,8 @@ class MixedChunkAttention(nn.Module):
         if self.scale_attn_by_inverse_layer_idx:
             attn = attn / float(self.layer_idx + 1)
 
-        # relative position bias
-        attn = attn + self.rel_pos_bias(attn)  # qk
+        if self.pos_embd == "t5":
+            attn = attn + self.rel_pos_bias(attn)  # qk
 
         # causal attention mask
         if causal:
@@ -292,7 +298,7 @@ class MixedChunkAttention(nn.Module):
             attn = attn + attention_mask
 
         attn = self.attn_fn(attn) ** 2
-        attn = self.dropout(attn)
+        attn = self.attn_dropout(attn)
         print("attn", attn, attn.shape)
 
         if head_mask is not None:
@@ -345,7 +351,7 @@ class MixedChunkAttention(nn.Module):
 
         if add_residual:
             o = o + x
-            o = self.dropout(o)
+            o = self.resi_dropout(o)
 
         if use_cache:
             present = (quad_k, v)

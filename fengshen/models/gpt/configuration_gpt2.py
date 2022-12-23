@@ -102,8 +102,12 @@ class GPT2Config(PretrainedConfig):
             Scale attention weights by dividing by sqrt(hidden_size)..
         use_cache (:obj:`bool`, `optional`, defaults to :obj:`True`):
             Whether or not the model should return the last key/values attentions (not used by all models).
-        use_gau (:obj:`bool`, `optional`, defaults to :obj:`True`):
+        use_gau (:obj:`bool`, `optional`, defaults to :obj:`None`):
             Whether or not use the Gated Attention Unit rather than Attention.
+        gau_type (:obj: `str`, `optional`, defaults to :obj:"quad"):
+            Which type of gau to use (GatedAttention only or MixedChunkAttention).
+        pos_embd (:obj: `str`, `optional`, defaults to :obj:"rope"):
+            Which type of relative position embedding to use, t5 or rope.
         scale_attn_by_inverse_layer_idx (:obj:`bool`, `optional`, defaults to :obj:`False`):
             Whether to additionally scale attention weights by ``1 / layer_idx + 1``.
         reorder_and_upcast_attn (:obj:`bool`, `optional`, defaults to :obj:`False`):
@@ -151,6 +155,8 @@ class GPT2Config(PretrainedConfig):
         scale_attn_weights=True,
         use_cache=True,
         use_gau=False,  # use gated attention unit
+        gau_type="quad",  # use gau (flash-quad)
+        pos_embd="rope",  # use relative position embedding
         bos_token_id=50256,
         eos_token_id=50256,
         scale_attn_by_inverse_layer_idx=False,
@@ -184,6 +190,8 @@ class GPT2Config(PretrainedConfig):
         self.eos_token_id = eos_token_id
 
         self.use_gau = use_gau
+        self.gau_type = gau_type
+        self.pos_embd = pos_embd
 
         super().__init__(bos_token_id=bos_token_id, eos_token_id=eos_token_id, **kwargs)
 
