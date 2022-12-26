@@ -13,19 +13,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Image/Text processor class for TaiYi-CLIP
+Image/Text processor class for Taiyi-CLIP
 """
 from transformers.processing_utils import ProcessorMixin
 from transformers.tokenization_utils_base import BatchEncoding
 
 
-class TaiYiCLIPProcessor(ProcessorMixin):
+class TaiyiCLIPProcessor(ProcessorMixin):
     r"""
-    Constructs a TaiYi-CLIP processor which wraps a TaiYi-CLIP feature extractor and a TaiYi-CLIP tokenizer into
+    Constructs a Taiyi-CLIP processor which wraps a Taiyi-CLIP feature extractor and a Taiyi-CLIP tokenizer into
     a single processor.
 
-    [`TaiYiCLIPProcessor`] offers all the functionalities of [`CLIPFeatureExtractor`] and
-    [`BertTokenizerFast`]. See the [`~TaiYiCLIPProcessor.__call__`] and [`~TaiYiCLIPProcessor.decode`] for more
+    [`TaiyiCLIPProcessor`] offers all the functionalities of [`CLIPFeatureExtractor`] and
+    [`BertTokenizerFast`]. See the [`~TaiyiCLIPProcessor.__call__`] and [`~TaiyiCLIPProcessor.decode`] for more
     information.
 
     Args:

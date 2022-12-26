@@ -14,6 +14,7 @@
 # limitations under the License.
 """ CLIP model configuration"""
 
+# from transformers import MegatronBertConfig as BertConfig
 from transformers.models.bert.configuration_bert import BertConfig
 from transformers.models.clip.configuration_clip import CLIPVisionConfig
 import copy
@@ -33,7 +34,7 @@ from transformers.utils import logging
 logger = logging.get_logger(__name__)
 
 
-class TaiYiCLIPConfig(PretrainedConfig):
+class TaiyiCLIPConfig(PretrainedConfig):
     r"""
     [`CLIPConfig`] is the configuration class to store the configuration of a [`CLIPModel`]. It is used to instantiate
     CLIP model according to the specified arguments, defining the text model and vision model configs. Instantiating a
