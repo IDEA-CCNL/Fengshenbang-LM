@@ -6,8 +6,8 @@ from pytorch_lightning.callbacks import (
     LearningRateMonitor,
 )
 from fengshen.models.clip import (
-    TaiYiCLIPModel,
-    TaiYiCLIPProcessor,
+    TaiyiCLIPModel,
+    TaiyiCLIPProcessor,
 )
 from fengshen.models.model_utils import (
     add_module_args,
@@ -22,30 +22,44 @@ from fengshen.data.universal_datamodule import UniversalDataModule
 from fengshen.data.taiyi_stable_diffusion_datasets.taiyi_datasets import add_data_args, load_data
 from fengshen.utils.universal_checkpoint import UniversalCheckpoint
 import os
-from PIL import Image
+import numpy as np
+from torchvision.transforms import Normalize, Compose, RandomResizedCrop, InterpolationMode, ToTensor
+
+OPENAI_DATASET_MEAN = (0.48145466, 0.4578275, 0.40821073)
+OPENAI_DATASET_STD = (0.26862954, 0.26130258, 0.27577711)
 
 
 class Collator():
-    def __init__(self, processor):
+    def __init__(self, args, processor):
         self.processor = processor
+        self.seq_length = args.seq_length
+        self.transforms = Compose([
+            ToTensor(),
+            RandomResizedCrop(args.resolution, scale=(0.9, 1.0),
+                              interpolation=InterpolationMode.BICUBIC),
+            Normalize(mean=OPENAI_DATASET_MEAN, std=OPENAI_DATASET_STD),
+        ])
 
     def __call__(self, inputs):
-        max_length = min(77, max([len(i['caption']) for i in inputs]))
+        max_length = min(self.seq_length, max([len(i['caption']) for i in inputs]))
         images = []
         texts = []
         labels = []
         for i in inputs:
-            instance_image = Image.open(i['img_path'])
-            images.append(instance_image)
+            # instance_image = Image.open(i['img_path'])
+            # instance_image = jpeg4py.JPEG(i['img_path']).decode()
+            instance_image = np.load(i['npy_path'])
+            images.append(self.transforms(instance_image))
             texts.append(i['caption'])
             labels.append(i['labels'] if 'labels' in i else -100)
-        images_input = self.processor(images=images, return_tensors="pt")
+        # images_input = self.processor(images=images, return_tensors="pt")
         texts_input = self.processor(text=texts,
                                      max_length=max_length,
                                      padding='max_length',
                                      truncation=True,
                                      return_tensors='pt')
-        return images_input, texts_input, labels
+        # return images_input, texts_input, labels
+        return {'pixel_values': torch.stack(images)}, texts_input, labels
 
 
 class TaiyiCLIP(LightningModule):
@@ -53,6 +67,7 @@ class TaiyiCLIP(LightningModule):
     def add_module_specific_args(parent_parser):
         parser = parent_parser.add_argument_group('Taiyi CLIP')
         parser.add_argument('--loss_type', choices=['local', 'global'], default='local')
+        parser.add_argument('--seq_length', default=77)
         parser.add_argument('--gather_with_grad', default=False, action='store_true')
         parser.add_argument('--freeze_image_tower', default=False, action='store_true')
         return parent_parser
@@ -61,8 +76,8 @@ class TaiyiCLIP(LightningModule):
         super().__init__()
         self.save_hyperparameters(args)
 
-        self.model = TaiYiCLIPModel.from_pretrained(args.model_path)
-        self.processor = TaiYiCLIPProcessor.from_pretrained(args.model_path)
+        self.model = TaiyiCLIPModel.from_pretrained(args.model_path)
+        self.processor = TaiyiCLIPProcessor.from_pretrained(args.model_path)
 
         self.local_loss = args.loss_type == 'local'
 
@@ -97,34 +112,41 @@ class TaiyiCLIP(LightningModule):
 
         return image_features, text_features, self.model.logit_scale.exp()
 
-    def gather_features(self, image_features, text_features):
-        all_image_features = self.all_gather(
-            image_features, sync_grads=self.hparams.gather_with_grad)
-        all_text_features = self.all_gather(
-            text_features, sync_grads=self.hparams.gather_with_grad)
+    def gather_features(self, features):
+        if self.trainer.world_size == 1:
+            return features
+        all_features = self.all_gather(
+            features, sync_grads=self.hparams.gather_with_grad)
         if not self.local_loss and not self.gather_with_grad:
             # 如果是全局loss，并且不需要梯度，需要把梯度更新回tensor
-            all_image_features[self.global_rank] = image_features
-            all_text_features[self.global_rank] = text_features
-        all_image_features = all_image_features.view(-1, all_image_features.shape[-1])
-        all_text_features = all_text_features.view(-1, all_text_features.shape[-1])
-        return all_image_features, all_text_features
+            all_features[self.global_rank] = features
+        all_features = all_features.view(-1, all_features.shape[-1])
+        return all_features
 
     def clip_loss(self, image_features, text_features, logit_scale):
-        if self.trainer.world_size > 1:
-            all_image_features, all_text_features = self.gather_features(
-                image_features, text_features)
-            if self.local_loss:
-                logits_per_image = logit_scale * image_features @ all_text_features.T
-                logits_per_text = logit_scale * text_features @ all_image_features.T
-            else:
-                logits_per_image = logit_scale * all_image_features @ all_text_features.T
-                logits_per_text = logits_per_image.T
-        else:
-            logits_per_image = logit_scale * image_features @ text_features.T
-            logits_per_text = logit_scale * text_features @ image_features.T
 
-        num_logits = logits_per_image.shape[0]
+        logits_per_image = None
+
+        # 如果我冻住VIT并且是local_loss，那么我只需要自己的这部分text feature就行
+        # 因为根本不需要image2text的feature训练VIT
+        if self.hparams.freeze_image_tower and self.local_loss:
+            all_text_features = None
+        else:
+            all_text_features = self.gather_features(
+                text_features)
+        all_image_features = self.gather_features(
+            image_features)
+
+        if self.local_loss:
+            if all_text_features is not None:
+                logits_per_image = logit_scale * image_features @ all_text_features.T
+            logits_per_text = logit_scale * text_features @ all_image_features.T
+        else:
+            # 如果是global_loss，那all_text_features肯定不是空的
+            logits_per_image = logit_scale * all_image_features @ all_text_features.T
+            logits_per_text = logits_per_image.T
+
+        num_logits = logits_per_text.shape[0]
         if self.prev_num_logits != num_logits or self.device not in self.labels:
             labels = torch.arange(num_logits, device=self.device, dtype=torch.long)
             if self.trainer.world_size > 1 and self.local_loss:
@@ -138,7 +160,7 @@ class TaiyiCLIP(LightningModule):
         total_loss = (
             F.cross_entropy(logits_per_image, labels) +
             F.cross_entropy(logits_per_text, labels)
-        ) / 2
+        ) / 2 if logits_per_image is not None else F.cross_entropy(logits_per_text, labels)
         return total_loss
 
     def training_step(self, batch):
@@ -270,7 +292,7 @@ if __name__ == '__main__':
 
     model = TaiyiCLIP(args)
     processor = model.processor
-    collate_fn = Collator(processor)
+    collate_fn = Collator(args, processor)
     datasets = load_data(args, global_rank=trainer.global_rank)
 
     # 加载单个验证集：！！！验证代码有效性临时这样干的，验证完有效性会删除

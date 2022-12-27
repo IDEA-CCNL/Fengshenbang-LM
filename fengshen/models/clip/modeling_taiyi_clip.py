@@ -16,16 +16,18 @@ from transformers.models.clip.modeling_clip import (
     clip_loss,
 )
 from typing import Optional, Tuple, Union
+# from transformers import MegatronBertConfig as BertConfig
+# from transformers import MegatronBertModel as BertModel
 from transformers.models.bert.modeling_bert import BertModel
 from transformers.models.bert.configuration_bert import BertConfig
-from .configuration_taiyi_clip import TaiYiCLIPConfig
+from .configuration_taiyi_clip import TaiyiCLIPConfig
 
 
 @add_start_docstrings(CLIP_START_DOCSTRING)
-class TaiYiCLIPModel(CLIPPreTrainedModel):
-    config_class = TaiYiCLIPConfig
+class TaiyiCLIPModel(CLIPPreTrainedModel):
+    config_class = TaiyiCLIPConfig
 
-    def __init__(self, config: TaiYiCLIPConfig):
+    def __init__(self, config: TaiyiCLIPConfig):
         super().__init__(config)
 
         if not isinstance(config.text_config, BertConfig):
@@ -101,7 +103,8 @@ class TaiYiCLIPModel(CLIPPreTrainedModel):
             return_dict=return_dict,
         )
 
-        pooled_output = text_outputs[1]
+        # pooled_output = text_outputs[1]
+        pooled_output = text_outputs[0][:, 0, :]
         text_features = self.text_projection(pooled_output)
 
         return text_features
