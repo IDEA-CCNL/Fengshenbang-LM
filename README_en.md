@@ -8,7 +8,7 @@
 
 
 <h4 align="center">
-  <a href=#Installation> Installation </a> |
+  <a href=##Installation> Installation </a> |
   <a href=https://huggingface.co/IDEA-CCNL> Model Downloads </a> |
   <a href=https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples> Code Example </a> |
   <a href=https://fengshenbang-doc.readthedocs.io/zh/latest> Docs </a> |
