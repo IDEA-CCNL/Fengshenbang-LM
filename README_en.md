@@ -1,5 +1,23 @@
 [**中文**](./README.md) | [**English**](./README_en.md)
 
+<p align="center">
+    <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache%202-dfd.svg"></a>
+    <a href=""><img src="https://img.shields.io/badge/python-3.7+-aff.svg"></a>
+    <a href=""><img src="https://img.shields.io/badge/os-linux%2C%20win%2C%20mac-pink.svg"></a>
+</p>
+
+
+<h4 align="center">
+  <a href=#Installation> Installation </a> |
+  <a href=https://huggingface.co/IDEA-CCNL> Model Downloads </a> |
+  <a href=https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples> Code Example </a> |
+  <a href=https://fengshenbang-doc.readthedocs.io/zh/latest> Docs </a> |
+  <a href=https://fengshenbang-lm.com> Fengshenbang Website </a> |
+  <a href=https://fengshenbang-lm.com/open-api> API </a> |
+</h4>
+
+------------------------------------------------------------------------------------------
+
 # Fengshenbang Achievements
 
 > [**Fengshenbang 1.0**](https://arxiv.org/abs/2209.02970): Fengshenbang1.0 bilingual general paper, aims to be the Foundation of Chinese Cognitive Intelligence.
