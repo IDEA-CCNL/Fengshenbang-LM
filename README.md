@@ -13,7 +13,7 @@
   <a href=https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples> 代码示例 </a> |
   <a href=https://fengshenbang-doc.readthedocs.io/zh/latest> 模型文档 </a> |
   <a href=https://fengshenbang-lm.com> 封神榜官网 </a> |
-  <a href=https://fengshenbang-lm.com/open-api> 封神API </a> |
+  <a href=https://fengshenbang-lm.com/open-api> 封神API </a>
 </h4>
 
 ------------------------------------------------------------------------------------------
