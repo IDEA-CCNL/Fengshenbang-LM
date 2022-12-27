@@ -15,8 +15,8 @@ from fengshen.models.model_utils import (
     get_total_steps,
 )
 from fengshen.utils.universal_checkpoint import UniversalCheckpoint
-from transformers import BertTokenizer, BertModel
-from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionPipeline, UNet2DConditionModel
+from transformers import BertTokenizer, BertModel, CLIPTokenizer, CLIPTextModel
+from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionPipeline, UNet2DConditionModel, EulerDiscreteScheduler, DDIMScheduler
 from torch.nn import functional as F
 from fengshen.data.taiyi_stable_diffusion_datasets.taiyi_datasets import add_data_args, load_data
 from torchvision import transforms
@@ -63,31 +63,62 @@ class StableDiffusion(LightningModule):
     def add_module_specific_args(parent_parser):
         parser = parent_parser.add_argument_group('Taiyi Stable Diffusion Module')
         parser.add_argument('--freeze_unet', action='store_true', default=False)
+        parser.add_argument('--text_model_path',  default=None)
         parser.add_argument('--freeze_text_encoder', action='store_true', default=False)
+        parser.add_argument('--use_local_token', action='store_true', default=False)
+        parser.add_argument('--use_local_unet', action='store_true', default=False)
         return parent_parser
 
     def __init__(self, args):
         super().__init__()
-        self.tokenizer = BertTokenizer.from_pretrained(
-            args.model_path, subfolder="tokenizer")
-        self.text_encoder = BertModel.from_pretrained(
-            args.model_path, subfolder="text_encoder")  # load from taiyi_finetune-v0
-        self.vae = AutoencoderKL.from_pretrained(
-            args.model_path, subfolder="vae")
-        self.unet = UNet2DConditionModel.from_pretrained(
-            args.model_path, subfolder="unet")
-        # TODO: 使用xformers配合deepspeed速度反而有下降(待确认
-        self.unet.set_use_memory_efficient_attention_xformers(False)
+        # if not args.use_local_token:
+        #     self.tokenizer = CLIPTokenizer.from_pretrained(
+        #         args.model_path, subfolder='tokenizer')
+        #     self.text_encoder = CLIPTextModel.from_pretrained(
+        #         args.model_path, subfolder='text_encoder')
+        # else:
+        #     # self.tokenizer = BertTokenizer.from_pretrained(
+        #     #     args.text_model_path+'/tokenizer')
+        #     # self.text_encoder = BertModel.from_pretrained(
+        #     #     args.text_model_path+'/text_encoder')  # load from taiyi_finetune-v0
+        #     self.tokenizer = CLIPTokenizer.from_pretrained(
+        #         args.model_path+'/tokenizer')
+        #     self.text_encoder = CLIPTextModel.from_pretrained(
+        #         args.model_path+'/text_encoder')
+        #     with open("/cognitive_comp/lixiayu/pretrained_model/roberta-base/vocab.txt") as fin:
+        #         input_lines = fin.readlines()
+        #     input_tokens = []
+        #     for line in input_lines[669:]:
+        #         input_tokens.append(line.strip('\n'))
+        #     self.tokenizer.add_tokens(input_tokens)
+        #     self.text_encoder.resize_token_embeddings(len(self.tokenizer))
 
-        self.noise_scheduler = DDPMScheduler(
-            beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000
-        )
+        # if not args.use_local_unet:
+        #     self.vae = AutoencoderKL.from_pretrained(
+        #         args.model_path, subfolder='vae')
+        #     self.unet = UNet2DConditionModel.from_pretrained(
+        #         args.model_path, subfolder='unet')
+        # else: 
+        #     self.vae = AutoencoderKL.from_pretrained(
+        #         args.model_path+'/vae',)
+        #     self.unet = UNet2DConditionModel.from_pretrained(
+        #         args.model_path+'/unet',)
+
+        self.pipeline = StableDiffusionPipeline.from_pretrained(args.model_path)
+
+        self.tokenizer = self.pipeline.tokenzier
+        self.text_encoder = self.pipeline.text_encoder
+        self.vae = self.pipeline.vae
+        self.unet = self.pipeline.unet
+        self.noise_scheduler = self.pipeline.scheduler
+
+        self.pipeline.set_use_memory_efficient_attention_xformers(True)
 
         for param in self.vae.parameters():
             param.requires_grad = False
 
         if args.freeze_text_encoder:
-            for param in self.unet.parameters():
+            for param in self.text_encoder.parameters():
                 param.requires_grad = False
 
         if args.freeze_unet:
@@ -124,13 +155,20 @@ class StableDiffusion(LightningModule):
         noisy_latents = self.noise_scheduler.add_noise(latents, noise, timesteps)
         noisy_latents = noisy_latents.to(dtype=self.unet.dtype)
 
+        if self.noise_scheduler.config.prediction_type == "epsilon":
+            target = noise
+        elif self.noise_scheduler.config.prediction_type == "v_prediction":
+            target = self.noise_scheduler.get_velocity(latents, noise, timesteps)
+        else:
+            raise ValueError(f"Unknow precition type {self.noise_scheduler.config.prediction_type}")
+
         # Get the text embedding for conditioning
         encoder_hidden_states = self.text_encoder(batch["input_ids"])[0]
 
         # Predict the noise residual
-        noise_pred = self.unet(noisy_latents, timesteps, encoder_hidden_states).sample
+        model_pred = self.unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
-        loss = F.mse_loss(noise_pred, noise, reduction="none").mean([1, 2, 3]).mean()
+        loss = F.mse_loss(model_pred.float, target.float(), reduction="mean")
         self.log("train_loss", loss.item(),  on_epoch=False, prog_bar=True, logger=True)
 
         if self.trainer.global_rank == 0 and self.global_step == 100:
