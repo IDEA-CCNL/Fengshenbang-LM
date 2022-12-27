@@ -1,5 +1,23 @@
 [**中文**](./README.md) | [**English**](./README_en.md)
 
+<p align="center">
+    <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache%202-dfd.svg"></a>
+    <a href=""><img src="https://img.shields.io/badge/python-3.7+-aff.svg"></a>
+    <a href=""><img src="https://img.shields.io/badge/os-linux%2C%20win%2C%20mac-pink.svg"></a>
+</p>
+
+
+<h4 align="center">
+  <a href=#安装> 环境安装 </a> |
+  <a href=https://huggingface.co/IDEA-CCNL> 模型下载 </a> |
+  <a href=https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples> 代码示例 </a> |
+  <a href=https://fengshenbang-doc.readthedocs.io/zh/latest> 模型文档 </a> |
+  <a href=https://fengshenbang-lm.com> 封神榜官网 </a> |
+  <a href=https://fengshenbang-lm.com/open-api> 封神API </a> |
+</h4>
+
+------------------------------------------------------------------------------------------
+
 # 封神榜科技成果
 > [**Fengshenbang 1.0**](https://arxiv.org/abs/2209.02970): 封神榜开源计划1.0中英双语总论文，旨在成为中文认知智能的基础设施。
  
