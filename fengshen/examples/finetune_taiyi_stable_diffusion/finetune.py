@@ -59,7 +59,10 @@ class StableDiffusion(LightningModule):
     def add_module_specific_args(parent_parser):
         parser = parent_parser.add_argument_group('Taiyi Stable Diffusion Module')
         parser.add_argument('--freeze_unet', action='store_true', default=False)
+        parser.add_argument('--text_model_path',  default=None)
         parser.add_argument('--freeze_text_encoder', action='store_true', default=False)
+        parser.add_argument('--use_local_token', action='store_true', default=False)
+        parser.add_argument('--use_local_unet', action='store_true', default=False)
         return parent_parser
 
     def __init__(self, args):
@@ -79,7 +82,7 @@ class StableDiffusion(LightningModule):
             param.requires_grad = False
 
         if args.freeze_text_encoder:
-            for param in self.unet.parameters():
+            for param in self.text_encoder.parameters():
                 param.requires_grad = False
 
         if args.freeze_unet:
