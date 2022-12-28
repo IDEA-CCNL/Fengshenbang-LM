@@ -20,6 +20,7 @@ from torch.nn import functional as F
 from torchvision import transforms
 from fengshen.data.taiyi_stable_diffusion_datasets.taiyi_datasets import add_data_args, load_data
 import numpy as np
+from PIL import Image
 
 
 class Collator():
@@ -41,7 +42,12 @@ class Collator():
         images = []
         texts = []
         for i in inputs:
-            instance_image = np.load(i['npy_path'])
+            if 'npy_path' in i:
+                instance_image = np.load(i['npy_path'])
+            elif 'img_path' in i:
+                instance_image = Image.open(i['img_path'])
+            else:
+                raise ValueError('no img path in samples')
             images.append(self.image_transforms(instance_image))
             texts.append(i['caption'])
         text_inputs = self.tokenizer(text=texts,
