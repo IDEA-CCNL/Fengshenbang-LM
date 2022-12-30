@@ -129,7 +129,7 @@ class UniversalDataModule(LightningDataModule):
         )
 
     def test_dataloader(self):
-        ds = self.datasets[self.hparams.test_datasets_field],
+        ds = self.datasets[self.hparams.test_datasets_field]
 
         collate_fn = self.collate_fn
         if collate_fn is None and hasattr(ds, 'collater'):
@@ -140,6 +140,25 @@ class UniversalDataModule(LightningDataModule):
             batch_size=self.hparams.test_batchsize,
             shuffle=False,
             num_workers=self.hparams.dataloader_workers,
+            collate_fn=collate_fn,
+            sampler=DistributedSampler(
+                ds, shuffle=False),
+            pin_memory=True,
+        )
+
+    def predict_dataloader(self):
+        ds = self.datasets[self.hparams.test_datasets_field]
+        # print(ds)
+
+        collate_fn = self.collate_fn
+        if collate_fn is None and hasattr(ds, 'collater'):
+            collate_fn = ds.collater
+
+        return DataLoader(
+            ds,
+            batch_size=self.hparams.test_batchsize,
+            shuffle=False,
+            num_workers=self.hparams.num_workers,
             collate_fn=collate_fn,
             sampler=DistributedSampler(
                 ds, shuffle=False),

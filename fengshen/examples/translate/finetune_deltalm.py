@@ -1,30 +1,35 @@
-#!/usr/bin/env python
+# !/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from typing import List
-from pytorch_lightning.callbacks import LearningRateMonitor
-from pytorch_lightning import Trainer, loggers, LightningModule
-from fengshen.data.universal_datamodule import UniversalDataModule
-from fengshen.utils import UniversalCheckpoint
-from fengshen.models.deltalm.modeling_deltalm import DeltalmForConditionalGeneration
-from fengshen.models.deltalm.tokenizer_deltalm import DeltalmTokenizer
-from fengshen.models.model_utils import add_module_args, add_inverse_square_args
-from sacrebleu.metrics import BLEU
-from pytorch_lightning.utilities import rank_zero_info
-import logging
-import os
-import torch
-import argparse
-import json
 import pandas as pd
+import json
+import argparse
+import torch
+import os
+import logging
+# from transformers import MBartForConditionalGeneration, MBart50TokenizerFast
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+# from pytorch_lightning.callbacks.early_stopping import EarlyStopping
+from pytorch_lightning.utilities import rank_zero_info
+from sacrebleu.metrics import BLEU
+from fengshen.utils.utils import chinese_char_tokenize
+from fengshen.models.model_utils import add_module_args, add_inverse_square_args
+from fengshen.models.deltalm.tokenizer_deltalm import DeltalmTokenizer
+from fengshen.models.deltalm.modeling_deltalm import DeltalmForConditionalGeneration
+from fengshen.utils import UniversalCheckpoint
+from fengshen.data.universal_datamodule import UniversalDataModule
+from pytorch_lightning import Trainer, loggers, LightningModule
+from pytorch_lightning.callbacks import LearningRateMonitor
+from mosestokenizer import MosesDetokenizer
+from typing import List
 import sys
 sys.path.append('../../../')
 
-# import sentencepiece
 
+mose_decode = MosesDetokenizer()
 
+# os.environ["CUDA_VISIBLE_DEVICES"] = '4'
 logger = logging.getLogger(__name__)
-
 
 EVAL_BLEU_ORDER = 4
 
@@ -53,26 +58,13 @@ def calc_bleu_from_stats(sentence_stats: pd.DataFrame) -> BLEU:
 
 
 def label_smoothed_nll_loss(lprobs, target, epsilon, ignore_index=None, reduce=True):
-    # logger.debug("before target.dim() == lprobs.dim(): ", target.dim(), lprobs.dim())
     if target.dim() == lprobs.dim() - 1:
         target = target.unsqueeze(-1)
-    # logger.debug("After target.dim() == lprobs.dim(): ", target.dim(), lprobs.dim())
+    # logger.debug("Debug: After target.dim() == lprobs.dim(): ", target.dim(), lprobs.dim())
     nll_loss = -lprobs.gather(dim=-1, index=target)
     smooth_loss = -lprobs.sum(dim=-1, keepdim=True)
-    # if -100 in taget
-    # logger.debug("nll_loss: ", nll_loss)
-    # logger.debug("smooth_loss: ", smooth_loss)
-    # logger.debug("************** nll_loss ***************")
-    # logger.debug(nll_loss)
-    # logger.debug("************** smooth_loss ***************")
-    # logger.debug(smooth_loss)
     if ignore_index is not None:
         pad_mask = target.eq(ignore_index)
-        # logger.debug("******************** pad_mask **********************")
-        # logger.debug(pad_mask)
-        # logger.debug("pad_mask.size: ", pad_mask.size())
-        logger.debug(f"ori_nll_loss: {nll_loss.sum()}")
-        logger.debug(f"ori_smooth_loss: {smooth_loss.sum()}")
         nll_loss.masked_fill_(pad_mask, 0.0)
         smooth_loss.masked_fill_(pad_mask, 0.0)
     else:
@@ -81,37 +73,33 @@ def label_smoothed_nll_loss(lprobs, target, epsilon, ignore_index=None, reduce=T
     if reduce:
         nll_loss = nll_loss.sum()
         smooth_loss = smooth_loss.sum()
-    logger.debug("nll_loss.sum: %f", nll_loss)
-    logger.debug("smooth_loss.sum: %f", smooth_loss)
     eps_i = epsilon / (lprobs.size(-1) - 1)
-    # logger.debug("epsilon: ", epsilon)
-    # logger.debug("eps_i: ", eps_i)
-    # logger.debug("lprobs.size(-1): ",lprobs.size(-1))
-    logger.debug("ignore_index: %d", ignore_index)
-    # logger.debug(target)
-    logger.debug("target.size: %s", target.size())
     valid_length = target.ne(ignore_index).sum()
-    unvalid_length = target.eq(ignore_index).sum()
-    logger.debug("%d, %d", valid_length.item(), unvalid_length.item())
+    # unvalid_length = target.eq(ignore_index).sum()
     loss = ((1.0 - epsilon - eps_i) * nll_loss + eps_i * smooth_loss) / valid_length.item()
-    # logger.debug("loss: ", loss)
 
     return loss, nll_loss
 
 
 class DataCollator:
-    def __init__(self, model, tokenizer, max_enc_length, max_dec_length):
+    def __init__(self, model, tokenizer, max_enc_length, max_dec_length, reverse_src_tgt):
         self.tokenizer = tokenizer
         self.max_enc_length = max_enc_length
         self.max_dec_length = max_dec_length
         self.model = model
+        self.reverse_src_tgt = reverse_src_tgt
 
     def __call__(self, batch_samples):
-        # logger.debug("samples: ", samples)
         batch_inputs, batch_targets = [], []
         for sample in batch_samples:
-            batch_inputs.append(sample["src"])
-            batch_targets.append(sample["tgt"])
+            if self.reverse_src_tgt:
+                if "tgt" in sample and len(sample["tgt"]) != 0:
+                    batch_inputs.append(sample["tgt"])
+                    batch_targets.append(sample["src"])
+            else:
+                if "src" in sample and len(sample["src"]) != 0:
+                    batch_inputs.append(sample["src"])
+                    batch_targets.append(sample["tgt"])
         batch_data = self.tokenizer(
             batch_inputs,
             padding=True,
@@ -127,14 +115,11 @@ class DataCollator:
                 truncation=True,
                 return_tensors="pt"
             )["input_ids"]
-            # batch_data['decoder_input_ids'] = self.model.prepare_decoder_input_ids_from_labels(labels)
-            # end_token_index = torch.where(labels == self.tokenizer.eos_token_id)[1]
-            # for idx, end_idx in enumerate(end_token_index):
-            #     labels[idx][end_idx+1:] = -100
+            batch_data['decoder_input_ids'] = self.model.prepare_decoder_input_ids_from_labels(labels)
             batch_data['labels'] = labels
 
-        batch_data['src'] = [sample['src'] for sample in batch_samples]
-        batch_data['tgt'] = [sample['tgt'] for sample in batch_samples]
+        batch_data['src'] = batch_inputs
+        batch_data['tgt'] = batch_targets
 
         # logger.debug(batch_data)
         return batch_data
@@ -152,8 +137,10 @@ class FinetuneTranslation(LightningModule):
         super().__init__()
         self.args = args
         self.save_hyperparameters(args)
-        self.model = DeltalmForConditionalGeneration.from_pretrained(args.model_path)
-        logger.debug("model.num_parameters: %d", self.model.num_parameters())
+        if args.other_model:
+            self.model = AutoModelForSeq2SeqLM.from_pretrained(args.model_path)
+        else:
+            self.model = DeltalmForConditionalGeneration.from_pretrained(args.model_path, ignore_mismatched_sizes=True)
         self.tokenizer = tokenizer
         assert self.tokenizer, "tokenizer is None!"
         self.blue_metric = BLEU()
@@ -165,8 +152,7 @@ class FinetuneTranslation(LightningModule):
 
     def setup(self, stage) -> None:
         if stage == 'fit':
-            train_loader = self.trainer._data_connector._train_dataloader_source.dataloader(
-            )
+            train_loader = self.trainer._data_connector._train_dataloader_source.dataloader()
 
             # Calculate total steps
             tb_size = self.hparams.train_batchsize * max(1, self.trainer.gpus)
@@ -174,7 +160,6 @@ class FinetuneTranslation(LightningModule):
                 self.trainer.max_epochs)
             self.total_steps = (len(train_loader.dataset) //
                                 tb_size) // ab_size
-            logger.debug('Total training step: %d', self.total_steps)
 
     def configure_optimizers(self):
         # if self.args.use_default_configure:
@@ -186,37 +171,18 @@ class FinetuneTranslation(LightningModule):
             output = self.model(input_ids=batch['input_ids'],
                                 attention_mask=batch['attention_mask'],
                                 labels=batch['labels'])
-            # logger.debug("******************* output *******************")
-            # logger.debug(output)
-            # logger.debug("batch_logits size: ", output["logits"].size())
-            # logger.debug("batch_label size: ", batch['labels'].size())
 
             self.log('train_loss', output.loss, sync_dist=True)
             return output.loss
 
         # TODO label_smoothing should be implemented at here
         else:
-            # logger.debug("label_smoothing: ", self.label_smoothing)
-            logger.debug("******************* before poped labels **************")
-            logger.debug(batch["labels"])
-            logger.debug("before_poped_labe size: %s", batch["labels"].size())
-            # labels = batch.pop('labels')
             labels = batch["labels"]
-            # logger.debug("******* labels **********")
-            # logger.debug("labels.size: ", bels.size())
             output = self.model(input_ids=batch['input_ids'],
                                 attention_mask=batch['attention_mask'],
-                                labels=batch["labels"],
-                                use_cache=False)
+                                decoder_input_ids=batch['decoder_input_ids'])
 
-            logger.debug("output is dict: %d", isinstance(output, dict))
             logits = output["logits"]
-            logger.debug("******************* output *******************")
-            logger.debug(output)
-            logger.debug("batch_logits size: %s", output["logits"].size())
-            logger.debug("batch_label size: %s", labels.size())
-            logger.debug(labels)
-            # logger.debug("logits.size: ", logits.size())
             m = torch.nn.LogSoftmax(dim=-1)
             lprobs = m(logits.float())
             loss, _ = self.loss_fn(lprobs.view(-1, lprobs.size(-1)), labels.view(-1),
@@ -227,9 +193,14 @@ class FinetuneTranslation(LightningModule):
     def comput_metrix(self, logits, labels):
         y_pred = torch.argmax(logits, dim=-1)
         y_pred = y_pred.view(size=(-1, ))
-        y_true = labels.view(size=(-1, )).float()
-        corr = torch.eq(y_pred, y_true)
-        acc = torch.sum(corr.float()) / labels.size()[0]
+
+        y_true = labels.view(size=(-1, ))
+        pad_mask = y_true.eq(1)
+        valid_length = y_true.ne(1).sum()
+
+        corr = torch.eq(y_pred, y_true.float())
+        corr.masked_fill_(pad_mask, 0.0)
+        acc = torch.sum(corr.float()) / valid_length
         return acc
 
     def get_sufficient_stats(self, translations: List[str], references: List[str]) -> pd.DataFrame:
@@ -268,22 +239,27 @@ class FinetuneTranslation(LightningModule):
             self.trainer._accelerator_connector.cluster_environment.
             global_rank(), ext)
         if os.path.exists(file_path_rank):
-            logger.debug('rm {}'.format(file_path_rank))
+            # logger.debug('rm {}'.format(file_path_rank))
             os.remove(file_path_rank)
 
     def validation_step(self, batch, batch_idx):
 
-        def postprocess_text(preds, labels):
-            # preds = [pred.strip() for pred in preds]
-            preds = list(map(lambda x: x.strip(), preds))
-            labels = list(map(lambda x: x.strip(), labels))
-            # labels = [[label.strip()] for label in labels]
-
+        def postprocess_text(preds, labels, tgt_zh):
+            if tgt_zh:
+                preds = [pred.strip() for pred in preds]
+                labels = [label.strip() for label in labels]
+            else:
+                preds = list(map(lambda x: mose_decode(x.strip().split()), preds))
+                labels = list(map(lambda x: mose_decode(x.strip().split()), labels))
             return preds, labels
 
+        tmp_label = batch['labels']
+        end_token_index = torch.where(tmp_label == self.tokenizer.eos_token_id)[1]
+        for idx, end_idx in enumerate(end_token_index):
+            tmp_label[idx][end_idx+1:] = -100
         output = self.model(input_ids=batch['input_ids'],
                             attention_mask=batch['attention_mask'],
-                            labels=batch['labels'])
+                            labels=tmp_label)
         generated_ids = self.model.generate(
             input_ids=batch['input_ids'],
             attention_mask=batch['attention_mask'],
@@ -293,11 +269,11 @@ class FinetuneTranslation(LightningModule):
                                             skip_special_tokens=True)
         labels = torch.where(batch['labels'] != -100, batch['labels'],
                              self.tokenizer.pad_token_id)
+
         labels = self.tokenizer.batch_decode(labels,
                                              skip_special_tokens=True)
 
-        decoded_preds, decoded_labels = postprocess_text(preds, labels)
-
+        decoded_preds, decoded_labels = postprocess_text(preds, labels, self.args.tgt_zh)
         # save preds for every rank
         prefix, ext = os.path.splitext(self.hparams.output_save_path)
         file_path_rank = '{}_{}{}'.format(
@@ -307,15 +283,19 @@ class FinetuneTranslation(LightningModule):
         self.save_prediction_to_file(preds=decoded_preds,
                                      sources=batch['src'],
                                      targets=decoded_labels,
+                                     ori_target=batch['tgt'],
                                      file_path=file_path_rank)
 
-        self.get_sufficient_stats(decoded_preds, decoded_labels)
-
+        if self.args.tgt_zh:
+            new_preds = [chinese_char_tokenize(p) for p in decoded_preds]
+            new_labels = [chinese_char_tokenize(label) for label in decoded_labels]
+            self.get_sufficient_stats(new_preds, new_labels)
+        else:
+            self.get_sufficient_stats(decoded_preds, decoded_labels)
         # batch_bleu = self.blue_metric.corpus_score(decoded_preds, [decoded_labels]).score
         acc = self.comput_metrix(output.logits, batch['labels'])
         self.log('val_loss', output.loss, sync_dist=True)
         self.log('val_acc', acc, sync_dist=True)
-        # self.log('valid_batch_bleu', round(batch_bleu, 2), sync_dist=True)
 
     def validation_epoch_end(self, outputs):
         rank_zero_info("***** Validation results *****")
@@ -336,10 +316,8 @@ class FinetuneTranslation(LightningModule):
         )
 
         computed_bleu = calc_bleu_from_stats(sentence_states)
-        # logger.debug(self.sufficient_stats)
-        logger.debug("computed_bleu: %s", computed_bleu)
-        rank_zero_info("valid_sacrebleu_epoch_computed= {}\n".format(computed_bleu.score))
-        self.log('valid_sacrebleu_epoch_computed', computed_bleu.score, sync_dist=True)
+        rank_zero_info("valid_sacrebleu= {}\n".format(computed_bleu.score))
+        self.log('valid_sacrebleu', computed_bleu.score, sync_dist=True)
         self.sufficient_stats = []
 
     def on_save_checkpoint(self, checkpoint) -> None:
@@ -351,7 +329,7 @@ class FinetuneTranslation(LightningModule):
                     'finetuned_epoch{}_step{}'.format(
                         checkpoint['epoch'], checkpoint['global_step'])))
 
-    def save_prediction_to_file(self, preds, sources, targets, file_path):
+    def save_prediction_to_file(self, preds, sources, targets, ori_target, file_path):
         with open(file_path, 'a', encoding='utf-8') as f:
             for idx, pred in enumerate(preds):
                 source = sources[idx]
@@ -360,8 +338,28 @@ class FinetuneTranslation(LightningModule):
                 tmp_result['pred'] = pred
                 tmp_result['source'] = source
                 tmp_result['label'] = target
+                tmp_result['ori_label'] = ori_target[idx]
                 json_data = json.dumps(tmp_result, ensure_ascii=False)
                 f.write(json_data + '\n')
+
+    def predict_step(self, batch, batch_idx):
+        # print(batch)
+        texts = batch['src']
+        # output summary and metrics
+        self.model.eval()
+        generated_ids = self.model.generate(
+            input_ids=batch['input_ids'],
+            attention_mask=batch['attention_mask'],
+            max_length=self.hparams.max_dec_length
+        )
+        preds = self.tokenizer.batch_decode(generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+
+        labels = torch.where(batch['labels'] != -100, batch['labels'],
+                             self.tokenizer.pad_token_id)
+        labels = self.tokenizer.batch_decode(
+            labels, skip_special_tokens=True, clean_up_tokenization_spaces=True)
+
+        self.save_prediction_to_file(preds, texts, labels, self.hparams.output_save_path)
 
 
 def configure_logger(logging_lever=logging.INFO):
@@ -378,6 +376,15 @@ def main():
     args_parser.add_argument('--do_eval_only',
                              action='store_true',
                              default=False)
+    args_parser.add_argument('--other_model',
+                             action='store_true',
+                             default=False)
+    args_parser.add_argument('--reverse_src_tgt',
+                             action='store_true',
+                             default=False)
+    args_parser.add_argument('--tgt_zh',
+                             action='store_true',
+                             default=False)
     args_parser.add_argument('--early_stopping_callback',
                              action='store_true',
                              default=False)
@@ -385,7 +392,7 @@ def main():
                              default='facebook/mbart',
                              type=str)
     args_parser.add_argument('--output_save_path',
-                             default='./predict.json',
+                             default='predict.json',
                              type=str)
     args_parser.add_argument('--max_enc_length', default=512, type=int)
     args_parser.add_argument('--max_dec_length', default=512, type=int)
@@ -402,11 +409,17 @@ def main():
 
     args = args_parser.parse_args()
 
-    tokenizer = DeltalmTokenizer.from_pretrained(args.model_path)
+    if args.other_model:
+        tokenizer = AutoTokenizer.from_pretrained(args.model_path)
+    else:
+        tokenizer = DeltalmTokenizer.from_pretrained(args.model_path)
+    # tokenizer = AutoTokenizer.from_pretrained(args.model_path)
+    print("tokenizer vocab size: ", tokenizer.vocab_size)
     model = FinetuneTranslation(args, tokenizer)
-    collator = DataCollator(model.model, tokenizer, args.max_enc_length, args.max_dec_length)
+    collator = DataCollator(model.model, tokenizer, args.max_enc_length, args.max_dec_length, args.reverse_src_tgt)
     data_model = UniversalDataModule(tokenizer=tokenizer,
                                      args=args,
+                                     #  datasets=dataset,
                                      collate_fn=collator)
 
     lr_monitor = LearningRateMonitor(logging_interval='step')
@@ -420,6 +433,7 @@ def main():
             save_dir=os.path.join(args.default_root_dir, 'logs/'),
             name=os.path.basename(os.path.dirname(args.model_path)))
         checkpoint_callback = UniversalCheckpoint(args).callbacks
+        # early_stop = EarlyStopping(monitor=args.monitor, mode=args.mode)
         trainer = Trainer.from_argparse_args(
             args, logger=tensorboard_logger, callbacks=[lr_monitor, checkpoint_callback])
         trainer.fit(model, data_model)
