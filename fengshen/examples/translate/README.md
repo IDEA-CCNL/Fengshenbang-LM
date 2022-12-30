@@ -8,10 +8,11 @@
 ### 目标格式
 需要将翻译的源语言和目标语言转换到一个文件中，格式如下：
 src为源语言，tgt为目标语言，每一行都是一个json格式
->{"src": "und was menschliche gesundheit ist , kann auch ziemlich kompliziert sein .", "tgt": "and it can be a very complicated thing , what human health is ."}    
->{"src": "nun , warum spielt das eine rolle für die menschliche gesundheit ?", "tgt": "now why does that matter for human health ?"}    
->{"src": "das ist ein bild der cannery row von 1932 .", "tgt": "this is a shot of cannery row in 1932 ."}
-
+'''
+{"src": "und was menschliche gesundheit ist , kann auch ziemlich kompliziert sein .", "tgt": "and it can be a very complicated thing , what human health is ."}    
+{"src": "nun , warum spielt das eine rolle für die menschliche gesundheit ?", "tgt": "now why does that matter for human health ?"}    
+{"src": "das ist ein bild der cannery row von 1932 .", "tgt": "this is a shot of cannery row in 1932 ."}
+'''
 ### 处理脚本
 
 目前的finetue数据主要是通过deltalm的提供的实现，通过脚本转换成封神数据格式
