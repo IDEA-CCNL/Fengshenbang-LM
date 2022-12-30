@@ -129,7 +129,7 @@ def main():
     print('TaskT5DataModel load end {}'.format(get_time_str()))
     if not args.do_eval_only:
         model = MT5FinetuneModel(args)
-        checkpoint_callback = UniversalCheckpoint(args).callbacks
+        checkpoint_callback = UniversalCheckpoint(args)
         lr_monitor = LearningRateMonitor(logging_interval='step')
         logger = loggers.TensorBoardLogger(save_dir=os.path.join(
             args.default_root_dir, 'logs/'))

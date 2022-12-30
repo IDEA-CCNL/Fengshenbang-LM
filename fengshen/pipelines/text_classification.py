@@ -183,6 +183,8 @@ class TextClassificationPipeline(HuggingfacePipe):
             c.max_length = self.args.max_length
         self.collator = c
         device = -1 if args is None else args.device
+        print(device)
+        print(kwargs)
         super().__init__(model=self.model,
                          tokenizer=self.tokenizer,
                          framework='pt',
@@ -200,7 +202,7 @@ class TextClassificationPipeline(HuggingfacePipe):
                 train: Dataset()
             }
         """
-        checkpoint_callback = UniversalCheckpoint(self.args).callbacks
+        checkpoint_callback = UniversalCheckpoint(self.args)
         trainer = pl.Trainer.from_argparse_args(self.args,
                                                 callbacks=[checkpoint_callback]
                                                 )

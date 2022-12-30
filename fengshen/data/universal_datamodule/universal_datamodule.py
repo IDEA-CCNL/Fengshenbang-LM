@@ -22,13 +22,17 @@ class UniversalDataModule(LightningDataModule):
         parser = parent_args.add_argument_group('Universal DataModule')
         parser.add_argument('--num_workers', default=8, type=int)
         parser.add_argument('--dataloader_workers', default=2, type=int)
-        parser.add_argument('--train_batchsize', default=32, type=int)
-        parser.add_argument('--val_batchsize', default=32, type=int)
-        parser.add_argument('--test_batchsize', default=32, type=int)
+        parser.add_argument('--train_batchsize', default=16, type=int)
+        parser.add_argument('--val_batchsize', default=16, type=int)
+        parser.add_argument('--test_batchsize', default=16, type=int)
         parser.add_argument('--datasets_name', type=str, default=None)
         parser.add_argument('--train_datasets_field', type=str, default='train')
         parser.add_argument('--val_datasets_field', type=str, default='validation')
         parser.add_argument('--test_datasets_field', type=str, default='test')
+        parser.add_argument('--train_file', type=str, default=None)
+        parser.add_argument('--val_file', type=str, default=None)
+        parser.add_argument('--test_file', type=str, default=None)
+        parser.add_argument('--raw_file_type', type=str, default='json')
         parser.add_argument('--sampler_type', type=str,
                             choices=['single',
                                      'random'],
@@ -45,14 +49,24 @@ class UniversalDataModule(LightningDataModule):
     ):
         super().__init__()
         # 如果不传入datasets的名字，则可以在对象外部替换内部的datasets为模型需要的
-        if datasets is None:
+        if datasets is not None:
+            self.datasets = datasets
+        elif args.datasets_name is not None:
             from fengshen.data.fs_datasets import load_dataset
-            print('---------begin to load datasets {}'.format(args.datasets_name), flush=True)
+            print('---------begin to load datasets {}'.format(args.datasets_name))
             self.datasets = load_dataset(
                 args.datasets_name, num_proc=args.num_workers)
             print('---------ending load datasets {}'.format(args.datasets_name))
         else:
-            self.datasets = datasets
+            print('---------begin to load datasets from local file')
+            from datasets import load_dataset
+            self.datasets = load_dataset(args.raw_file_type,
+                                         data_files={
+                                             args.train_datasets_field: args.train_file,
+                                             args.val_datasets_field: args.val_file,
+                                             args.test_datasets_field: args.test_file})
+            print('---------end to load datasets from local file')
+
         self.tokenizer = tokenizer
         self.collate_fn = collate_fn
         self.save_hyperparameters(args)
@@ -92,8 +106,8 @@ class UniversalDataModule(LightningDataModule):
         ds = self.datasets[self.hparams.train_datasets_field]
 
         collate_fn = self.collate_fn
-        if collate_fn is None and hasattr(ds, 'collater'):
-            collate_fn = ds.collater
+        if hasattr(ds, 'collate_fn'):
+            collate_fn = ds.collate_fn
 
         if self.hparams.replace_sampler_ddp is False:
             return DataLoader(
@@ -106,7 +120,7 @@ class UniversalDataModule(LightningDataModule):
         return DataLoader(
             ds,
             batch_size=self.hparams.train_batchsize,
-            num_workers=self.hparams.num_workers,
+            num_workers=self.hparams.dataloader_workers,
             collate_fn=collate_fn,
             pin_memory=True,
         )
@@ -114,19 +128,23 @@ class UniversalDataModule(LightningDataModule):
     def val_dataloader(self):
         ds = self.datasets[self.hparams.val_datasets_field]
         collate_fn = self.collate_fn
-        if collate_fn is None and hasattr(ds, 'collater'):
-            collate_fn = ds.collater
+        if hasattr(ds, 'collate_fn'):
+            collate_fn = ds.collate_fn
 
         return DataLoader(
             ds,
             batch_size=self.hparams.val_batchsize,
             shuffle=False,
-            num_workers=self.hparams.num_workers,
+            num_workers=self.hparams.dataloader_workers,
             collate_fn=collate_fn,
             sampler=DistributedSampler(
                 ds, shuffle=False),
             pin_memory=True,
         )
+
+        # return DataLoader(
+        #     ds, shuffle=False, batch_size=self.hparams.val_batchsize, pin_memory=False, collate_fn=collate_fn,
+        # )
 
     def test_dataloader(self):
         ds = self.datasets[self.hparams.test_datasets_field]

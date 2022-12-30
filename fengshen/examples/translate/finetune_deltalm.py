@@ -1,34 +1,33 @@
 # !/usr/bin/env python
 # -*- coding: utf-8 -*-
-
-import pandas as pd
-import json
-import argparse
-import torch
-import os
-import logging
-# from transformers import MBartForConditionalGeneration, MBart50TokenizerFast
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-# from pytorch_lightning.callbacks.early_stopping import EarlyStopping
-from pytorch_lightning.utilities import rank_zero_info
-from sacrebleu.metrics import BLEU
-from fengshen.utils.utils import chinese_char_tokenize
-from fengshen.models.model_utils import add_module_args, add_inverse_square_args
-from fengshen.models.deltalm.tokenizer_deltalm import DeltalmTokenizer
-from fengshen.models.deltalm.modeling_deltalm import DeltalmForConditionalGeneration
-from fengshen.utils import UniversalCheckpoint
-from fengshen.data.universal_datamodule import UniversalDataModule
-from pytorch_lightning import Trainer, loggers, LightningModule
-from pytorch_lightning.callbacks import LearningRateMonitor
-from mosestokenizer import MosesDetokenizer
 from typing import List
+from mosestokenizer import MosesDetokenizer
+from pytorch_lightning.callbacks import LearningRateMonitor
+from pytorch_lightning import Trainer, loggers, LightningModule
+from fengshen.data.universal_datamodule import UniversalDataModule
+from fengshen.utils import UniversalCheckpoint
+from fengshen.models.deltalm.modeling_deltalm import DeltalmForConditionalGeneration
+from fengshen.models.deltalm.tokenizer_deltalm import DeltalmTokenizer
+from fengshen.models.model_utils import add_module_args, add_inverse_square_args
+from fengshen.utils.utils import chinese_char_tokenize
+from sacrebleu.metrics import BLEU
+from pytorch_lightning.utilities import rank_zero_info
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import logging
+import os
+import torch
+import argparse
+import json
+import pandas as pd
 import sys
 sys.path.append('../../../')
+# from transformers import MBartForConditionalGeneration, MBart50TokenizerFast
+# from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
 
 mose_decode = MosesDetokenizer()
 
-# os.environ["CUDA_VISIBLE_DEVICES"] = '4'
+os.environ["CUDA_VISIBLE_DEVICES"] = '4'
 logger = logging.getLogger(__name__)
 
 EVAL_BLEU_ORDER = 4
@@ -433,7 +432,7 @@ def main():
         tensorboard_logger = loggers.TensorBoardLogger(
             save_dir=os.path.join(args.default_root_dir, 'logs/'),
             name=os.path.basename(os.path.dirname(args.model_path)))
-        checkpoint_callback = UniversalCheckpoint(args).callbacks
+        checkpoint_callback = UniversalCheckpoint(args)
         # early_stop = EarlyStopping(monitor=args.monitor, mode=args.mode)
         trainer = Trainer.from_argparse_args(
             args, logger=tensorboard_logger, callbacks=[lr_monitor, checkpoint_callback])
@@ -441,8 +440,8 @@ def main():
 
     else:
         trainer = Trainer.from_argparse_args(args)
-        # trainer.validate(model, data_model)
-        trainer.predict(model, data_model)
+        trainer.validate(model, data_model)
+        # trainer.predict(model, data_model)
 
 
 if __name__ == '__main__':

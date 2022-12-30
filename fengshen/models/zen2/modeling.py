@@ -40,13 +40,19 @@ import copy
 import logging
 import math
 import os
+import sys
+
+sys.path.append("/cognitive_comp/lujunyu/TMP/Fengshenbang-LM")
 
 import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss
 from dataclasses import dataclass
 from typing import Optional
+from dataclasses import dataclass
+from typing import List, Optional, Tuple, Union
 from transformers import PreTrainedModel
+from transformers.utils import ModelOutput
 
 from fengshen.models.zen2.configuration_zen2 import ZenConfig
 
@@ -89,6 +95,66 @@ PRETRAINED_CONFIG_ARCHIVE_MAP = {
 BERT_CONFIG_NAME = 'bert_config.json'
 TF_WEIGHTS_NAME = 'model.ckpt'
 
+@dataclass
+class BertForPreTrainingOutput(ModelOutput):
+    """
+    Output type of [`BertForPreTraining`].
+
+    Args:
+        loss (*optional*, returned when `labels` is provided, `torch.FloatTensor` of shape `(1,)`):
+            Total loss as the sum of the masked language modeling loss and the next sequence prediction
+            (classification) loss.
+        prediction_logits (`torch.FloatTensor` of shape `(batch_size, sequence_length, config.vocab_size)`):
+            Prediction scores of the language modeling head (scores for each vocabulary token before SoftMax).
+        seq_relationship_logits (`torch.FloatTensor` of shape `(batch_size, 2)`):
+            Prediction scores of the next sequence prediction (classification) head (scores of True/False continuation
+            before SoftMax).
+        hidden_states (`tuple(torch.FloatTensor)`, *optional*, returned when `output_hidden_states=True` is passed or when `config.output_hidden_states=True`):
+            Tuple of `torch.FloatTensor` (one for the output of the embeddings + one for the output of each layer) of
+            shape `(batch_size, sequence_length, hidden_size)`.
+
+            Hidden-states of the model at the output of each layer plus the initial embedding outputs.
+        attentions (`tuple(torch.FloatTensor)`, *optional*, returned when `output_attentions=True` is passed or when `config.output_attentions=True`):
+            Tuple of `torch.FloatTensor` (one for each layer) of shape `(batch_size, num_heads, sequence_length,
+            sequence_length)`.
+
+            Attentions weights after the attention softmax, used to compute the weighted average in the self-attention
+            heads.
+    """
+
+    loss: Optional[torch.FloatTensor] = None
+    prediction_logits: torch.FloatTensor = None
+    seq_relationship_logits: torch.FloatTensor = None
+    hidden_states: Optional[Tuple[torch.FloatTensor]] = None
+    attentions: Optional[Tuple[torch.FloatTensor]] = None
+
+@dataclass
+class MaskedLMOutput(ModelOutput):
+    """
+    Base class for masked language models outputs.
+
+    Args:
+        loss (`torch.FloatTensor` of shape `(1,)`, *optional*, returned when `labels` is provided):
+            Masked language modeling (MLM) loss.
+        logits (`torch.FloatTensor` of shape `(batch_size, sequence_length, config.vocab_size)`):
+            Prediction scores of the language modeling head (scores for each vocabulary token before SoftMax).
+        hidden_states (`tuple(torch.FloatTensor)`, *optional*, returned when `output_hidden_states=True` is passed or when `config.output_hidden_states=True`):
+            Tuple of `torch.FloatTensor` (one for the output of the embeddings, if the model has an embedding layer, +
+            one for the output of each layer) of shape `(batch_size, sequence_length, hidden_size)`.
+
+            Hidden-states of the model at the output of each layer plus the optional initial embedding outputs.
+        attentions (`tuple(torch.FloatTensor)`, *optional*, returned when `output_attentions=True` is passed or when `config.output_attentions=True`):
+            Tuple of `torch.FloatTensor` (one for each layer) of shape `(batch_size, num_heads, sequence_length,
+            sequence_length)`.
+
+            Attentions weights after the attention softmax, used to compute the weighted average in the self-attention
+            heads.
+    """
+
+    loss: Optional[torch.FloatTensor] = None
+    logits: torch.FloatTensor = None
+    hidden_states: Optional[Tuple[torch.FloatTensor]] = None
+    attentions: Optional[Tuple[torch.FloatTensor]] = None
 
 def prune_linear_layer(layer, index, dim=0):
     """ Prune a linear layer (a model parameters) to keep only entries in index.
@@ -888,6 +954,7 @@ class ZenForPreTraining(ZenPreTrainedModel):
                 ngram_attention_mask=None,
                 masked_lm_labels=None,
                 next_sentence_label=None, head_mask=None):
+        
         outputs = self.bert(input_ids,
                             input_ngram_ids,
                             ngram_position_matrix,
@@ -896,18 +963,20 @@ class ZenForPreTraining(ZenPreTrainedModel):
                             attention_mask,
                             ngram_attention_mask,
                             output_all_encoded_layers=False, head_mask=head_mask)
+        
         if self.output_attentions:
             all_attentions, sequence_output, pooled_output = outputs
         else:
             sequence_output, pooled_output = outputs
         prediction_scores, seq_relationship_score = self.cls(sequence_output, pooled_output)
-
+        
         if masked_lm_labels is not None and next_sentence_label is not None:
-            loss_fct = CrossEntropyLoss(ignore_index=-1)
+            loss_fct = CrossEntropyLoss()
             masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), masked_lm_labels.view(-1))
             next_sentence_loss = loss_fct(seq_relationship_score.view(-1, 2), next_sentence_label.view(-1))
             total_loss = masked_lm_loss + next_sentence_loss
-            return total_loss
+
+            return BertForPreTrainingOutput(loss=total_loss,prediction_logits=prediction_scores)
         elif self.output_attentions:
             return all_attentions, prediction_scores, seq_relationship_score
         return prediction_scores, seq_relationship_score
@@ -963,8 +1032,8 @@ class ZenForMaskedLM(ZenPreTrainedModel):
         self.cls = ZenOnlyMLMHead(config, self.bert.embeddings.word_embeddings.weight)
         self.init_weights()
 
-    def forward(self, input_ids, input_ngram_ids, ngram_position_matrix, token_type_ids=None, attention_mask=None, masked_lm_labels=None, head_mask=None):
-        outputs = self.bert(input_ids, input_ngram_ids, ngram_position_matrix, token_type_ids, attention_mask,
+    def forward(self, input_ids, input_ngram_ids, ngram_position_matrix, token_type_ids=None, attention_mask=None, ngram_attention_mask=None, masked_lm_labels=None, head_mask=None):
+        outputs = self.bert(input_ids, input_ngram_ids, ngram_position_matrix, token_type_ids, None, attention_mask, ngram_attention_mask,
                             output_all_encoded_layers=False,
                             head_mask=head_mask)
         if self.output_attentions:
@@ -976,10 +1045,10 @@ class ZenForMaskedLM(ZenPreTrainedModel):
         if masked_lm_labels is not None:
             loss_fct = CrossEntropyLoss(ignore_index=-1)
             masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), masked_lm_labels.view(-1))
-            return masked_lm_loss
+            return MaskedLMOutput(loss=masked_lm_loss,logits=prediction_scores)
         elif self.output_attentions:
             return all_attentions, prediction_scores
-        return prediction_scores
+        return MaskedLMOutput(loss=masked_lm_loss,logits=prediction_scores)
 
 
 class ZenForNextSentencePrediction(ZenPreTrainedModel):
