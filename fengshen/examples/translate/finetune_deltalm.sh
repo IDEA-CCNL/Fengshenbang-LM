@@ -13,7 +13,7 @@ echo "START TIME: $(date)"
 
 MODEL_NAME=deltalm_en_zh
 MICRO_BATCH_SIZE=16
-ROOT_DIR=/cognitive_comp/dongxiaoqun/finetune/${MODEL_NAME}
+ROOT_DIR=/home/dongxiaoqun/finetune/${MODEL_NAME}
 
 
 if [ ! -d ${ROOT_DIR} ];then

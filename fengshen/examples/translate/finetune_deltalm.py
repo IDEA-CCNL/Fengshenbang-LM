@@ -102,7 +102,7 @@ class DataCollator:
                     batch_targets.append(sample["tgt"])
         batch_data = self.tokenizer(
             batch_inputs,
-            padding=True,
+            padding='max_length',
             max_length=self.max_enc_length,
             truncation=True,
             return_tensors="pt"
@@ -110,9 +110,9 @@ class DataCollator:
         with self.tokenizer.as_target_tokenizer():
             labels = self.tokenizer(
                 batch_targets,
-                padding=True,
+                padding='max_length',
                 max_length=self.max_dec_length,
-                truncation=True,
+                truncation=False,
                 return_tensors="pt"
             )["input_ids"]
             batch_data['decoder_input_ids'] = self.model.prepare_decoder_input_ids_from_labels(labels)
@@ -146,6 +146,7 @@ class FinetuneTranslation(LightningModule):
         self.blue_metric = BLEU()
         self.sufficient_stats: List[List[int]] = []
         self.label_smoothing = self.args.label_smoothing
+        self.mose_decode = MosesDetokenizer()
 
         if self.args.label_smoothing != 0:
             self.loss_fn = label_smoothed_nll_loss
@@ -440,7 +441,8 @@ def main():
 
     else:
         trainer = Trainer.from_argparse_args(args)
-        trainer.validate(model, data_model)
+        # trainer.validate(model, data_model)
+        trainer.predict(model, data_model)
 
 
 if __name__ == '__main__':
