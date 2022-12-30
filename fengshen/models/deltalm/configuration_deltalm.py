@@ -115,6 +115,7 @@ class DeltalmConfig(PretrainedConfig):
         forced_eos_token_id=2,
         label_smoothing=0.1,
         length_penalty=1.0,
+        encoder_normalize_before=False,
         **kwargs
     ):
         self.vocab_size = vocab_size
@@ -138,6 +139,7 @@ class DeltalmConfig(PretrainedConfig):
         self.num_hidden_layers = encoder_layers
         self.scale_embedding = scale_embedding  # scale factor will be sqrt(d_model) if True
         self.label_smoothing = label_smoothing
+        self.encoder_normalize_before = encoder_normalize_before
 
         super().__init__(
             num_labels=num_labels,

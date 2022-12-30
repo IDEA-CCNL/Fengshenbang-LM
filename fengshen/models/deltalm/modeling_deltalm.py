@@ -31,14 +31,12 @@ import logging
 from .configuration_deltalm import DeltalmConfig
 logger = logging.getLogger(__name__)
 
-_CHECKPOINT_FOR_DOC = "IDEA/Deltalm"
+_CHECKPOINT_FOR_DOC = "IDEA-CCNL/Randeng-Deltalm-362M-En-Zn"
 _CONFIG_FOR_DOC = "DeltalmConfig"
 _TOKENIZER_FOR_DOC = "DeltalmTokenizer"
 
 # Base model docstring
 _EXPECTED_OUTPUT_SHAPE = [1, 8, 768]
-
-# logger = logging.getLogger("finetune_deltalm.modeling")
 
 
 def shift_tokens_right(input_ids: torch.Tensor, pad_token_id: int, decoder_start_token_id: int):
@@ -472,175 +470,6 @@ class DeltalmPretrainedModel(PreTrainedModel):
             module.gradient_checkpointing = value
 
 
-# class DeltalmEncoder(DeltalmPretrainedModel):
-#     """
-#     Transformer encoder consisting of *config.encoder_layers* self attention layers. Each layer is a
-#     [`DeltalmEncoderLayer`].
-#     Args:
-#         config: DeltalmConfig
-#         embed_tokens (nn.Embedding): output embedding
-#     """
-
-#     def __init__(self, config: DeltalmConfig, embed_tokens: Optional[nn.Embedding] = None):
-#         super().__init__(config)
-
-#         self.dropout = config.dropout
-#         self.layerdrop = config.encoder_layerdrop
-
-#         embed_dim = config.d_model
-#         self.padding_idx = config.pad_token_id
-#         self.max_source_positions = config.max_position_embeddings
-#         self.embed_scale = math.sqrt(embed_dim) if config.scale_embedding else 1.0
-
-#         if embed_tokens is not None:
-#             self.embed_tokens = embed_tokens
-#         else:
-#             self.embed_tokens = nn.Embedding(config.vocab_size, embed_dim, self.padding_idx)
-
-#         self.embed_positions = DeltalmLearnedPositionalEmbedding(
-#             config.max_position_embeddings,
-#             embed_dim,
-#         )
-#         self.layers = nn.ModuleList([DeltalmEncoderLayer(config) for _ in range(config.encoder_layers)])
-#         self.layernorm_embedding = nn.LayerNorm(embed_dim)
-
-#         self.gradient_checkpointing = False
-#         # Initialize weights and apply final processing
-#         self.post_init()
-
-#     def get_input_embeddings(self):
-#         return self.embed_tokens
-
-#     def set_input_embeddings(self, value):
-#         self.embed_tokens = value
-
-#     def forward(
-#         self,
-#         input_ids: torch.LongTensor = None,
-#         attention_mask: Optional[torch.Tensor] = None,
-#         head_mask: Optional[torch.Tensor] = None,
-#         inputs_embeds: Optional[torch.FloatTensor] = None,
-#         output_attentions: Optional[bool] = None,
-#         output_hidden_states: Optional[bool] = None,
-#         return_dict: Optional[bool] = None,
-#     ) -> Union[Tuple, BaseModelOutput]:
-#         r"""
-#         Args:
-#             input_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
-#                 Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you
-#                 provide it.
-#                 Indices can be obtained using [`DeltalmTokenizer`]. See [`PreTrainedTokenizer.encode`] and
-#                 [`PreTrainedTokenizer.__call__`] for details.
-#                 [What are input IDs?](../glossary#input-ids)
-#             attention_mask (`torch.Tensor` of shape `(batch_size, sequence_length)`, *optional*):
-#                 Mask to avoid performing attention on padding token indices. Mask values selected in `[0, 1]`:
-#                 - 1 for tokens that are **not masked**,
-#                 - 0 for tokens that are **masked**.
-#                 [What are attention masks?](../glossary#attention-mask)
-#             head_mask (`torch.Tensor` of shape `(encoder_layers, encoder_attention_heads)`, *optional*):
-#                 Mask to nullify selected heads of the attention modules. Mask values selected in `[0, 1]`:
-#                 - 1 indicates the head is **not masked**,
-#                 - 0 indicates the head is **masked**.
-#             inputs_embeds (`torch.FloatTensor` of shape `(batch_size, sequence_length, hidden_size)`, *optional*):
-#                 Optionally, instead of passing `input_ids` you can choose to directly pass an embedded representation.
-#                 This is useful if you want more control over how to convert `input_ids` indices into associated vectors
-#                 than the model's internal embedding lookup matrix.
-#             output_attentions (`bool`, *optional*):
-#                 Whether or not to return the attentions tensors of all attention layers. See `attentions` under
-#                 returned tensors for more detail.
-#             output_hidden_states (`bool`, *optional*):
-#                 Whether or not to return the hidden states of all layers. See `hidden_states` under returned tensors
-#                 for more detail.
-#             return_dict (`bool`, *optional*):
-#                 Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
-#         """
-#         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
-#         output_hidden_states = (
-#             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
-#         )
-#         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-
-#         # retrieve input_ids and inputs_embeds
-#         if input_ids is not None and inputs_embeds is not None:
-#             raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")
-#         elif input_ids is not None:
-#             input_shape = input_ids.size()
-#             input_ids = input_ids.view(-1, input_shape[-1])
-#         elif inputs_embeds is not None:
-#             input_shape = inputs_embeds.size()[:-1]
-#         else:
-#             raise ValueError("You have to specify either input_ids or inputs_embeds")
-
-#         if inputs_embeds is None:
-#             inputs_embeds = self.embed_tokens(input_ids) * self.embed_scale
-
-#         embed_pos = self.embed_positions(input_shape)
-
-#         hidden_states = inputs_embeds + embed_pos
-#         hidden_states = self.layernorm_embedding(hidden_states)
-#         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
-
-#         # expand attention_mask
-#         if attention_mask is not None:
-#             # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
-#             attention_mask = _expand_mask(attention_mask, inputs_embeds.dtype)
-
-#         encoder_states = () if output_hidden_states else None
-#         all_attentions = () if output_attentions else None
-
-#         # check if head_mask has a correct number of layers specified if desired
-#         if head_mask is not None:
-#             if head_mask.size()[0] != (len(self.layers)):
-#                 raise ValueError(
-#                     f"The head_mask should be specified for {len(self.layers)} layers, but it is for"
-#                     f" {head_mask.size()[0]}."
-#                 )
-
-#         for idx, encoder_layer in enumerate(self.layers):
-#             if output_hidden_states:
-#                 encoder_states = encoder_states + (hidden_states,)
-#             # add LayerDrop (see https://arxiv.org/abs/1909.11556 for description)
-#             dropout_probability = random.uniform(0, 1)
-#             if self.training and (dropout_probability < self.layerdrop):  # skip the layer
-#                 layer_outputs = (None, None)
-#             else:
-#                 if self.gradient_checkpointing and self.training:
-
-#                     def create_custom_forward(module):
-#                         def custom_forward(*inputs):
-#                             return module(*inputs, output_attentions)
-
-#                         return custom_forward
-
-#                     layer_outputs = torch.utils.checkpoint.checkpoint(
-#                         create_custom_forward(encoder_layer),
-#                         hidden_states,
-#                         attention_mask,
-#                         (head_mask[idx] if head_mask is not None else None),
-#                     )
-#                 else:
-#                     layer_outputs = encoder_layer(
-#                         hidden_states,
-#                         attention_mask,
-#                         layer_head_mask=(head_mask[idx] if head_mask is not None else None),
-#                         output_attentions=output_attentions,
-#                     )
-
-#                 hidden_states = layer_outputs[0]
-
-#             if output_attentions:
-#                 all_attentions = all_attentions + (layer_outputs[1],)
-
-#         if output_hidden_states:
-#             encoder_states = encoder_states + (hidden_states,)
-
-#         if not return_dict:
-#             return tuple(v for v in [hidden_states, encoder_states, all_attentions] if v is not None)
-#         return BaseModelOutput(
-#             last_hidden_state=hidden_states, hidden_states=encoder_states, attentions=all_attentions
-#         )
-
-
 class DeltalmDecoder(DeltalmPretrainedModel):
     """
     Transformer decoder consisting of *config.decoder_layers* layers. Each layer is a [`DeltalmDecoderLayer`]
@@ -1063,6 +892,10 @@ class DeltalmEncoder(DeltalmPretrainedModel):
         self.layernorm_embedding = nn.LayerNorm(embed_dim)
 
         self.gradient_checkpointing = False
+        if config.encoder_normalize_before:
+            self.layer_norm = nn.LayerNorm(embed_dim)
+        else:
+            self.layer_norm = None
         # Initialize weights and apply final processing
         self.post_init()
 
@@ -1189,7 +1022,9 @@ class DeltalmEncoder(DeltalmPretrainedModel):
             if output_attentions:
                 all_attentions = all_attentions + (layer_outputs[1],)
 
-        hidden_states = self.layernorm_embedding(hidden_states)
+        if self.layer_norm is not None:
+            hidden_states = self.layer_norm(hidden_states)
+        # hidden_states = self.layernorm_embedding(hidden_states)
 
         if output_hidden_states:
             encoder_states = encoder_states + (hidden_states,)
@@ -1326,53 +1161,6 @@ class DeltalmModel(DeltalmPretrainedModel):
         )
 
 
-def label_smoothed_nll_loss(lprobs, target, epsilon, ignore_index=None, reduce=True):
-    # logger.debug("Debug: before target.dim() == lprobs.dim(): ", target.dim(), lprobs.dim())
-    if target.dim() == lprobs.dim() - 1:
-        target = target.unsqueeze(-1)
-    # logger.debug("Debug: After target.dim() == lprobs.dim(): ", target.dim(), lprobs.dim())
-    nll_loss = -lprobs.gather(dim=-1, index=target)
-    smooth_loss = -lprobs.sum(dim=-1, keepdim=True)
-    # if -100 in taget
-    # logger.debug("Debug: nll_loss: ", nll_loss)
-    # logger.debug("Debug: smooth_loss: ", smooth_loss)
-    # logger.debug("Debug: ************** nll_loss ***************")
-    # logger.debug("Debug: ", nll_loss)
-    # logger.debug("Debug: ************** smooth_loss ***************")
-    # logger.debug("Debug: ", smooth_loss)
-    if ignore_index is not None:
-        pad_mask = target.eq(ignore_index)
-        # logger.debug("Debug: ******************** pad_mask **********************")
-        # logger.debug("Debug: ", pad_mask)
-        # logger.debug("Debug: pad_mask.size: ", pad_mask.size())
-        logger.debug("Debug: ori_nll_loss: %s", nll_loss.sum())
-        logger.debug("Debug: ori_smooth_loss: %s", smooth_loss.sum())
-        nll_loss.masked_fill_(pad_mask, 0.0)
-        smooth_loss.masked_fill_(pad_mask, 0.0)
-    else:
-        nll_loss = nll_loss.squeeze(-1)
-        smooth_loss = smooth_loss.squeeze(-1)
-    if reduce:
-        nll_loss = nll_loss.sum()
-        smooth_loss = smooth_loss.sum()
-    logger.debug("Debug: nll_loss.sum: %s", nll_loss)
-    logger.debug("Debug: smooth_loss.sum: %s", smooth_loss)
-    eps_i = epsilon / (lprobs.size(-1) - 1)
-    # logger.debug("Debug: epsilon: ", epsilon)
-    # logger.debug("Debug: eps_i: ", eps_i)
-    # logger.debug("Debug: lprobs.size(-1): ",lprobs.size(-1))
-    logger.debug("Debug: %s", ignore_index)
-    # logger.debug("Debug: ", target)
-    logger.debug("Debug: %s", target.size())
-    valid_length = target.ne(ignore_index).sum()
-    unvalid_length = target.eq(ignore_index).sum()
-    logger.debug("Debug: %s", valid_length.item(), unvalid_length.item())
-    loss = ((1.0 - epsilon - eps_i) * nll_loss + eps_i * smooth_loss) / valid_length.item()
-    # logger.debug("Debug: loss: ", loss)
-
-    return loss, nll_loss
-
-
 @add_start_docstrings(
     "The DELTALM Model with a language modeling head. Can be used for translation.", DELTALM_START_DOCSTRING
 )
@@ -1481,6 +1269,7 @@ class DeltalmForConditionalGeneration(DeltalmPretrainedModel):
             return_dict=return_dict,
         )
         lm_logits = self.lm_head(outputs[0]) + self.final_logits_bias
+        # print(self.lm_head)
         logger.debug("Debug: logit_size: %s", lm_logits.size())
 
         # logger.debug("Debug: change logit size: ", lm_logits.view(-1, self.config.vocab_size).size())
@@ -1491,19 +1280,21 @@ class DeltalmForConditionalGeneration(DeltalmPretrainedModel):
             # logger.debug("Debug: model label_size: %s", labels.size())
             # loss_fct = CrossEntropyLoss()
             # masked_lm_loss = loss_fct(lm_logits.view(-1, self.config.vocab_size), labels.view(-1))
-            label_smoothing = self.config.label_smoothing
-            # logger.debug("Debug: label.size: ", )
-            if label_smoothing == 0:
-                # compute label smoothed loss
-                loss_fct = CrossEntropyLoss()
-                masked_lm_loss = loss_fct(lm_logits.view(-1, self.config.vocab_size), labels.view(-1))
-            else:
-                m = torch.nn.LogSoftmax(dim=-1)
-                lprobs = m(lm_logits.float())
-                # lprobs = m(lm_logits)
-                # # torch.set_printoptions(linewidth=200)
-                loss_fn = label_smoothed_nll_loss
-                masked_lm_loss, _ = loss_fn(lprobs.view(-1, lprobs.size(-1)), labels.view(-1), label_smoothing, self.config.pad_token_id)
+            loss_fct = CrossEntropyLoss()
+            masked_lm_loss = loss_fct(lm_logits.view(-1, self.config.vocab_size), labels.view(-1))
+            # label_smoothing = self.config.label_smoothing
+            # # logger.debug("Debug: label.size: ", )
+            # if label_smoothing == 0:
+            #     # compute label smoothed loss
+            #     loss_fct = CrossEntropyLoss()
+            #     masked_lm_loss = loss_fct(lm_logits.view(-1, self.config.vocab_size), labels.view(-1))
+            # else:
+            #     m = torch.nn.LogSoftmax(dim=-1)
+            #     lprobs = m(lm_logits.float())
+            #     # lprobs = m(lm_logits)
+            #     # # torch.set_printoptions(linewidth=200)
+            #     loss_fn = label_smoothed_nll_loss
+            #     masked_lm_loss, _ = loss_fn(lprobs.view(-1, lprobs.size(-1)), labels.view(-1), label_smoothing, self.config.pad_token_id)
 
         if not return_dict:
             logger.debug("Debug: not return dict")
