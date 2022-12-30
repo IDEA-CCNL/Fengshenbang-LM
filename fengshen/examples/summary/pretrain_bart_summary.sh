@@ -10,10 +10,10 @@ set -x -e
 echo "START TIME: $(date)"
 MODEL_NAME=bart-base
 MICRO_BATCH_SIZE=16
-ROOT_DIR=/cognitive_comp/gaoxinyu/ln_model/finetune/${MODEL_NAME}
+ROOT_DIR=/cognitive_comp/dongxiaoqun/finetune/${MODEL_NAME}
 
 ZERO_STAGE=1
-
+export TORCH_EXTENSIONS_DIR=/cognitive_comp/dongxiaoqun/torch_extendsions
 config_json="./ds_config.${MODEL_NAME}.json"
 
 # Deepspeed figures out GAS dynamically from dynamic GBS via set_train_batch_size()
@@ -69,40 +69,41 @@ EOT
 
 TRAINER_ARGS="
     --max_epochs 2 \
-    --gpus 4 \
+    --gpus 1 \
     --num_nodes 1 \
     --strategy deepspeed_stage_${ZERO_STAGE} \
     --default_root_dir $ROOT_DIR \
     --dirpath $ROOT_DIR/ckpt \
     --save_top_k 3 \
-    --monitor train_loss \
+    --monitor val_loss \
     --mode min \
     --save_last \
     --every_n_train_steps 0 \
+    --val_check_interval 0.1 \
 "
-DATA_DIR=/cognitive_comp/ganruyi/data_datasets_LCSTS_LCSTS/
-prompt="summary:"
+
+prompt='"'
 DATA_ARGS="
-    --data_dir $DATA_DIR
+    --datasets_name lcsts \
+    --num_workers 8 \
     --train_batchsize $MICRO_BATCH_SIZE \
-    --valid_batchsize $MICRO_BATCH_SIZE \
-    --train_data train.jsonl\
-    --valid_data valid.jsonl\
-    --test_data  valid.jsonl\
+    --val_batchsize $MICRO_BATCH_SIZE \
+    --test_batchsize $MICRO_BATCH_SIZE \
+    --max_enc_length 128 \
+    --max_dec_length 64 \
+    --val_datasets_field val \
     --prompt $prompt \
 "
 
 MODEL_ARGS="
     --pretrained_model_path /cognitive_comp/gaoxinyu/pretrained_model/bart-base \
-    --output_save_path $ROOT_DIR/mt5_large_predict_lcsts.json \
+    --output_save_path $ROOT_DIR/${MODEL_NAME}_predict_lcsts.json \
     --learning_rate 1e-4 \
     --weight_decay 0.1 \
     --precision 16 \
-    --warmup 0.01 \
 "
 
-SCRIPTS_PATH=bart_summary.py
-SINGULARITY_PATH=/cognitive_comp/gaoxinyu/docker/pytorch21_06_py3_docker_image_v2.sif
+SCRIPTS_PATH=seq2seq_summary.py
 
 export CMD=" \
     $SCRIPTS_PATH \
@@ -118,4 +119,6 @@ echo $CMD
 # to debug - add echo (it exits and prints what it would have launched)
 #run_cmd="$PY_LAUNCHER $CMD"
 # srun --nodes=1 --gres=gpu:4 --ntasks-per-node=4 --cpus-per-gpu=20 
-singularity exec --nv -B /cognitive_comp/:/cognitive_comp/ $SINGULARITY_PATH bash -c 'python $CMD'
+source activate
+conda activate torchnew
+srun --nodes=1 --ntasks-per-node=1 --gres=gpu:1 --cpus-per-task=30 -o ${MODEL_NAME}-%J.log --jobid=229623 bash -c 'python3 $SCRIPT_PATH $CMD'

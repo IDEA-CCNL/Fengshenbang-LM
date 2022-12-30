@@ -1,4 +1,3 @@
-
 from fengshen.examples.pegasus.data_utils import (
     _is_control,
     _is_punctuation,
@@ -16,8 +15,7 @@ import sys
 
 sys.path.append("../../../../")
 
-jieba.dt.tmp_dir = os.path.expanduser(
-    "/cognitive_comp/dongxiaoqun/software/jieba/tmp/")
+jieba.dt.tmp_dir = os.path.expanduser("~/.cache/")
 # jieba.enable_parallel(8)
 jieba.initialize()
 

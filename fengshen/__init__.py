@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# from fengshen.models.longformer import LongformerConfig, LongformerModel
-# from fengshen.models.roformer import RoFormerConfig, RoFormerModel
-# from fengshen.models.auto import *
-# from fengshen.models.megatron_t5 import T5Config, T5EncoderModel
+from .models.longformer import LongformerConfig, LongformerModel
+from .models.roformer import RoFormerConfig, RoFormerModel
+from .models.megatron_t5 import T5Config, T5EncoderModel
+from .models.ubert import UbertPipelines, UbertModel

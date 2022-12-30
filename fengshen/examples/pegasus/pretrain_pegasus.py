@@ -1,19 +1,21 @@
 # -*- coding: utf-8 -*-
 
+
+from fengshen.models.model_utils import add_module_args
+from transformers import PegasusForConditionalGeneration, PegasusConfig
+from pytorch_lightning import Trainer, loggers, LightningModule
+from pytorch_lightning.callbacks import LearningRateMonitor
+from tokenizers_pegasus import PegasusTokenizer
+from utils import UniversalCheckpoint
+from data.universal_datamodule import UniversalDataModule
 from data_utils import (
     get_input_mask, pseudo_summary_f1, shift_tokens_right,
-    padding_to_maxlength, load_stopwords)
-from data.universal_datamodule import UniversalDataModule
-from utils import UniversalCheckpoint
-from tokenizers_pegasus import PegasusTokenizer
-from pytorch_lightning.callbacks import LearningRateMonitor
-from pytorch_lightning import Trainer, loggers, LightningModule
-from transformers import PegasusForConditionalGeneration, PegasusConfig
-from pegasus_utils import text_segmentate
-import os
-import torch
+    padding_to_maxlength, load_stopwords, text_segmentate)
 import argparse
+import torch
+import os
 import sys
+
 sys.path.append('../../')
 
 
@@ -80,15 +82,6 @@ class FakeAbstractCollator:
 
 class PegasusChineseModel(LightningModule):
 
-    @staticmethod
-    def add_model_specific_args(parent_args):
-        parser = parent_args.add_argument_group('Pegasus-large')
-        parser.add_argument('--model_path', type=str, default='')
-        parser.add_argument('--learning_rate', default=1e-5, type=float)
-        parser.add_argument('--weight_decay', default=0.1, type=float)
-        parser.add_argument('--warmup', default=0.01, type=float)
-        return parent_args
-
     def __init__(self, args, **kwargs):
         super().__init__()
         self.args = args
@@ -113,7 +106,8 @@ class PegasusChineseModel(LightningModule):
             print('Total training step:', self.total_steps)
 
     def configure_optimizers(self):
-        raise NotImplementedError
+        from fengshen.models.model_utils import configure_optimizers
+        return configure_optimizers(self)
 
     def training_step(self, batch, batch_idx):
         output = self.model(**batch)
@@ -150,7 +144,7 @@ def main():
     args_parser = UniversalDataModule.add_data_specific_args(args_parser)
     args_parser = Trainer.add_argparse_args(args_parser)
     args_parser = UniversalCheckpoint.add_argparse_args(args_parser)
-    args_parser = PegasusChineseModel.add_model_specific_args(args_parser)
+    args_parser = add_module_args(args_parser)
     args_parser.add_argument('--deepspeed')
     args_parser.add_argument(
         '--stopword_path',
