@@ -18,7 +18,7 @@ SPIECE_UNDERLINE = "▁"
 VOCAB_FILES_NAMES = {"vocab_file": "spm.model"}
 
 PRETRAINED_VOCAB_FILES_MAP = {
-    "vocab_file": {"IDEA-CCNL/deltalm": "/cognitive_comp/dongxiaoqun/project/translate/unilm/deltalm/spm.model"}
+    "vocab_file": {"IDEA-CCNL/deltalm": "https://huggingface.co/IDEA-CCNL/Randeng-Deltalm-362M-En-Zn/resolve/main/spm.model"}
 }
 
 PRETRAINED_POSITIONAL_EMBEDDINGS_SIZES = {
