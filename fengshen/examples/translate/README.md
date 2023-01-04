@@ -19,7 +19,7 @@ src为源语言，tgt为目标语言，每一行都是一个json格式
 
 当前的转换脚本只是简单的将源语言和目标语言合并到一个文件，并生成上述格式，后续会继续完善处理脚本
 
-脚本路径：Fengshenbang-LM/fengshen/examples/deltalm/prepare_dataset.py
+脚本路径：Fengshenbang-LM/fengshen/examples/translate/prepare_dataset.py
 
 
 使用方式：
@@ -53,7 +53,7 @@ spm.model：sentence_piece文件
 bash -x finetune_deltalm.sh 
 ```
 
-注：如果要使用label_smoothing，当前需要设置label_smoothing参数不为0，当前默认值为0.1，直接修改finetune_deltalm.sh 对应参数值就可以
+注：如果要使用label_smoothing，当前需要设置label_smoothing参数不为0，当前默认值为0.1。直接在finetune_deltalm.sh里修改参数值即可
 
 ## 运行环境
 
