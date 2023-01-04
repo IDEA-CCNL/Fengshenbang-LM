@@ -1,26 +1,27 @@
 # !/usr/bin/env python
 # -*- coding: utf-8 -*-
-from typing import List
-from mosestokenizer import MosesDetokenizer
-from pytorch_lightning.callbacks import LearningRateMonitor
-from pytorch_lightning import Trainer, loggers, LightningModule
-from fengshen.data.universal_datamodule import UniversalDataModule
-from fengshen.utils import UniversalCheckpoint
-from fengshen.models.deltalm.modeling_deltalm import DeltalmForConditionalGeneration
-from fengshen.models.deltalm.tokenizer_deltalm import DeltalmTokenizer
-from fengshen.models.model_utils import add_module_args, add_inverse_square_args
-from fengshen.utils.utils import chinese_char_tokenize
-from sacrebleu.metrics import BLEU
-from pytorch_lightning.utilities import rank_zero_info
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-import logging
-import os
-import torch
-import argparse
-import json
 import pandas as pd
+import json
+import argparse
+import torch
+import os
+import logging
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+from pytorch_lightning.utilities import rank_zero_info
+from sacrebleu.metrics import BLEU
+from fengshen.utils.utils import chinese_char_tokenize
+from fengshen.models.model_utils import add_module_args, add_inverse_square_args
+from fengshen.models.deltalm.tokenizer_deltalm import DeltalmTokenizer
+from fengshen.models.deltalm.modeling_deltalm import DeltalmForConditionalGeneration
+from fengshen.utils import UniversalCheckpoint
+from fengshen.data.universal_datamodule import UniversalDataModule
+from pytorch_lightning import Trainer, loggers, LightningModule
+from pytorch_lightning.callbacks import LearningRateMonitor
+from mosestokenizer import MosesDetokenizer
+from typing import List
 import sys
 sys.path.append('../../../')
+
 # from transformers import MBartForConditionalGeneration, MBart50TokenizerFast
 # from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
@@ -342,7 +343,7 @@ class FinetuneTranslation(LightningModule):
                 json_data = json.dumps(tmp_result, ensure_ascii=False)
                 f.write(json_data + '\n')
 
-    def predict_step(self, batch, batch_idx):
+    def test_step(self, batch, batch_idx):
         # print(batch)
         texts = batch['src']
         # output summary and metrics
@@ -441,7 +442,7 @@ def main():
     else:
         trainer = Trainer.from_argparse_args(args)
         trainer.validate(model, data_model)
-        # trainer.predict(model, data_model)
+        # trainer.test(model, data_model)
 
 
 if __name__ == '__main__':

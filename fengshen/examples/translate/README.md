@@ -18,20 +18,19 @@ src为源语言，tgt为目标语言，每一行都是一个json格式
 
 当前的转换脚本只是简单的将源语言和目标语言合并到一个文件，并生成上述格式，后续会继续完善处理脚本
 
-脚本路径：/cognitive_comp/dongxiaoqun/project/idea-ccnl/Fengshenbang-LM/fengshen/examples/deltalm/prepare_dataset.py
+脚本路径：Fengshenbang-LM/fengshen/examples/deltalm/prepare_dataset.py
 
 
 使用方式：
 ```
-python prepare_dataset.py /cognitive_comp/dongxiaoqun/iwslt14/iwslt14.tokenized.de-en/ de-en
+python prepare_dataset.py processed_data_path de-en
 ```
-
-当前de-en数据已有一份处理好的fengshen数据中，可以直接通过脚本调用，无需任何处理
 
 ## deltalm 模型
 
-### 原deltalm模型路径
-/shared_space/dongxiaoqun/deltalm/
+### deltalm模型路径
+1) https://huggingface.co/IDEA-CCNL/Randeng-Deltalm-362M-En-Zn <br>
+2) https://huggingface.co/IDEA-CCNL/Randeng-Deltalm-362M-Zh-En
 
 主要包含三个文件：    
 config.json：模型配置文件   
@@ -58,7 +57,8 @@ bash -x finetune_deltalm.sh
 ## 运行环境
 
 pyhton = 3.8.10    
-pytorch =1.10.0    
-transformers = 4.20.1    
+pytorch = 1.10.0    
+transformers = 4.20.1
+pytorch-lightning = 1.6.5   
 
 相关环境安装可参考Wiki：http://wiki.team.idea.edu.cn/pages/viewpage.action?pageId=16291924

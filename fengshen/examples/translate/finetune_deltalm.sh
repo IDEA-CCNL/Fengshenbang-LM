@@ -13,17 +13,18 @@ echo "START TIME: $(date)"
 
 MODEL_NAME=deltalm_en_zh
 MICRO_BATCH_SIZE=16
-ROOT_DIR=/home/dongxiaoqun/finetune/${MODEL_NAME}
+ROOT_DIR=../../workspace
+MODEL_ROOT_DIR=$ROOT_DIR/${MODEL_NAME}
 
 
-if [ ! -d ${ROOT_DIR} ];then
-  mkdir ${ROOT_DIR}
-  echo ${ROOT_DIR} created!!!!!!!!!!!!!!
+if [ ! -d ${MODEL_ROOT_DIR} ];then
+  mkdir ${MODEL_ROOT_DIR}
+  echo ${MODEL_ROOT_DIR} created!!!!!!!!!!!!!!
 else
-  echo ${ROOT_DIR} exist!!!!!!!!!!!!!!!
+  echo ${MODEL_ROOT_DIR} exist!!!!!!!!!!!!!!!
 fi
 
-output_save_path=$ROOT_DIR/${MODEL_NAME}.json
+output_save_path=${MODEL_ROOT_DIR}.json
 if [ -f ${output_save_path} ];then
   echo ${output_save_path} exist, rm it!!!!!!!!!!!!!!!!!
   rm ${output_save_path}
@@ -31,7 +32,7 @@ fi
 
 ZERO_STAGE=1
 
-config_json="${ROOT_DIR}/ds_config.${MODEL_NAME}.json"
+config_json="${MODEL_ROOT_DIR}/ds_config.${MODEL_NAME}.json"
 
 # Deepspeed figures out GAS dynamically from dynamic GBS via set_train_batch_size()
 cat <<EOT > $config_json
@@ -52,15 +53,15 @@ cat <<EOT > $config_json
 EOT
 
 export PL_DEEPSPEED_CONFIG_PATH=$config_json
-export TORCH_EXTENSIONS_DIR=/cognitive_comp/dongxiaoqun/torch_extendsions
+
 
 TRAINER_ARGS="
     --max_epochs 20 \
-    --gpus 8 \
+    --gpus 1 \
     --num_nodes 1 \
     --strategy deepspeed_stage_${ZERO_STAGE} \
-    --default_root_dir $ROOT_DIR \
-    --dirpath $ROOT_DIR/ckpt \
+    --default_root_dir ${MODEL_ROOT_DIR} \
+    --save_ckpt_path ${MODEL_ROOT_DIR}/ckpt \
     --save_top_k 3 \
     --monitor valid_sacrebleu \
     --mode max \
@@ -77,7 +78,7 @@ TRAINER_ARGS="
 "
 
 DATA_ARGS="
-    --datasets_name new_data \
+    --datasets_name case_test \
     --num_workers 8 \
     --train_batchsize $MICRO_BATCH_SIZE \
     --val_batchsize $MICRO_BATCH_SIZE \
@@ -110,4 +111,5 @@ echo $CMD
 
 source activate 
 conda activate fengshen
-srun python3 $CMD
+# srun python3 $CMD
+python3 $CMD
