@@ -59,7 +59,7 @@ bash -x finetune_deltalm.sh
 
 pyhton = 3.8.10    
 pytorch = 1.10.0    
-transformers = 4.20.1
+transformers = 4.20.1    
 pytorch-lightning = 1.6.5   
 
 相关环境安装可参考Wiki：http://wiki.team.idea.edu.cn/pages/viewpage.action?pageId=16291924
