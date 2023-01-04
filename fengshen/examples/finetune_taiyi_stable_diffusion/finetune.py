@@ -87,7 +87,7 @@ class StableDiffusion(LightningModule):
             param.requires_grad = False
 
         if args.freeze_text_encoder:
-            for param in self.unet.parameters():
+            for param in self.text_encoder.parameters():
                 param.requires_grad = False
 
         if args.freeze_unet:
