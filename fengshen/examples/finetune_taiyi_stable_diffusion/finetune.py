@@ -46,6 +46,8 @@ class Collator():
             elif 'img_path' in i:
                 try:
                     instance_image = Image.open(i['img_path'])
+                    if not instance_image.mode == "RGB":
+                        instance_image = instance_image.convert("RGB")
                 except:
                     continue
             else:
