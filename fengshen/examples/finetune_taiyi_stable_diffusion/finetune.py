@@ -15,49 +15,51 @@ from fengshen.models.model_utils import (
     get_total_steps,
 )
 from fengshen.utils.universal_checkpoint import UniversalCheckpoint
-from transformers import BertTokenizer, BertModel, CLIPTokenizer, CLIPTextModel
-from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionPipeline, UNet2DConditionModel, DDIMScheduler
+from diffusers import StableDiffusionPipeline
 from torch.nn import functional as F
-from fengshen.data.taiyi_stable_diffusion_datasets.taiyi_datasets import add_data_args, load_data
 from torchvision import transforms
+from fengshen.data.taiyi_stable_diffusion_datasets.taiyi_datasets import add_data_args, load_data
+import numpy as np
 from PIL import Image
-from torch.utils.data._utils.collate import default_collate
 
 class Collator():
     def __init__(self, args, tokenizer):
         self.image_transforms = transforms.Compose(
             [
+                transforms.ToTensor(),
                 transforms.Resize(
                     args.resolution, interpolation=transforms.InterpolationMode.BILINEAR),
                 transforms.CenterCrop(
                     args.resolution) if args.center_crop else transforms.RandomCrop(args.resolution),
-                transforms.ToTensor(),
                 transforms.Normalize([0.5], [0.5]),
             ]
         )
         self.tokenizer = tokenizer
 
     def __call__(self, inputs):
-        examples = []
-        max_length = min(max([len(i['caption']) for i in inputs]), 512)
+        max_length = min(max([len(i['caption']) for i in inputs]), 256)
+        images = []
+        texts = []
         for i in inputs:
-            example = {}
-            try:
-                instance_image = Image.open(i['img_path'])
-            except:
-                continue
-            if not instance_image.mode == "RGB":
-                instance_image = instance_image.convert("RGB")
-            example["pixel_values"] = self.image_transforms(instance_image)
-            example["input_ids"] = self.tokenizer(
-                i['caption'],
-                padding="max_length",
-                truncation=True,
-                max_length=max_length,
-                return_tensors='pt',
-            )['input_ids'][0]
-            examples.append(example)
-        return default_collate(examples)
+            if 'npy_path' in i:
+                instance_image = np.load(i['npy_path'])
+            elif 'img_path' in i:
+                try:
+                    instance_image = Image.open(i['img_path'])
+                except:
+                    continue
+            else:
+                raise ValueError('no img path in samples')
+            images.append(self.image_transforms(instance_image))
+            texts.append(i['caption'])
+        text_inputs = self.tokenizer(text=texts,
+                                     images=images,
+                                     max_length=max_length,
+                                     padding='max_length',
+                                     truncation=True,
+                                     return_tensors='pt')
+        # return images_input, texts_input, labels
+        return {'pixel_values': torch.stack(images), 'input_ids': text_inputs['input_ids']}
 
 
 class StableDiffusion(LightningModule):
@@ -106,8 +108,6 @@ class StableDiffusion(LightningModule):
         return configure_optimizers(self)
 
     def training_step(self, batch, batch_idx):
-        self.text_encoder.train()
-
         latents = self.vae.encode(batch["pixel_values"]).latent_dist.sample()
         latents = latents * 0.18215
 
@@ -130,8 +130,8 @@ class StableDiffusion(LightningModule):
         elif self.noise_scheduler.config.prediction_type == "v_prediction":
             target = self.noise_scheduler.get_velocity(latents, noise, timesteps)
         else:
-            # target = noise
-            raise ValueError(f"Unknow precition type {self.noise_scheduler.config.prediction_type}")
+            raise ValueError(
+                f"Unknown prediction type {self.noise_scheduler.config.prediction_type}")
 
         # Get the text embedding for conditioning
         encoder_hidden_states = self.text_encoder(batch["input_ids"])[0]
@@ -140,7 +140,7 @@ class StableDiffusion(LightningModule):
         model_pred = self.unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
         loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
-        self.log("train_loss", loss.item(),  on_epoch=False, prog_bar=True, logger=True)
+        self.log("train_loss", loss.item())
 
         if self.trainer.global_rank == 0 and self.global_step == 100:
             # 打印显存占用
@@ -152,13 +152,7 @@ class StableDiffusion(LightningModule):
     def on_save_checkpoint(self, checkpoint) -> None:
         if self.trainer.global_rank == 0:
             print('saving model...')
-            pipeline = StableDiffusionPipeline.from_pretrained(
-                self.hparams.model_path,
-                text_encoder=self.text_encoder,
-                tokenizer=self.tokenizer,
-                unet=self.unet)
-            self.trainer.current_epoch
-            pipeline.save_pretrained(os.path.join(
+            self.pipeline.save_pretrained(os.path.join(
                 args.default_root_dir, f'hf_out_{self.trainer.current_epoch}_{self.trainer.global_step}'))
 
     def on_load_checkpoint(self, checkpoint) -> None:
