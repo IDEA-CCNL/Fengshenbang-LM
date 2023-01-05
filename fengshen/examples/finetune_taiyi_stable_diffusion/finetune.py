@@ -16,13 +16,12 @@ from fengshen.models.model_utils import (
 )
 from fengshen.utils.universal_checkpoint import UniversalCheckpoint
 from transformers import BertTokenizer, BertModel, CLIPTokenizer, CLIPTextModel
-from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionPipeline, UNet2DConditionModel, EulerDiscreteScheduler, DDIMScheduler
+from diffusers import AutoencoderKL, DDPMScheduler, StableDiffusionPipeline, UNet2DConditionModel, DDIMScheduler
 from torch.nn import functional as F
 from fengshen.data.taiyi_stable_diffusion_datasets.taiyi_datasets import add_data_args, load_data
 from torchvision import transforms
 from PIL import Image
 from torch.utils.data._utils.collate import default_collate
-
 
 class Collator():
     def __init__(self, args, tokenizer):
@@ -43,7 +42,10 @@ class Collator():
         max_length = min(max([len(i['caption']) for i in inputs]), 512)
         for i in inputs:
             example = {}
-            instance_image = Image.open(i['img_path'])
+            try:
+                instance_image = Image.open(i['img_path'])
+            except:
+                continue
             if not instance_image.mode == "RGB":
                 instance_image = instance_image.convert("RGB")
             example["pixel_values"] = self.image_transforms(instance_image)
@@ -71,42 +73,10 @@ class StableDiffusion(LightningModule):
 
     def __init__(self, args):
         super().__init__()
-        # if not args.use_local_token:
-        #     self.tokenizer = CLIPTokenizer.from_pretrained(
-        #         args.model_path, subfolder='tokenizer')
-        #     self.text_encoder = CLIPTextModel.from_pretrained(
-        #         args.model_path, subfolder='text_encoder')
-        # else:
-        #     # self.tokenizer = BertTokenizer.from_pretrained(
-        #     #     args.text_model_path+'/tokenizer')
-        #     # self.text_encoder = BertModel.from_pretrained(
-        #     #     args.text_model_path+'/text_encoder')  # load from taiyi_finetune-v0
-        #     self.tokenizer = CLIPTokenizer.from_pretrained(
-        #         args.model_path+'/tokenizer')
-        #     self.text_encoder = CLIPTextModel.from_pretrained(
-        #         args.model_path+'/text_encoder')
-        #     with open("/cognitive_comp/lixiayu/pretrained_model/roberta-base/vocab.txt") as fin:
-        #         input_lines = fin.readlines()
-        #     input_tokens = []
-        #     for line in input_lines[669:]:
-        #         input_tokens.append(line.strip('\n'))
-        #     self.tokenizer.add_tokens(input_tokens)
-        #     self.text_encoder.resize_token_embeddings(len(self.tokenizer))
-
-        # if not args.use_local_unet:
-        #     self.vae = AutoencoderKL.from_pretrained(
-        #         args.model_path, subfolder='vae')
-        #     self.unet = UNet2DConditionModel.from_pretrained(
-        #         args.model_path, subfolder='unet')
-        # else: 
-        #     self.vae = AutoencoderKL.from_pretrained(
-        #         args.model_path+'/vae',)
-        #     self.unet = UNet2DConditionModel.from_pretrained(
-        #         args.model_path+'/unet',)
 
         self.pipeline = StableDiffusionPipeline.from_pretrained(args.model_path)
 
-        self.tokenizer = self.pipeline.tokenzier
+        self.tokenizer = self.pipeline.tokenizer
         self.text_encoder = self.pipeline.text_encoder
         self.vae = self.pipeline.vae
         self.unet = self.pipeline.unet
@@ -160,6 +130,7 @@ class StableDiffusion(LightningModule):
         elif self.noise_scheduler.config.prediction_type == "v_prediction":
             target = self.noise_scheduler.get_velocity(latents, noise, timesteps)
         else:
+            # target = noise
             raise ValueError(f"Unknow precition type {self.noise_scheduler.config.prediction_type}")
 
         # Get the text embedding for conditioning
@@ -168,7 +139,7 @@ class StableDiffusion(LightningModule):
         # Predict the noise residual
         model_pred = self.unet(noisy_latents, timesteps, encoder_hidden_states).sample
 
-        loss = F.mse_loss(model_pred.float, target.float(), reduction="mean")
+        loss = F.mse_loss(model_pred.float(), target.float(), reduction="mean")
         self.log("train_loss", loss.item(),  on_epoch=False, prog_bar=True, logger=True)
 
         if self.trainer.global_rank == 0 and self.global_step == 100:
