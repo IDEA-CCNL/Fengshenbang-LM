@@ -87,7 +87,7 @@ class StableDiffusion(LightningModule):
             param.requires_grad = False
 
         if args.freeze_text_encoder:
-            for param in self.unet.parameters():
+            for param in self.text_encoder.parameters():
                 param.requires_grad = False
 
         if args.freeze_unet:
@@ -144,6 +144,7 @@ class StableDiffusion(LightningModule):
         if self.trainer.global_rank == 0:
             print('saving model...')
             pipeline = StableDiffusionPipeline.from_pretrained(
+                self.hparams.model_path,
                 text_encoder=self.text_encoder,
                 tokenizer=self.tokenizer,
                 unet=self.unet)
