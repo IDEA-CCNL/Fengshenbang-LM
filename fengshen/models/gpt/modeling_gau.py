@@ -22,6 +22,7 @@ import torch
 from torch import nn
 from typing import Optional, Tuple, Union
 import sys
+from einops import rearrange
 sys.path.append("../../../")
 
 
@@ -74,7 +75,7 @@ class GatedAttentionUnit(nn.Module):
 
         self.embed_dim = config.n_embd
         # self.head_dim = config.n_embd // config.n_head # ? qk_dim = 128 default
-        self.head_dim = 128
+        self.head_dim = config.head_dim
         self.inner_dim = config.n_inner  # e = int(d ∗ expansion_factor)
         self.num_heads = config.n_head
         self.pos_embd = config.pos_embd
@@ -114,7 +115,7 @@ class GatedAttentionUnit(nn.Module):
         if self.pos_embd == "t5":
             self.rel_pos_bias = T5RelativePositionBias(self.head_dim**0.5, causal=True)
         elif self.pos_embd == "rope":
-            self.rotary_embd = RotaryEmbedding(self.num_heads)
+            self.rotary_embd = RotaryEmbedding(min(32, self.head_dim))  # max rotary embedding dimensions of 32, partial Rotary embeddings, from Wang et al - GPT-J
         elif self.pos_embd == "None":
             pass
         else:
@@ -143,15 +144,16 @@ class GatedAttentionUnit(nn.Module):
         # causal attention mask
         if causal:
             attn = attn.masked_fill(self.causal_mask, 0.)
-            print("causal_mask", self.causal_mask.shape)
-            print("attn", attn.shape)
+            # print("causal_mask", self.causal_mask.shape)
+            # print("attn", attn.shape)
 
         if attention_mask is not None:
+            # import pdb;pdb.set_trace()
             attn = attn + attention_mask
 
         attn = self.attn_fn(attn) ** 2
         attn = self.attn_dropout(attn)
-        print("attn", attn, attn.shape)
+        # print("attn", attn, attn.shape)
 
         if head_mask is not None:
             attn = attn * head_mask
@@ -172,9 +174,9 @@ class GatedAttentionUnit(nn.Module):
         v = self.v_layer(x)
         gate = self.gate_layer(x)
         # same as v, gate = to_hidden_layer(x).chunk(2,dim=-1)
-        x = self.input_layer(x)
+        x_ = self.input_layer(x)
 
-        q, k = self.q_scaleoff(x), self.k_scaleoff(x)
+        q, k = self.q_scaleoff(x_), self.k_scaleoff(x_)
         if self.pos_embd == "rope":
             q, k = self.rotary_embd.rotate_queries_or_keys(q), self.rotary_embd.rotate_queries_or_keys(k)
 
@@ -215,15 +217,17 @@ class MixedChunkAttention(nn.Module):
     def __init__(self, config, layer_idx=None):
         super().__init__()
         self.max_positions = config.n_positions
+        self.group_size = config.group_size
+        self.groups = config.n_positions // config.group_size
         self.register_buffer(
             "causal_mask",
-            torch.ones((self.max_positions, self.max_positions), dtype=torch.bool).triu(1)  # seq_len=4
+            torch.ones((self.group_size, self.group_size), dtype=torch.bool).triu(1)  # seq_len=4
         )
         self.register_buffer("masked_bias", torch.tensor(-1e4))
 
         self.embed_dim = config.n_embd
         # self.head_dim = config.n_embd // config.n_head # ? qk_dim = 128 default
-        self.head_dim = 128
+        self.head_dim = config.head_dim
         self.inner_dim = config.n_inner  # e = int(d ∗ expansion_factor)
         self.num_heads = config.n_head
         self.pos_embd = config.pos_embd
@@ -239,8 +243,10 @@ class MixedChunkAttention(nn.Module):
 
         # hidden dim usually 2 x dim
         # init module
-        self.q_scaleoff = ScaleOffset(dim=self.head_dim)
-        self.k_scaleoff = ScaleOffset(dim=self.head_dim)  # qk_dim/head_dim
+        self.quadq_scaleoff = ScaleOffset(dim=self.head_dim)
+        self.quadk_scaleoff = ScaleOffset(dim=self.head_dim)  # qk_dim/head_dim
+        self.linq_scaleoff = ScaleOffset(dim=self.head_dim)  # qk_dim/head_dim
+        self.link_scaleoff = ScaleOffset(dim=self.head_dim)  # qk_dim/head_dim
 
         # input_layer = nn.Linear(2, 4) # dim, hidden_dim * 2   the input x to v & gate
         # in flash code they use only 1 layer to generate v and gate and chunk then
@@ -263,7 +269,7 @@ class MixedChunkAttention(nn.Module):
         if self.pos_embd == "t5":
             self.rel_pos_bias = T5RelativePositionBias(self.head_dim**0.5, causal=True)
         elif self.pos_embd == "rope":
-            self.rotary_embd = RotaryEmbedding(self.num_heads)
+            self.rotary_embd = RotaryEmbedding(min(32, self.head_dim))  # max rotary embedding dimensions of 32, partial Rotary embeddings, from Wang et al - GPT-J
         elif self.pos_embd == "None":
             pass
         else:
@@ -291,17 +297,21 @@ class MixedChunkAttention(nn.Module):
         # causal attention mask
         if causal:
             attn = attn.masked_fill(self.causal_mask, 0.)
-            print("causal_mask", self.causal_mask.shape)
-            print("attn", attn.shape)
+            # print("causal_mask", self.causal_mask.shape)
+            # print("attn", attn.shape)
 
         if attention_mask is not None:
+            # print(attention_mask.shape)
+            # import pdb; pdb.set_trace()
             attn = attn + attention_mask
 
         attn = self.attn_fn(attn) ** 2
         attn = self.attn_dropout(attn)
-        print("attn", attn, attn.shape)
+        # print("attn", attn, attn.shape)
 
         if head_mask is not None:
+            # print(attention_mask.shape)
+            # import pdb; pdb.set_trace()
             attn = attn * head_mask
 
         o = torch.einsum('...nm,...me -> ...ne', attn, v)  # o
@@ -322,6 +332,9 @@ class MixedChunkAttention(nn.Module):
     def _rope(self, x):
         return self.rotary_embd.rotate_queries_or_keys(x)
 
+    def chunk(self, x):
+        return torch.stack(x.chunk(self.groups, dim=-2), dim=-3)
+
     def forward(self,
                 x: Optional[Tuple[torch.FloatTensor]],
                 attention_mask: Optional[torch.FloatTensor] = None,
@@ -331,6 +344,15 @@ class MixedChunkAttention(nn.Module):
                 causal: Optional[bool] = True,
                 add_residual: Optional[bool] = False,
                 ) -> Tuple[Union[torch.Tensor, Tuple[torch.Tensor]], ...]:
+        # chunk
+        x = self.chunk(x)
+        if attention_mask is not None:
+            attention_mask = rearrange(attention_mask, '... -> ... 1')
+            attention_mask = self.chunk(attention_mask)
+        if head_mask is not None:
+            head_mask = rearrange(head_mask, '... -> ... 1')
+            head_mask = self.chunk(head_mask)
+
         v = self.v_layer(x)
         gate = self.gate_layer(x)
         # same as v, gate = to_hidden_layer(x).chunk(2,dim=-1)
@@ -352,6 +374,8 @@ class MixedChunkAttention(nn.Module):
         if add_residual:
             o = o + x
             o = self.resi_dropout(o)
+        # gather chunk
+        o = rearrange(o, '... h s d -> ... (h s) d')
 
         if use_cache:
             present = (quad_k, v)
@@ -365,6 +389,18 @@ class MixedChunkAttention(nn.Module):
         return o  # output, (k,v), attention
 
 
+class ScaleNorm(nn.Module):
+    def __init__(self, dim, eps=1e-5):
+        super().__init__()
+        self.scale = dim ** -0.5
+        self.eps = eps
+        self.g = nn.Parameter(torch.ones(1))
+
+    def forward(self, x):
+        norm = torch.norm(x, dim=-1, keepdim=True) * self.scale
+        return x / norm.clamp(min=self.eps) * self.g
+
+
 class GAUBlock(nn.Module):
     """The is a class of GAU(FLASH-QUAD) + LayerNorm Layer
     paper: https://readpaper.com/paper/4594890495981789185
@@ -373,26 +409,27 @@ class GAUBlock(nn.Module):
         layer_idx (int): the index of layer (2 x Attn)
     Examples:
         gau = GAUBlock(config)
-        x = torch.randint(low,high,(config.n_head, config.n_positions, config.n_embd),dtype=torch.float) # heads, seq_length, qk_dim
+        x = torch.randint(low,high,(batchsize, config.n_positions, config.n_embd),dtype=torch.float) # bs, seq_length, qk_dim
         x = gau.forward(x)
     """
 
     def __init__(self, config, layer_idx=None):
         super().__init__()
+        # self.ln = ScaleNorm(config.hidden_size, eps=config.layer_norm_epsilon)
         self.ln = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_epsilon)
-        if config.use_gau == "gau":
+        if config.gau_type == "gau":
             self.gau_attn = GatedAttentionUnit(
                 config=config,
                 layer_idx=layer_idx,
             )
-        elif config.use_gau == "flash":
+        elif config.gau_type == "flash":
             self.gau_attn = MixedChunkAttention(
                 config=config,
                 layer_idx=layer_idx
             )
         else:
             raise ValueError(
-                f"config.use_gau should be in [\"gau\",\"flash\"]. got {config.use_gau}"
+                f"config.gau_type should be in [\"gau\",\"flash\"]. got {config.gau_type}"
             )
         # config.n_layer should x 2 to aligned with Attn+FFN in one Block
 

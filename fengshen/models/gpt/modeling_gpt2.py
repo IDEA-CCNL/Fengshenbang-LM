@@ -47,6 +47,7 @@ from transformers.utils.model_parallel_utils import assert_device_map, get_devic
 
 from fengshen.models.gpt.configuration_gpt2 import GPT2Config
 from fengshen.models.gpt.modeling_gau import GAUBlock
+from fengshen.models.gpt.relative_pos import RotaryEmbedding
 
 logger = logging.get_logger(__name__)
 
@@ -163,6 +164,10 @@ class GPT2Attention(nn.Module):
         self.resid_dropout = nn.Dropout(config.resid_pdrop)
 
         self.pruned_heads = set()
+
+        self.pos_embd = config.pos_embd
+        if self.pos_embd == "rope":
+            self.rotary_embd = RotaryEmbedding(min(32, self.head_dim))
 
     def prune_heads(self, heads):
         if len(heads) == 0:
@@ -315,6 +320,9 @@ class GPT2Attention(nn.Module):
         key = self._split_heads(key, self.num_heads, self.head_dim)
         value = self._split_heads(value, self.num_heads, self.head_dim)
 
+        if self.pos_embd == "rope":
+            query, key = self.rotary_embd.rotate_queries_or_keys(query), self.rotary_embd.rotate_queries_or_keys(key)
+
         if layer_past is not None:
             past_key, past_value = layer_past
             key = torch.cat((past_key, key), dim=-2)
@@ -385,8 +393,13 @@ class GPT2Block(nn.Module):
         use_cache: Optional[bool] = False,
         output_attentions: Optional[bool] = False,
     ) -> Union[Tuple[torch.Tensor], Optional[Tuple[torch.Tensor, Tuple[torch.FloatTensor, ...]]]]:
+        print("gpt2 block")
+        print(hidden_states.shape)
         residual = hidden_states
         hidden_states = self.ln_1(hidden_states)
+
+        print("gpt2 attn")
+        print(hidden_states.shape)
         attn_outputs = self.attn(
             hidden_states,
             layer_past=layer_past,
@@ -395,6 +408,7 @@ class GPT2Block(nn.Module):
             use_cache=use_cache,
             output_attentions=output_attentions,
         )
+
         attn_output = attn_outputs[0]  # output_attn: a, present, (attentions)
         outputs = attn_outputs[1:]
         # residual connection
@@ -648,6 +662,8 @@ class GPT2Model(GPT2PreTrainedModel):
         self.embed_dim = config.hidden_size
 
         self.wte = nn.Embedding(config.vocab_size, self.embed_dim)
+
+        # pos embedding
         self.wpe = nn.Embedding(config.max_position_embeddings, self.embed_dim)
 
         self.drop = nn.Dropout(config.embd_pdrop)

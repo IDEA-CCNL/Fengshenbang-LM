@@ -155,8 +155,10 @@ class GPT2Config(PretrainedConfig):
         scale_attn_weights=True,
         use_cache=True,
         use_gau=False,  # use gated attention unit
-        gau_type="quad",  # use gau (flash-quad)
+        gau_type="gau",  # use gau (flash-quad)
         pos_embd="rope",  # use relative position embedding
+        group_size=128,   # mixed chunk size
+        head_dim=128,     # query key dim
         bos_token_id=50256,
         eos_token_id=50256,
         scale_attn_by_inverse_layer_idx=False,
@@ -192,6 +194,8 @@ class GPT2Config(PretrainedConfig):
         self.use_gau = use_gau
         self.gau_type = gau_type
         self.pos_embd = pos_embd
+        self.group_size = group_size
+        self.head_dim = head_dim
 
         super().__init__(bos_token_id=bos_token_id, eos_token_id=eos_token_id, **kwargs)
 
