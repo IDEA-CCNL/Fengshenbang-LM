@@ -71,10 +71,10 @@ def configure_optimizers(pl_model: LightningModule, model_params=None):
                           betas=(pl_model.hparams.adam_beta1, pl_model.hparams.adam_beta2),
                           eps=pl_model.hparams.adam_epsilon)
     # Configure learning rate scheduler.
-    warmup_steps = pl_model.hparams.warmup_ratio * \
-        pl_model.total_steps if pl_model.hparams.warmup_steps == 0 else pl_model.hparams.warmup_steps
     total_steps = pl_model.hparams.lr_decay_ratio * \
         pl_model.total_steps if pl_model.hparams.lr_decay_steps == 0 else pl_model.hparams.lr_decay_steps
+    warmup_steps = pl_model.hparams.warmup_ratio * \
+        pl_model.total_steps if pl_model.hparams.warmup_steps == 0 else pl_model.hparams.warmup_steps
     scheduler = get_scheduler(name=pl_model.hparams.scheduler_type, optimizer=optimizer,
                               num_warmup_steps=warmup_steps, num_training_steps=total_steps,
                               lr_end=pl_model.hparams.min_learning_rate)
