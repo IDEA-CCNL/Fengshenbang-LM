@@ -1,8 +1,26 @@
 [**中文**](./README.md) | [**English**](./README_en.md)
 
+<p align="center">
+    <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache%202-dfd.svg"></a>
+    <a href=""><img src="https://img.shields.io/badge/python-3.7+-aff.svg"></a>
+    <a href=""><img src="https://img.shields.io/badge/os-linux%2C%20win%2C%20mac-pink.svg"></a>
+</p>
+
+
+<h4 align="center">
+  <a href=#安装> 环境安装 </a> |
+  <a href=https://huggingface.co/IDEA-CCNL> 模型下载 </a> |
+  <a href=https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples> 代码示例 </a> |
+  <a href=https://fengshenbang-doc.readthedocs.io/zh/latest> 模型文档 </a> |
+  <a href=https://fengshenbang-lm.com> 封神榜官网 </a> |
+  <a href=https://fengshenbang-lm.com/open-api> 封神API </a>
+</h4>
+
+------------------------------------------------------------------------------------------
+
 # 封神榜科技成果
 > [**Fengshenbang 1.0**](https://arxiv.org/abs/2209.02970): 封神榜开源计划1.0中英双语总论文，旨在成为中文认知智能的基础设施。
-> 
+ 
 > [**BioBART**](https://arxiv.org/abs/2204.03905): 由清华大学和IDEA研究院一起提供的生物医疗领域的生成语言模型。(```BioNLP 2022```)
 
 > [**UniMC**](https://arxiv.org/abs/2210.08590): 针对zero-shot场景下基于标签数据集的统一模型。(```EMNLP 2022```)
@@ -57,8 +75,8 @@
 |:---:|:---:|:---:|:---:|---|
 |[二郎神](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BA%8C%E9%83%8E%E7%A5%9E%E7%B3%BB%E5%88%97/index.html)|通用|语言理解|9千万-39亿参数|处理理解任务，拥有开源时最大的中文bert模型，2021登顶FewCLUE和ZeroCLUE|
 |[闻仲](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E9%97%BB%E4%BB%B2%E7%B3%BB%E5%88%97/index.html)|通用|语言生成|1亿-35亿参数|专注于生成任务，提供了多个不同参数量的生成模型，例如GPT2等|
-|[燃灯](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E7%87%83%E7%81%AF%E7%B3%BB%E5%88%97/index.html)|通用|语言转换|7千万-7亿参数|处理各种从源文本转换到目标文本类型的任务，例如机器翻译，文本摘要等|  
-|[太乙](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%A4%AA%E4%B9%99%E7%B3%BB%E5%88%97/index.html)|特定|多模态|8千万-1亿参数|应用于跨模态场景，包括文本图像生成，蛋白质结构预测, 语音-文本表示等|
+|[燃灯](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E7%87%83%E7%81%AF%E7%B3%BB%E5%88%97/index.html)|通用|语言转换|7千万-50亿参数|处理各种从源文本转换到目标文本类型的任务，例如机器翻译，文本摘要等|  
+|[太乙](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%A4%AA%E4%B9%99%E7%B3%BB%E5%88%97/index.html)|特定|多模态|8千万-10亿参数|应用于跨模态场景，包括文本图像生成，蛋白质结构预测, 语音-文本表示等|
 |[余元](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BD%99%E5%85%83%E7%B3%BB%E5%88%97/index.html)|特定|领域|1亿-35亿参数|应用于领域，如医疗，金融，法律，编程等。拥有目前最大的开源GPT2医疗模型|
 |-待定-|特定|探索|-未知-|我们希望与各技术公司和大学一起开发NLP相关的实验模型。目前已有：[周文王](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%91%A8%E6%96%87%E7%8E%8B%E7%B3%BB%E5%88%97/index.html)|
 
@@ -77,7 +95,7 @@
 
 这个世界需要一个答案。
 
-为了解决中文领域研究进展滞后和研究资源严重不足的问题，IDEA研究院正式宣布，开启 “封神榜”开源体系——一个以中文驱动的基础生态系统，其中包括了预训练大模型，特定任务的微调应用，基准和数据集等。我们的目标是构建一个全面的，标准化的，以用户为中心的生态系统。尽管这一目标可以通过多种方式去实现，但是我们经过对中文社区的重新审视与思考，提出了我们认为最为有效的方案：
+为了解决中文领域研究进展滞后和研究资源严重不足的问题，2021年11月22日，IDEA研究院创院理事长沈向洋在IDEA大会上正式宣布，开启 “封神榜”开源体系——一个以中文驱动的基础生态系统，其中包括了预训练大模型，特定任务的微调应用，基准和数据集等。我们的目标是构建一个全面的，标准化的，以用户为中心的生态系统。尽管这一目标可以通过多种方式去实现，但是我们经过对中文社区的重新审视与思考，提出了我们认为最为有效的方案：
 
 ![avatar](pics/fengshenbang_process1.png)
 
@@ -179,6 +197,22 @@ Advanced Prompt
 | 铁马冰河入梦来，概念画，科幻，玄幻，3D  | 中国海边城市，科幻，未来感，唯美，插画。 | 那人却在灯火阑珊处，色彩艳丽，古风，资深插画师作品，桌面高清壁纸。 |
 |  ----  | ----  | ----  |
 | ![](fengshen/examples/stable_diffusion_chinese/result_examples/tiema2.jpg)  | ![](fengshen/examples/stable_diffusion_chinese/result_examples/chengshi.jpg) | ![](fengshen/examples/stable_diffusion_chinese/result_examples/naren.jpg) |
+
+### 使用手册 Handbook for Taiyi
+
+https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/examples/stable_diffusion_chinese/taiyi_handbook.md
+
+### 怎样微调(How to finetune)
+
+https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples/finetune_taiyi_stable_diffusion
+
+### 配置webui(Configure webui)
+
+https://github.com/IDEA-CCNL/stable-diffusion-webui/blob/master/README.md
+
+### DreamBooth
+
+https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples/stable_diffusion_dreambooth
 
 # 封神框架
 

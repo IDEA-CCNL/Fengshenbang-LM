@@ -1,5 +1,24 @@
 [**中文**](./README.md) | [**English**](./README_en.md)
 
+<p align="center">
+    <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache%202-dfd.svg"></a>
+    <a href=""><img src="https://img.shields.io/badge/python-3.7+-aff.svg"></a>
+    <a href=""><img src="https://img.shields.io/badge/os-linux%2C%20win%2C%20mac-pink.svg"></a>
+</p>
+
+
+<h4 align="center">
+  <a href=#Installation> Installation </a> |
+  <a href=https://huggingface.co/IDEA-CCNL> Model Downloads </a> |
+  <a href=https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples> Code Example </a> |
+  <a href=https://fengshenbang-doc.readthedocs.io/zh/latest> Docs </a> |
+  <a href=https://fengshenbang-lm.com> Fengshenbang Website </a> |
+  <a href=https://fengshenbang-lm.com/open-api> API </a>
+</h4>
+
+------------------------------------------------------------------------------------------
+
+
 # Fengshenbang Achievements
 
 > [**Fengshenbang 1.0**](https://arxiv.org/abs/2209.02970): Fengshenbang1.0 bilingual general paper, aims to be the Foundation of Chinese Cognitive Intelligence.
@@ -57,8 +76,8 @@
 |:---:|:---:|:---:|:---:|---|
 |[Erlangshen](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BA%8C%E9%83%8E%E7%A5%9E%E7%B3%BB%E5%88%97/index.html)|General|NLU|97M-3.9B|Erlangshen was designed to solve NLU tasks; The largest BERT when publicly released; SOTA on FewCLUE and ZeroCLUE in 2021.|
 |[Wenzhong](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E9%97%BB%E4%BB%B2%E7%B3%BB%E5%88%97/index.html)|General|NLG|1B-3.5B|Wenzhong focuses on NLG tasks; Provides several generative models with different scales, such as GPT2, etc.|
-|[Randeng](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E7%87%83%E7%81%AF%E7%B3%BB%E5%88%97/index.html)|General|NLT|770M-0.7B|Randeng handles natural language transformation (NLT) type tasks that convert from source text to target text, such as machine translation, text summarization, etc.|
-|[Taiyi](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%A4%AA%E4%B9%99%E7%B3%BB%E5%88%97/index.html)|Speical|MultiModal|87M-0.1B|Taiyi was applied to cross-modality scenarios, including text image generation, protein structure prediction, speech-text representation, etc.|
+|[Randeng](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E7%87%83%E7%81%AF%E7%B3%BB%E5%88%97/index.html)|General|NLT|770M-5B|Randeng handles natural language transformation (NLT) type tasks that convert from source text to target text, such as machine translation, text summarization, etc.|
+|[Taiyi](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%A4%AA%E4%B9%99%E7%B3%BB%E5%88%97/index.html)|Speical|MultiModal|87M-1B|Taiyi was applied to cross-modality scenarios, including text image generation, protein structure prediction, speech-text representation, etc.|
 |[Yuyuan](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BD%99%E5%85%83%E7%B3%BB%E5%88%97/index.html)|Speical|Domain|0.1B-3.5B|Yuyuan was applied to specific domains such as healthcare, finance, law, programming, etc; The largest open-source GPT2 medical model|
 |-TBD-|Special|Exploration|-Unknown-|This series hopes to develop experimental models on NLP with various technology companies and universities. Currently there are:[Zhouwenwang](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%91%A8%E6%96%87%E7%8E%8B%E7%B3%BB%E5%88%97/index.html)|
 
@@ -79,7 +98,7 @@ The Chinese language as the world's largest spoken language (native speakers), h
 
 And the world needs an answer for this.
 
-IDEA (International Digital Economy Academy) officially announces the launch of "Fengshenbang" open source project —— a Chinese language driven foundation ecosystem, incorporates pre-trained models, task-specific fine-tune applications, benchmarks, and datasets. Our goal is to build a comprehensive, standardized and user-centered ecosystem. Although this can be instantiated in a variety of ways, we present the following design that we find to be particularly effective:
+On November 22nd, 2021, Harry Shum, the Founder and Chairman of the IDEA (International Digital Economy Academy) officially announces the launch of "Fengshenbang" open source project.  —— a Chinese language driven foundation ecosystem, incorporates pre-trained models, task-specific fine-tune applications, benchmarks, and datasets. Our goal is to build a comprehensive, standardized and user-centered ecosystem. Although this can be instantiated in a variety of ways, we present the following design that we find to be particularly effective:
 
 ![avatar](pics/fengshenbang_enprocess1.png)
 
@@ -180,6 +199,21 @@ Advanced Prompt
 |  ----  | ----  | ----  |
 | ![](fengshen/examples/stable_diffusion_chinese/result_examples/tiema2.jpg)  | ![](fengshen/examples/stable_diffusion_chinese/result_examples/chengshi.jpg) | ![](fengshen/examples/stable_diffusion_chinese/result_examples/naren.jpg) |
 
+### Handbook for Taiyi
+
+https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/examples/stable_diffusion_chinese/taiyi_handbook.md
+
+### How to finetune
+
+https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples/finetune_taiyi_stable_diffusion
+
+### Configure webui
+
+https://github.com/IDEA-CCNL/stable-diffusion-webui/blob/master/README.md
+
+### DreamBooth
+
+https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples/stable_diffusion_dreambooth
 
 # Fengshen Framework
 

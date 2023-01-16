@@ -2,6 +2,8 @@
 
 本示例可以应用于**IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-v0.1**在自建的数据集上进行进一步训练，同时稍微修改代码也能够兼容大部分Stable-Diffusion结构。本示例仅提供参考，有任何疑问或者有需要协助的都可以提Issue到本项目中，会有专门的同学解答~
 
+注：已更新了[colab的example](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/examples/finetune_taiyi_stable_diffusion/finetune_taiyi_stable_diffusion_example.ipynb)
+
 ## 数据处理
 
 在./demo_dataset下有我们一个数据集的样例，其中一个sample由.jpg格式图片以及.txt文本文件组成，用户可以按照我们的格式处理然后直接将脚本内的datasets_path修改为自己的路径即可。(数据摘自[IDEA-CCNL/laion2B-multi-chinese-subset](https://huggingface.co/datasets/IDEA-CCNL/laion2B-multi-chinese-subset))
