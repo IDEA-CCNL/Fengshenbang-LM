@@ -17,7 +17,7 @@ setup(
         'transformers >= 4.17.0',
         'datasets >= 2.0.0',
         'pytorch_lightning >= 1.5.10',
-        'deepspeed == 0.5.10',
+        'deepspeed >= 0.5.10',
         'jieba-fast >= 0.53',
         'jieba >= 0.40.0',
     ],
