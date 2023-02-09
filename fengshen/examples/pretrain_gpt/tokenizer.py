@@ -2,7 +2,7 @@
 from transformers import GPTNeoXTokenizerFast
 # transformer >= 4.20.1
 
-neo_tokenizer = GPTNeoXTokenizerFast.from_pretrained("/cognitive_comp/yangqi/project/FS/Fengshenbang-LM/fengshen/examples/pretrain_gpt/BPETokenizer-Mix-NEOX")
+neo_tokenizer = GPTNeoXTokenizerFast.from_pretrained("/cognitive_comp/yangqi/project/FS/Fengshenbang-LM/fengshen/examples/pretrain_gpt/BPETokenizer-Mix-NEO-pre")
 
 
 def tokenize(input_code, tokenizer):
