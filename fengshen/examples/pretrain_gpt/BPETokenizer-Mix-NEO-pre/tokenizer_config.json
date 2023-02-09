@@ -2,7 +2,7 @@
   "add_prefix_space": false,
   "bos_token": "<|endoftext|>",
   "eos_token": "<|endoftext|>",
-  "name_or_path": "BPETokenizer-Mix-NEOX",
+  "name_or_path": "/cognitive_comp/yangqi/model/BPETokenizer-Mix-NEO-pre",
   "special_tokens_map_file": "special_tokens_map.json",
   "tokenizer_class": "GPTNeoXTokenizer",
   "unk_token": "<|endoftext|>"

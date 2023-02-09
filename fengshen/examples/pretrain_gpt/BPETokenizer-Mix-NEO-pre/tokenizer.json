@@ -72836,10 +72836,35 @@
     "type": "NFC"
   },
   "pre_tokenizer": {
-    "type": "ByteLevel",
-    "add_prefix_space": false,
-    "trim_offsets": true,
-    "use_regex": true
+    "type": "Sequence",
+    "pretokenizers": [
+      {
+        "type": "Digits",
+        "individual_digits": true
+      },
+      {
+        "type": "Split",
+        "pattern": {
+          "Regex": "[\\(\\)\\[\\]\\{\\}]|([!\"\\#\\$%\\&'\\*\\+,\\-\\./:;<=>\\?\\\\\\^_`\\|\\~])\\1*"
+        },
+        "behavior": "Isolated",
+        "invert": false
+      },
+      {
+        "type": "Split",
+        "pattern": {
+          "String": "\n"
+        },
+        "behavior": "Isolated",
+        "invert": false
+      },
+      {
+        "type": "ByteLevel",
+        "add_prefix_space": false,
+        "trim_offsets": true,
+        "use_regex": true
+      }
+    ]
   },
   "post_processor": {
     "type": "ByteLevel",
