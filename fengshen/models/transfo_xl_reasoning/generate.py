@@ -26,6 +26,7 @@ def deduction_generate(
     batch_size:int=2,
     temperature:float=1.0,
     repetition_penalty:float=2.0,
+    max_out_seq:int=512,
     top_p:float=0.6) -> List[str]:
     """ Generate with fixed prompt of deduction """
 
@@ -53,7 +54,7 @@ def deduction_generate(
             context_length_tensor=input_ids_length.cuda(device=device),
             end_token_id=50000,
             top_k=0, top_p=top_p,
-            max_out_seq=512,
+            max_out_seq=max_out_seq,
             repetition_penalty=repetition_penalty,
             temperature=temperature
         )

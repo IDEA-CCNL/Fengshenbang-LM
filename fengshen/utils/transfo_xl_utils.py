@@ -83,10 +83,12 @@ def sample_sequence_batch(model, context_tokens_tensor, context_length_tensor, m
     Returns:
         _type_: _description_
     """
+    
+    model_dtype = next(model.parameters()).dtype
     org_context_length = torch.min(context_length_tensor).item()
     batch_size = context_tokens_tensor.shape[0]
     tokens = context_tokens_tensor[:, :org_context_length]
-    attention_mask = get_atten_mask(batch_size, org_context_length).cuda(context_tokens_tensor.device)
+    attention_mask = get_atten_mask(batch_size, org_context_length).cuda(context_tokens_tensor.device).to(model_dtype)
     position_ids = torch.arange(org_context_length, dtype=torch.long,
                                 device=tokens.device)
     position_ids = position_ids.unsqueeze(0).expand_as(tokens)
@@ -119,7 +121,7 @@ def sample_sequence_batch(model, context_tokens_tensor, context_length_tensor, m
                 logits, mems = output.logits, output.hidden_states
             else:
                 output = model.forward(input_ids=tokens[:, index - 1: index], position_ids=tokens.new_ones((1, 1)) * (index - 1), 
-                                              attention_mask=tokens.new_ones(batch_size, 1, 1, mem_length + 1), hidden_states=mems)
+                                              attention_mask=tokens.new_ones(batch_size, 1, 1, mem_length + 1).to(model_dtype), hidden_states=mems)
                 logits, mems = output.logits, output.hidden_states
             logits = logits[:, -1]
             logits /= temperature
