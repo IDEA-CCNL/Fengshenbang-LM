@@ -102,11 +102,11 @@ def sample_sequence_batch(model, context_tokens_tensor, context_length_tensor, m
     output_tokens_lists = []
     
     # record order
-    origin_order = torch.tensor(range(batch_size))
+    origin_order = torch.tensor(range(batch_size), device=tokens.device)
     output_order = []
 
     # record log_probs
-    log_probs_tensor = torch.tensor([0.0] * batch_size)
+    log_probs_tensor = torch.tensor([0.0] * batch_size, device=tokens.device)
     log_probs_list = []
 
     with torch.no_grad():
@@ -146,11 +146,12 @@ def sample_sequence_batch(model, context_tokens_tensor, context_length_tensor, m
                 if prev[i] == end_token_id:
                     log_probs_tensor[i] /= (context_length_tensor[i].cpu() - index)
 
+            # with torch.autocast('cpu'):
             stop_idx = prev == end_token_id
             if torch.all(stop_idx).item():
                 output_order.extend(origin_order[stop_idx].tolist())
                 break
-            
+
             finished = tokens[stop_idx]
             output_tokens_lists.extend(finished.detach().cpu().tolist())
             log_probs_list.extend(log_probs_tensor[stop_idx].tolist())
