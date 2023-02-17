@@ -55,18 +55,22 @@ pretrain_path = 'IDEA-CCNL/Randeng-T5-784M-QA-Chinese'
 tokenizer=T5Tokenizer.from_pretrained(pretrain_path)
 model=MT5ForConditionalGeneration.from_pretrained(pretrain_path)
 
-sample={"context":"在柏林,胡格诺派教徒创建了两个新的社区:多罗西恩斯塔特和弗里德里希斯塔特。到1700年,这个城市五分之一的人口讲法语。柏林胡格诺派在他们的教堂服务中保留了将近一个世纪的法语。他们最终决定改用德语,以抗议1806-1807年拿破仑占领普鲁士。他们的许多后代都有显赫的地位。成立了几个教会,如弗雷德里夏(丹麦)、柏林、斯德哥尔摩、汉堡、法兰克福、赫尔辛基和埃姆登的教会。","question":"除了多罗西恩斯塔特,柏林还有哪个新的社区?","idx":1}
-plain_text='question:'+sample['question']+'knowledge:'+sample['context'][:self.max_knowledge_length]
+max_knowledge_length = 425
+max_new_tokens = 128
+max_seq_length = 512
 
-res_prefix=tokenizer.encode('answer'+'<extra_id_0></s>',add_special_token=False)
+sample={"context":"在柏林,胡格诺派教徒创建了两个新的社区:多罗西恩斯塔特和弗里德里希斯塔特。到1700年,这个城市五分之一的人口讲法语。柏林胡格诺派在他们的教堂服务中保留了将近一个世纪的法语。他们最终决定改用德语,以抗议1806-1807年拿破仑占领普鲁士。他们的许多后代都有显赫的地位。成立了几个教会,如弗雷德里夏(丹麦)、柏林、斯德哥尔摩、汉堡、法兰克福、赫尔辛基和埃姆登的教会。","question":"除了多罗西恩斯塔特,柏林还有哪个新的社区?","idx":1}
+plain_text='question:'+sample['question']+'knowledge:'+sample['context'][:max_knowledge_length]
+
+res_prefix=tokenizer.encode('answer'+'<extra_id_0></s>',add_special_tokens=False)
 l_rp=len(res_prefix)
 
-tokenized=tokenizer.encode(plain_text,add_special_tokens=False,truncation=True,max_length=self.max_seq_length-2-l_rp)
-
+tokenized=tokenizer.encode(plain_text,add_special_tokens=False,truncation=True,max_length=max_seq_length-2-l_rp)
 tokenized+=res_prefix
 
-# Generate answer
-pred_ids = model.generate(input_ids=tokenized,max_new_token=self.max_target_length,do_sample=True,top_p=0.9)
+## generate answer
+input_ids=torch.tensor([tokenized])
+pred_ids = model.generate(input_ids=input_ids,max_new_tokens=max_new_tokens,do_sample=True,top_p=0.9)
 tokenizer.batch_decode(pred_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
 ```
 
