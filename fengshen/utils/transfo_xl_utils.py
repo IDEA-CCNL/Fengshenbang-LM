@@ -83,10 +83,12 @@ def sample_sequence_batch(model, context_tokens_tensor, context_length_tensor, m
     Returns:
         _type_: _description_
     """
+    
+    model_dtype = next(model.parameters()).dtype
     org_context_length = torch.min(context_length_tensor).item()
     batch_size = context_tokens_tensor.shape[0]
     tokens = context_tokens_tensor[:, :org_context_length]
-    attention_mask = get_atten_mask(batch_size, org_context_length).cuda(context_tokens_tensor.device)
+    attention_mask = get_atten_mask(batch_size, org_context_length).cuda(context_tokens_tensor.device).to(model_dtype)
     position_ids = torch.arange(org_context_length, dtype=torch.long,
                                 device=tokens.device)
     position_ids = position_ids.unsqueeze(0).expand_as(tokens)
@@ -102,11 +104,11 @@ def sample_sequence_batch(model, context_tokens_tensor, context_length_tensor, m
     output_tokens_lists = []
     
     # record order
-    origin_order = torch.tensor(range(batch_size))
+    origin_order = torch.tensor(range(batch_size), device=tokens.device)
     output_order = []
 
     # record log_probs
-    log_probs_tensor = torch.tensor([0.0] * batch_size)
+    log_probs_tensor = torch.tensor([0.0] * batch_size, device=tokens.device)
     log_probs_list = []
 
     with torch.no_grad():
@@ -119,7 +121,7 @@ def sample_sequence_batch(model, context_tokens_tensor, context_length_tensor, m
                 logits, mems = output.logits, output.hidden_states
             else:
                 output = model.forward(input_ids=tokens[:, index - 1: index], position_ids=tokens.new_ones((1, 1)) * (index - 1), 
-                                              attention_mask=tokens.new_ones(batch_size, 1, 1, mem_length + 1), hidden_states=mems)
+                                              attention_mask=tokens.new_ones(batch_size, 1, 1, mem_length + 1).to(model_dtype), hidden_states=mems)
                 logits, mems = output.logits, output.hidden_states
             logits = logits[:, -1]
             logits /= temperature
@@ -146,11 +148,12 @@ def sample_sequence_batch(model, context_tokens_tensor, context_length_tensor, m
                 if prev[i] == end_token_id:
                     log_probs_tensor[i] /= (context_length_tensor[i].cpu() - index)
 
+            # with torch.autocast('cpu'):
             stop_idx = prev == end_token_id
             if torch.all(stop_idx).item():
                 output_order.extend(origin_order[stop_idx].tolist())
                 break
-            
+
             finished = tokens[stop_idx]
             output_tokens_lists.extend(finished.detach().cpu().tolist())
             log_probs_list.extend(log_probs_tensor[stop_idx].tolist())
