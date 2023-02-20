@@ -12,6 +12,7 @@ import unicodedata
 import re
 import jieba
 import sys
+from copy import deepcopy
 
 sys.path.append("../../../../")
 
@@ -171,6 +172,7 @@ class PegasusTokenizer(PreTrainedTokenizer):
         self.pre_tokenizer = pre_tokenizer
         self.mask_token_sent = mask_token_sent
         self.vocab = load_vocab(vocab_file)
+        self.old_vocab = deepcopy(self.vocab)
 
         self.vocab[self.eos_token] = self.vocab.pop("[unused1]")
         # self.vocab[self.eos_token] = self.vocab.pop("[unused2]")
@@ -382,7 +384,7 @@ class PegasusTokenizer(PreTrainedTokenizer):
             vocab_file = (filename_prefix +
                           "-" if filename_prefix else "") + save_directory
         with open(vocab_file, "w", encoding="utf-8") as writer:
-            for token, token_index in sorted(self.vocab.items(),
+            for token, token_index in sorted(self.old_vocab.items(),
                                              key=lambda kv: kv[1]):
                 if index != token_index:
                     logger.warning(
