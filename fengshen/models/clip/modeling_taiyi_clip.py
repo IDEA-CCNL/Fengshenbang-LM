@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from transformers import BertTokenizer
 from transformers.models.clip.modeling_clip import (
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
@@ -166,6 +167,7 @@ class TaiyiCLIPModel(CLIPPreTrainedModel):
         pixel_values: Optional[torch.FloatTensor] = None,
         attention_mask: Optional[torch.Tensor] = None,
         position_ids: Optional[torch.LongTensor] = None,
+        token_type_ids: Optional[torch.Tensor] = None,
         return_loss: Optional[bool] = None,
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
@@ -212,6 +214,7 @@ class TaiyiCLIPModel(CLIPPreTrainedModel):
         text_outputs = self.text_model(
             input_ids=input_ids,
             attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
             position_ids=position_ids,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
@@ -251,3 +254,33 @@ class TaiyiCLIPModel(CLIPPreTrainedModel):
             text_model_output=text_outputs,
             vision_model_output=vision_outputs,
         )
+
+
+# use by webui
+class TaiyiCLIPEmbedder(torch.nn.Module):
+    """Uses the Taiyi CLIP transf ormer encoder for text (from Hugging Face)"""
+
+    def __init__(self, version="IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-v0.1", device="cuda", max_length=512):
+        super().__init__()
+        self.tokenizer = BertTokenizer.from_pretrained(version, subfolder="tokenizer")
+        self.transformer = BertModel.from_pretrained(version+"/text_encoder")
+        self.device = device
+        self.max_length = max_length
+        self.freeze()
+
+    def freeze(self):
+        self.transformer = self.transformer.eval()
+        for param in self.parameters():
+            param.requires_grad = False
+
+    def forward(self, text):
+        batch_encoding = self.tokenizer(text, truncation=True, max_length=self.max_length, return_length=True,
+                                        return_overflowing_tokens=False, padding="max_length", return_tensors="pt")
+        tokens = batch_encoding["input_ids"].to(self.device)
+        outputs = self.transformer(input_ids=tokens)
+
+        z = outputs.last_hidden_state
+        return z
+
+    def encode(self, text):
+        return self(text)
