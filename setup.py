@@ -14,9 +14,10 @@ setup(
     include_package_data=True,
     platforms="any",
     install_requires=[
+        'tensorboard',
         'transformers >= 4.17.0',
         'datasets >= 2.0.0',
-        'pytorch_lightning >= 1.5.10',
+        'pytorch_lightning <= 1.9.4',
         'deepspeed >= 0.5.10',
         'jieba-fast >= 0.53',
         'jieba >= 0.40.0',

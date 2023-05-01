@@ -706,7 +706,7 @@ class UbertPipelines:
 
         self.args = args
         self.checkpoint_callback = TaskModelCheckpoint(args).callbacks
-        self.logger = loggers.TensorBoardLogger(save_dir=args.default_root_dir)
+        self.logger = loggers.TensorBoardLogger(save_dir='./') # args.default_root_dir
         self.trainer = pl.Trainer.from_argparse_args(args,
                                                      logger=self.logger,
                                                      callbacks=[self.checkpoint_callback])
