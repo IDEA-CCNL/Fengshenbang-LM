@@ -708,6 +708,8 @@ class UbertPipelines:
         self.checkpoint_callback = TaskModelCheckpoint(args).callbacks
         self.logger = loggers.TensorBoardLogger(save_dir='./') # args.default_root_dir
         self.trainer = pl.Trainer.from_argparse_args(args,
+                                                     accelerator='gpu',
+                                                     devices=0, # 这个参数可以先同时删掉accelerator和gpu，看他的提示然后修改。
                                                      logger=self.logger,
                                                      callbacks=[self.checkpoint_callback])
 
