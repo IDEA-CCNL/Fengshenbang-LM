@@ -1,3 +1,14 @@
+# 本人序
+对于二郎神系列模型Erlangshen-Ubert-110M-Chinese和对应330M的模型，官方的文档example首先有typo错误，是跑不通的，需要修改``UbertPiplines``把``UbertPipelines``（少了一个e），另外通过文档的安装方式也是不行的，由于代码的pytorch lightning写法是1.x的，现在2.x已经不适合了，官方的setup.py没有规定版本，我已经更改。另外还缺少了一些依赖，我也已经在这个repo里面补充。
+
+**小结**
+1. 修改fengshen库的setup.py，规定version，若按照原setup会报错
+2. 修改readme的example，修改typo（我的2h没了，实在是没发觉是文档少了个字母）在repo[https://github.com/Yonggie/Fengshenbang-doc](https://github.com/Yonggie/Fengshenbang-doc)里面
+
+以下是他们官方的话语
+=======================
+
+
 [**中文**](./README.md) | [**English**](./README_en.md)
 
 <p align="center">
