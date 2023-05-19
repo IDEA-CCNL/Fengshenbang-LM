@@ -27,13 +27,12 @@
 
 > [**FMIT**](https://arxiv.org/abs/2208.11039): 基于相对位置编码的单塔多模态命名实体识别模型。(```COLING 2022```)
 
-> [**UBERT**](https://arxiv.org/abs/2206.12094): 基于抽取式结构解码的统一自然语言推理模型。
+> [**UniEX**](https://arxiv.org/abs/2305.10306): 统一抽取任务的自然语言理解模型。(```ACL 2023```)
 
-> [**Erlangshen+PCL**](https://arxiv.org/abs/2208.02959): 二郎神+倾向性修正损失刷榜clue语义匹配榜。
-> 
 
 # 封神榜大事件
 
+- [IDEA研究院封神榜团队再次出击， 推出开源通用大模型系列“姜子牙”](https://mp.weixin.qq.com/s/IeXgq8blGoeVbpIlAUCAjA) 2023.05.17
 - [首个中文Stable Diffusion模型开源，IDEA研究院封神榜团队开启中文AI艺术时代](https://mp.weixin.qq.com/s/WrzkiJOxqNcFpdU24BKbMA) 2022.11.2
 - [打破不可能三角、比肩5400亿模型，IDEA封神榜团队仅2亿级模型达到零样本学习SOTA](https://mp.weixin.qq.com/s/m0_W31mP4xKKla8jIwUXkw) 2022.10.25
 - [AIWIN大赛冠军，封神榜提出多任务学习方案Ubert](https://mp.weixin.qq.com/s/A9G0YLbIPShKgm98DnD2jA) 2022.07.21
