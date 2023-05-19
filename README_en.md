@@ -29,12 +29,11 @@
 
 > [**FMIT**](https://arxiv.org/abs/2208.11039): A single-tower multimodal named entity recognition model based on relative position encoding.(```COLING 2022```)
 
-> [**UBERT**](https://arxiv.org/abs/2206.12094): A unified natural language inference model based on extractive structural decoding.
-
-> [**Erlangshen+PCL**](https://arxiv.org/abs/2208.02959): Towards No.1 in CLUE Semantic Matching Challenge: Pre-trained Language Model Erlangshen with Propensity-Corrected Loss.
+> [**UniEX**](https://arxiv.org/abs/2305.10306): A Natural Language Understanding Model for Unified Extraction Tasks.(```ACL 2023```)
 
 # Fengshenbang Big Event
 
+- [Fengshenbang team open-sources the general large-scale model series "Ziya"](https://mp.weixin.qq.com/s/IeXgq8blGoeVbpIlAUCAjA) 2023.05.17
 - [First Chinese stable diffusion model is open-sourced，IDEA Fengshenbang team opens the era of Chinese AI art](https://mp.weixin.qq.com/s/WrzkiJOxqNcFpdU24BKbMA) 2022.11.2
 - [Breaking the impossible triangle, comparable to 540B models, IDEA Fengshenbang team only has 200B models to achieve zero-shot SOTA](https://mp.weixin.qq.com/s/m0_W31mP4xKKla8jIwUXkw) 2022.10.25
 - [AIWIN champion solution, Fengshenbang proposed multi-task learning model Ubert](https://mp.weixin.qq.com/s/A9G0YLbIPShKgm98DnD2jA) 2022.07.21
