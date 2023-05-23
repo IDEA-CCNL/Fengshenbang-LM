@@ -27,6 +27,12 @@ fp16 + deepspeed offload
 - 显存：6G以上
 - 内存：80G以上
 
+# 安装依赖
+```shell
+cd /home/wuxiaojun/workspace/before_llm/Fengshenbang-LM/fengshen/examples/finetune_taiyi_stable_diffusion
+pip install -r requirements.txt
+```
+
 ## 运行脚本
 
 处理好自己的数据集后，只需要将脚本中的datasets_path指向你的数据集，不需要修改其他参数就能运行。在脚本中也提供了丰富的超参供大家修改，例如batch_size, ckpt_path等等都可以根据自己的需求做更改，其中model_path指向的是huggingface上的模型路径，下载可能比较慢，如果用户已经在本地下载过一份权重，直接将model_path改成本地路径即可。
