@@ -503,6 +503,7 @@ class extractModel:
 
     def extract_index(self, span_logits, sample_length, split_value=0.5):
         result = []
+        sample_length = sample_length if sample_length < span_logits.shape[0] else span_logits.shape[0]
         for i in range(sample_length):
             for j in range(i, sample_length):
                 if span_logits[i, j] > split_value:

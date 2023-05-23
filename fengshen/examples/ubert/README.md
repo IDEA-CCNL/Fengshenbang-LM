@@ -24,10 +24,10 @@ pip install --editable ./
 一键运行下面代码得到预测结果, 你可以任意修改示例 text 和要抽取的 entity_type，体验一下 Zero-Shot 性能
 ```python
 import argparse
-from fengshen import UbertPiplines
+from fengshen import UbertPipelines
 
 total_parser = argparse.ArgumentParser("TASK NAME")
-total_parser = UbertPiplines.piplines_args(total_parser)
+total_parser = UbertPipelines.pipelines_args(total_parser)
 args = total_parser.parse_args()
 
 test_data=[
@@ -42,7 +42,7 @@ test_data=[
         "id": 0}
 ]
 
-model = UbertPiplines(args)
+model = UbertPipelines(args)
 result = model.predict(test_data)
 for line in result:
     print(line)
@@ -68,7 +68,11 @@ for line in result:
 --gpus                        #gpu 的数量
 --check_val_every_n_epoch     #多少次验证一次， 默认 100
 --max_epochs                  #多少个 epochs， 默认 5
+<<<<<<< HEAD
+--max_length                  #句子最大长度， 默认 512
+=======
 --max_length                  #句子最大长度， 默认 128
+>>>>>>> main
 --num_labels                  #训练每条样本最多取多少个label，超过则进行随机采样负样本， 默认 10
 ```
 
