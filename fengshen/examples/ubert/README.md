@@ -68,11 +68,7 @@ for line in result:
 --gpus                        #gpu 的数量
 --check_val_every_n_epoch     #多少次验证一次， 默认 100
 --max_epochs                  #多少个 epochs， 默认 5
-<<<<<<< HEAD
---max_length                  #句子最大长度， 默认 512
-=======
 --max_length                  #句子最大长度， 默认 128
->>>>>>> main
 --num_labels                  #训练每条样本最多取多少个label，超过则进行随机采样负样本， 默认 10
 ```
 
