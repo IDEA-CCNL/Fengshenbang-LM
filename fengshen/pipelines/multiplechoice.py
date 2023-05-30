@@ -40,7 +40,7 @@ from fengshen.models.unimc.modeling_unimc import (
 
 class UniMCPipelines(Pipeline):
     @staticmethod
-    def piplines_args(parent_args):
+    def pipelines_args(parent_args):
         total_parser = parent_args.add_argument_group("piplines args")
         total_parser.add_argument(
             '--pretrained_model_path', default='', type=str)

@@ -24,10 +24,10 @@ pip install --editable ./
 一键运行下面代码得到预测结果, 你可以任意修改示例 text 和要抽取的 entity_type，体验一下 Zero-Shot 性能
 ```python
 import argparse
-from fengshen import UbertPiplines
+from fengshen import UbertPipelines
 
 total_parser = argparse.ArgumentParser("TASK NAME")
-total_parser = UbertPiplines.piplines_args(total_parser)
+total_parser = UbertPipelines.pipelines_args(total_parser)
 args = total_parser.parse_args()
 
 test_data=[
@@ -42,7 +42,7 @@ test_data=[
         "id": 0}
 ]
 
-model = UbertPiplines(args)
+model = UbertPipelines(args)
 result = model.predict(test_data)
 for line in result:
     print(line)
