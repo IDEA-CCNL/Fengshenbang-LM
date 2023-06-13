@@ -15,6 +15,7 @@
 
 from typing import TYPE_CHECKING
 
+# from transformers.file_utils import _LazyModule, is_torch_available
 from transformers.file_utils import _LazyModule, is_torch_available
 
 
