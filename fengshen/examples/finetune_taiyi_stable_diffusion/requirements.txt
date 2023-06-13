@@ -1,0 +1,5 @@
+torch
+torchvision
+transformers>=4.28.0
+diffusers>=0.16.1
+accelerate>=0.19.0

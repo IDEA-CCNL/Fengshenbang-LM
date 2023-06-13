@@ -27,7 +27,9 @@ import argparse
 from fengshen.pipelines.multiplechoice import UniMCPipelines
 
 total_parser = argparse.ArgumentParser("TASK NAME")
-total_parser = UniMCPipelines.piplines_args(total_parser)
+
+total_parser = UniMCPipelines.pipelines_args(total_parser)
+
 args = total_parser.parse_args()
     
 pretrained_model_path = 'IDEA-CCNL/Erlangshen-UniMC-RoBERTa-110M-Chinese'

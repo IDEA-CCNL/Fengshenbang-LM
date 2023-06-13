@@ -106,8 +106,8 @@ class UniversalDataModule(LightningDataModule):
         ds = self.datasets[self.hparams.train_datasets_field]
 
         collate_fn = self.collate_fn
-        if collate_fn is None and hasattr(ds, 'collater'):
-            collate_fn = ds.collater
+        if hasattr(ds, 'collate_fn'):
+            collate_fn = ds.collate_fn
 
         if self.hparams.replace_sampler_ddp is False:
             return DataLoader(
@@ -128,8 +128,8 @@ class UniversalDataModule(LightningDataModule):
     def val_dataloader(self):
         ds = self.datasets[self.hparams.val_datasets_field]
         collate_fn = self.collate_fn
-        if collate_fn is None and hasattr(ds, 'collater'):
-            collate_fn = ds.collater
+        if hasattr(ds, 'collate_fn'):
+            collate_fn = ds.collate_fn
 
         return DataLoader(
             ds,

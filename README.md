@@ -1,21 +1,39 @@
 [**中文**](./README.md) | [**English**](./README_en.md)
 
+<p align="center">
+    <a href="./LICENSE"><img src="https://img.shields.io/badge/license-Apache%202-dfd.svg"></a>
+    <a href=""><img src="https://img.shields.io/badge/python-3.7+-aff.svg"></a>
+    <a href=""><img src="https://img.shields.io/badge/os-linux%2C%20win%2C%20mac-pink.svg"></a>
+</p>
+
+
+<h4 align="center">
+  <a href=#安装> 环境安装 </a> |
+  <a href=https://huggingface.co/IDEA-CCNL> 模型下载 </a> |
+  <a href=https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples> 代码示例 </a> |
+  <a href=https://fengshenbang-doc.readthedocs.io/zh/latest> 模型文档 </a> |
+  <a href=https://fengshenbang-lm.com> 封神榜官网 </a> |
+  <a href=https://fengshenbang-lm.com/open-api> 封神API </a>
+</h4>
+
+------------------------------------------------------------------------------------------
+
 # 封神榜科技成果
 > [**Fengshenbang 1.0**](https://arxiv.org/abs/2209.02970): 封神榜开源计划1.0中英双语总论文，旨在成为中文认知智能的基础设施。
-> 
+ 
 > [**BioBART**](https://arxiv.org/abs/2204.03905): 由清华大学和IDEA研究院一起提供的生物医疗领域的生成语言模型。(```BioNLP 2022```)
 
 > [**UniMC**](https://arxiv.org/abs/2210.08590): 针对zero-shot场景下基于标签数据集的统一模型。(```EMNLP 2022```)
 
 > [**FMIT**](https://arxiv.org/abs/2208.11039): 基于相对位置编码的单塔多模态命名实体识别模型。(```COLING 2022```)
 
-> [**UBERT**](https://arxiv.org/abs/2206.12094): 基于抽取式结构解码的统一自然语言推理模型。
+> [**UniEX**](https://arxiv.org/abs/2305.10306): 统一抽取任务的自然语言理解模型。(```ACL 2023```)
 
-> [**Erlangshen+PCL**](https://arxiv.org/abs/2208.02959): 二郎神+倾向性修正损失刷榜clue语义匹配榜。
-> 
 
 # 封神榜大事件
 
+- [IDEA研究院封神榜团队再次出击， 推出开源通用大模型系列“姜子牙”](https://mp.weixin.qq.com/s/IeXgq8blGoeVbpIlAUCAjA) 2023.05.17
+- [首个中文Stable Diffusion模型开源，IDEA研究院封神榜团队开启中文AI艺术时代](https://mp.weixin.qq.com/s/WrzkiJOxqNcFpdU24BKbMA) 2022.11.2
 - [打破不可能三角、比肩5400亿模型，IDEA封神榜团队仅2亿级模型达到零样本学习SOTA](https://mp.weixin.qq.com/s/m0_W31mP4xKKla8jIwUXkw) 2022.10.25
 - [AIWIN大赛冠军，封神榜提出多任务学习方案Ubert](https://mp.weixin.qq.com/s/A9G0YLbIPShKgm98DnD2jA) 2022.07.21
 - [Finetune一下，“封神榜”预训练语言模型“二郎神”获SimCLUE榜一](https://mp.weixin.qq.com/s/KXQtCgxZlCnv0HqSyQAteQ) 2022.07.14
@@ -56,8 +74,8 @@
 |:---:|:---:|:---:|:---:|---|
 |[二郎神](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BA%8C%E9%83%8E%E7%A5%9E%E7%B3%BB%E5%88%97/index.html)|通用|语言理解|9千万-39亿参数|处理理解任务，拥有开源时最大的中文bert模型，2021登顶FewCLUE和ZeroCLUE|
 |[闻仲](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E9%97%BB%E4%BB%B2%E7%B3%BB%E5%88%97/index.html)|通用|语言生成|1亿-35亿参数|专注于生成任务，提供了多个不同参数量的生成模型，例如GPT2等|
-|[燃灯](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E7%87%83%E7%81%AF%E7%B3%BB%E5%88%97/index.html)|通用|语言转换|7千万-7亿参数|处理各种从源文本转换到目标文本类型的任务，例如机器翻译，文本摘要等|  
-|[太乙](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%A4%AA%E4%B9%99%E7%B3%BB%E5%88%97/index.html)|特定|多模态|8千万-1亿参数|应用于跨模态场景，包括文本图像生成，蛋白质结构预测, 语音-文本表示等|
+|[燃灯](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E7%87%83%E7%81%AF%E7%B3%BB%E5%88%97/index.html)|通用|语言转换|7千万-50亿参数|处理各种从源文本转换到目标文本类型的任务，例如机器翻译，文本摘要等|  
+|[太乙](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%A4%AA%E4%B9%99%E7%B3%BB%E5%88%97/index.html)|特定|多模态|8千万-10亿参数|应用于跨模态场景，包括文本图像生成，蛋白质结构预测, 语音-文本表示等|
 |[余元](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BD%99%E5%85%83%E7%B3%BB%E5%88%97/index.html)|特定|领域|1亿-35亿参数|应用于领域，如医疗，金融，法律，编程等。拥有目前最大的开源GPT2医疗模型|
 |-待定-|特定|探索|-未知-|我们希望与各技术公司和大学一起开发NLP相关的实验模型。目前已有：[周文王](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E5%91%A8%E6%96%87%E7%8E%8B%E7%B3%BB%E5%88%97/index.html)|
 
@@ -76,7 +94,7 @@
 
 这个世界需要一个答案。
 
-为了解决中文领域研究进展滞后和研究资源严重不足的问题，IDEA研究院正式宣布，开启 “封神榜”开源体系——一个以中文驱动的基础生态系统，其中包括了预训练大模型，特定任务的微调应用，基准和数据集等。我们的目标是构建一个全面的，标准化的，以用户为中心的生态系统。尽管这一目标可以通过多种方式去实现，但是我们经过对中文社区的重新审视与思考，提出了我们认为最为有效的方案：
+为了解决中文领域研究进展滞后和研究资源严重不足的问题，2021年11月22日，IDEA研究院创院理事长沈向洋在IDEA大会上正式宣布，开启 “封神榜”开源体系——一个以中文驱动的基础生态系统，其中包括了预训练大模型，特定任务的微调应用，基准和数据集等。我们的目标是构建一个全面的，标准化的，以用户为中心的生态系统。尽管这一目标可以通过多种方式去实现，但是我们经过对中文社区的重新审视与思考，提出了我们认为最为有效的方案：
 
 ![avatar](pics/fengshenbang_process1.png)
 
@@ -145,6 +163,55 @@ sh finetune_classification.sh
 | :--------:    | :-----:  | :----:  | :-----:   | :----: | :----: | :----: | :----: |
 | roberta-wwm-ext-large | 0.7514      |   0.5872    | 0.6152      |   0.777    | 0.814    | 0.8914    | 0.86    |
 | Erlangshen-MegatronBert-1.3B | 0.7608      |   0.5996    | 0.6234      |   0.7917    | 0.81    | 0.9243    | 0.872    |
+
+## 太乙系列
+
+太乙系列模型主要应用于跨模态场景，包括文本图像生成，蛋白质结构预测, 语音-文本表示等。2022年11月1日，封神榜开源了第一个中文版本的 stable diffusion 模型“太乙 Stable Diffusion”。
+
+### 模型下载地址
+[太乙 Stable Diffusion 纯中文版本](https://huggingface.co/IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-v0.1)
+
+[太乙 Stable Diffusion 中英双语版本](https://huggingface.co/IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-EN-v0.1)
+
+### 模型使用
+
+``` python
+from diffusers import StableDiffusionPipeline
+
+pipe = StableDiffusionPipeline.from_pretrained("IDEA-CCNL/Taiyi-Stable-Diffusion-1B-Chinese-v0.1").to("cuda")
+
+prompt = '飞流直下三千尺，油画'
+image = pipe(prompt, guidance_scale=7.5).images[0]  
+image.save("飞流.png")
+```
+
+### 生成效果
+
+|  铁马冰河入梦来，3D绘画。   |  飞流直下三千尺，油画。 | 女孩背影，日落，唯美插画。  |
+|  ----  | ----  | ----  |
+| ![](fengshen/examples/stable_diffusion_chinese/result_examples/tiema.png)  | ![](fengshen/examples/stable_diffusion_chinese/result_examples/feiliu.png)  | ![](fengshen/examples/stable_diffusion_chinese/result_examples/nvhai.jpg) |
+
+Advanced Prompt
+
+| 铁马冰河入梦来，概念画，科幻，玄幻，3D  | 中国海边城市，科幻，未来感，唯美，插画。 | 那人却在灯火阑珊处，色彩艳丽，古风，资深插画师作品，桌面高清壁纸。 |
+|  ----  | ----  | ----  |
+| ![](fengshen/examples/stable_diffusion_chinese/result_examples/tiema2.jpg)  | ![](fengshen/examples/stable_diffusion_chinese/result_examples/chengshi.jpg) | ![](fengshen/examples/stable_diffusion_chinese/result_examples/naren.jpg) |
+
+### 使用手册 Handbook for Taiyi
+
+https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/examples/stable_diffusion_chinese/taiyi_handbook.md
+
+### 怎样微调(How to finetune)
+
+https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples/finetune_taiyi_stable_diffusion
+
+### 配置webui(Configure webui)
+
+https://github.com/IDEA-CCNL/stable-diffusion-webui/blob/master/README.md
+
+### DreamBooth
+
+https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples/stable_diffusion_dreambooth
 
 # 封神框架
 

@@ -503,6 +503,7 @@ class extractModel:
 
     def extract_index(self, span_logits, sample_length, split_value=0.5):
         result = []
+        sample_length = sample_length if sample_length < span_logits.shape[0] else span_logits.shape[0]
         for i in range(sample_length):
             for j in range(i, sample_length):
                 if span_logits[i, j] > split_value:
@@ -669,10 +670,10 @@ class extractModel:
         return batch_data
 
 
-class UbertPiplines:
+class UbertPipelines:
     @staticmethod
-    def piplines_args(parent_args):
-        total_parser = parent_args.add_argument_group("piplines args")
+    def pipelines_args(parent_args):
+        total_parser = parent_args.add_argument_group("pipelines args")
         total_parser.add_argument(
             '--pretrained_model_path', default='IDEA-CCNL/Erlangshen-Ubert-110M-Chinese', type=str)
         total_parser.add_argument('--output_save_path',

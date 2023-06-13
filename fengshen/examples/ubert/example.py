@@ -1,12 +1,12 @@
 import argparse
-from fengshen import UbertPiplines
+from fengshen import UbertPipelines
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = '6'
 
 
 def main():
     total_parser = argparse.ArgumentParser("TASK NAME")
-    total_parser = UbertPiplines.piplines_args(total_parser)
+    total_parser = UbertPipelines.pipelines_args(total_parser)
     args = total_parser.parse_args()
 
     # 设置一些训练要使用到的参数
@@ -84,7 +84,7 @@ def main():
             "id": 0},
     ]
 
-    model = UbertPiplines(args)
+    model = UbertPipelines(args)
     model.fit(train_data, dev_data)
     result = model.predict(test_data)
     for line in result:
