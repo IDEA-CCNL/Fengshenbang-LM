@@ -1,26 +1,26 @@
-#!/bin/bash
-#SBATCH --job-name=pretrain_bart # create a short name for your job
+#!/usr/bin/env bash
+#SBATCH --job-name=test # create a short name for your job
 #SBATCH --nodes=1 # node count
-#SBATCH --ntasks-per-node=8 # number of tasks to run per node
-#SBATCH --cpus-per-task=30 # cpu-cores per task (>1 if multi-threaded tasks)
-#SBATCH --gres=gpu:8 # number of gpus per node
-#SBATCH -o %x-%j.log # output and error log file names (%x for job id)
-#SBATCH -x dgx050
+#SBATCH --ntasks-per-node=8 # total number of tasks across all nodes
+#SBATCH --cpus-per-task=4 # cpu-cores per task (>1 if multi-threaded tasks)
+#SBATCH --mem-per-cpu=5G # memory per cpu-core (4G is default)
+#SBATCH --gres=gpu:rtx:8 # number of gpus per node
+#SBATCH -p pol
 
-# pwd=Fengshenbang-LM/fengshen/examples/pretrain_erlangshen
+#SBATCH -o %x-%j.log # output and error log file names (%x for job id)
+
 ROOT_DIR=../../workspace
 export TORCH_EXTENSIONS_DIR=${ROOT_DIR}/torch_extendsions
 
-MODEL_NAME=yuniform_13B_plus_lora
+MODEL_NAME=finetune_ziya_llama13b
 MODEL_ROOT_DIR=$ROOT_DIR/${MODEL_NAME}
 if [ ! -d ${MODEL_ROOT_DIR} ];then
-  mkdir ${MODEL_ROOT_DIR}
+  mkdir -p ${MODEL_ROOT_DIR}
 fi
 
 NNODES=1
 GPUS_PER_NODE=8
-
-MICRO_BATCH_SIZE=2
+MICRO_BATCH_SIZE=1
 
 # 如果你不用Deepspeed的话 下面的一段话都可以删掉 Begin
 CONFIG_JSON="$MODEL_ROOT_DIR/${MODEL_NAME}.ds_config.json"
@@ -51,21 +51,25 @@ DATA_ARGS="\
         --train_batchsize $MICRO_BATCH_SIZE  \
         --val_batchsize $MICRO_BATCH_SIZE \
         --test_batchsize $MICRO_BATCH_SIZE  \
-        --datasets_name sft \
+        --train_file ../../workspace/finetune_ziya_llama13b/data/test.json \
+        --val_file ../../workspace/finetune_ziya_llama13b/data/test.json \
+        --test_file ../../workspace/finetune_ziya_llama13b/data/test.json \
+        --use_mpu \
+        --do_eval_only \
         "
-# 如果你有一批数据，可以参照IDEA-CCNL/PretrainCorpusDemo的格式处理，通过参数传入
-# --train_file train.json
-# --val_file val.json
-# --test_file test.json
 
 MODEL_ARGS="\
-        --model_path /cognitive_comp/gaoxinyu/workspace_lightning/llama/ckpt/FS_13B_PLUS \
-        --learning_rate 1e-5 \
-        --min_learning_rate 1e-6 \
-        --weight_decay 5e-2 \
+        --model_path /cognitive_comp/ganruyi/fengshenbang-workspace/llama13b_fs_tp8 \
+        --tokenizer_path /cognitive_comp/yangping/checkpoints/llama/llama2hf/hf_llama13b_step43000 \
+        --learning_rate 1e-4 \
+        --min_learning_rate 1e-5 \
+        --weight_decay 0.1 \
         --warmup_ratio 0.05 \
         --adam_beta1 0.9 \
         --adam_beta2 0.95 \
+        --max_seq_length 256 \
+        --model_parallel_size 8 \
+        --load_ckpt_path /cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/workspace/finetune_ziya_llama13b/ckpt/last-v5.ckpt \
         "
 
 MODEL_CHECKPOINT_ARGS="\
@@ -81,13 +85,13 @@ TRAINER_ARGS="\
         --num_nodes $NNODES \
         --log_every_n_steps 5 \
         --precision 16 \
-        --accumulate_grad_batches 2 \
+        --accumulate_grad_batches 1 \
         --default_root_dir ${MODEL_ROOT_DIR} \
         --replace_sampler_ddp False \
         --num_sanity_val_steps 0 \
         --limit_val_batches 0 \
         "
-export WANDB_API_KEY='c4d1004a4b524ec26cd79a5c11599e1c112ebf56'
+export WANDB_API_KEY=''
 export options=" \
         $DATA_ARGS \
         $MODEL_ARGS \
@@ -95,5 +99,4 @@ export options=" \
         $TRAINER_ARGS \
         "
 
-python3 sft.py $options
-#srun -N $NNODES --gres=gpu:$GPUS_PER_NODE --ntasks-per-node=$GPUS_PER_NODE --cpus-per-task=20 python3 pretrain_deberta.py $options
+srun python3 finetune_ziya_llama.py $options

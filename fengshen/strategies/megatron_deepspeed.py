@@ -329,6 +329,7 @@ class DeepSpeedStrategy(OriginDeepSpeedStrategy):
             checkpoint_config = self.config["activation_checkpointing"]
             deepspeed.checkpointing.configure(
                 mpu_=mpu,
+                num_checkpoints=checkpoint_config.get("num_checkpoints"),
                 partition_activations=checkpoint_config.get("partition_activations"),
                 contiguous_checkpointing=checkpoint_config.get("contiguous_memory_optimization"),
                 checkpoint_in_cpu=checkpoint_config.get("cpu_checkpointing"),
@@ -364,8 +365,7 @@ class DeepSpeedStrategy(OriginDeepSpeedStrategy):
             topology=topo,
             fp32_allreduce=False)
 
-        deepspeed.checkpointing.configure(
-            mpu, partition_activations=True)
+        self._set_deepspeed_activation_checkpointing()
         mpu.model_parallel_cuda_manual_seed(self.mpu_seed)
         
     def _initialize_deepspeed_inference(self, model: Module) -> None:
@@ -394,6 +394,6 @@ class DeepSpeedStrategy(OriginDeepSpeedStrategy):
             lr_scheduler=None,
             model_parameters=[],
             dist_init_required=False,
-            mpu=self.mpu
+            mpu=mpu
         )
         self.model = model

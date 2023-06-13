@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=test # create a short name for your job
-#SBATCH --nodes=1 # node count
+#SBATCH --nodes=2 # node count
 #SBATCH --ntasks-per-node=8 # total number of tasks across all nodes
-#SBATCH --cpus-per-task=2 # cpu-cores per task (>1 if multi-threaded tasks)
-#SBATCH --mem-per-cpu=10G # memory per cpu-core (4G is default)
+#SBATCH --cpus-per-task=4 # cpu-cores per task (>1 if multi-threaded tasks)
+#SBATCH --mem-per-cpu=20G # memory per cpu-core (4G is default)
 #SBATCH --gres=gpu:hgx:8 # number of gpus per node
 #SBATCH -p pol
 
@@ -18,7 +18,7 @@ if [ ! -d ${MODEL_ROOT_DIR} ];then
   mkdir -p ${MODEL_ROOT_DIR}
 fi
 
-NNODES=1
+NNODES=2
 GPUS_PER_NODE=8
 MICRO_BATCH_SIZE=1
 
@@ -51,28 +51,29 @@ DATA_ARGS="\
         --train_batchsize $MICRO_BATCH_SIZE  \
         --val_batchsize $MICRO_BATCH_SIZE \
         --test_batchsize $MICRO_BATCH_SIZE  \
-        --train_file /cognitive_comp/zhangwenjun/idea/fengshenbang-lm/data/train.json \
-        --val_file /cognitive_comp/zhangwenjun/idea/fengshenbang-lm/data/valid.json \
-        --test_file /cognitive_comp/zhangwenjun/idea/fengshenbang-lm/data/test.json \
+        --train_file ../../workspace/finetune_ziya_llama13b/data/train.json \
+        --val_file ../../workspace/finetune_ziya_llama13b/data/train.json \
+        --test_file ../../workspace/finetune_ziya_llama13b/data/train.json \
+        --use_mpu \
         "
 
 MODEL_ARGS="\
-        --model_path /cognitive_comp/ganruyi/fengshenbang-workspace/llama13b_fs_tp4 \
+        --model_path /cognitive_comp/ganruyi/fengshenbang-workspace/llama13b_fs \
         --tokenizer_path /cognitive_comp/yangping/checkpoints/llama/llama2hf/hf_llama13b_step43000 \
-        --learning_rate 1e-5 \
-        --min_learning_rate 1e-6 \
+        --learning_rate 1e-4 \
+        --min_learning_rate 1e-5 \
         --weight_decay 0.1 \
         --warmup_ratio 0.05 \
         --adam_beta1 0.9 \
         --adam_beta2 0.95 \
-        --max_seq_length 1024 \
-        --model_parallel_size 4 \
+        --max_seq_length 256 \
+        --model_parallel_size 1 \
         "
 
 MODEL_CHECKPOINT_ARGS="\
         --save_last \
-        --every_n_train_steps 16000 \
-        --save_ckpt_path ${MODEL_ROOT_DIR}/ckpt \
+        --every_n_train_steps 100  \
+        --save_ckpt_path ${MODEL_ROOT_DIR}/ckpt_no_tp \
         "
 #         --load_ckpt_path ${MODEL_ROOT_DIR}/ckpt/last.ckpt \
 
@@ -82,13 +83,13 @@ TRAINER_ARGS="\
         --num_nodes $NNODES \
         --log_every_n_steps 5 \
         --precision 16 \
-        --accumulate_grad_batches 2 \
+        --accumulate_grad_batches 1 \
         --default_root_dir ${MODEL_ROOT_DIR} \
         --replace_sampler_ddp False \
         --num_sanity_val_steps 0 \
         --limit_val_batches 0 \
         "
-export WANDB_API_KEY='6b3d1a7bd8b6d38ff5d0d7cd855db0c8adb774af'
+export WANDB_API_KEY=''
 export options=" \
         $DATA_ARGS \
         $MODEL_ARGS \

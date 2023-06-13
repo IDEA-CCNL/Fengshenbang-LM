@@ -195,7 +195,11 @@ def get_total_steps(trainer, hparams):
     train_loader = trainer._data_connector._train_dataloader_source.dataloader()
     # Calculate total steps
     if trainer.max_epochs > 0:
-        world_size = trainer.world_size
+        if hasattr(hparams, 'use_mpu'):
+            from fengshen.models.megatron import mpu
+            world_size = mpu.get_data_parallel_world_size() if hparams.use_mpu else trainer.world_size
+        else:
+            world_size = trainer.world_size
         tb_size = hparams.train_batchsize * max(1, world_size)
         ab_size = trainer.accumulate_grad_batches
         total_steps = (len(train_loader.dataset) *
