@@ -138,7 +138,7 @@ py::array build_sample_idx(const py::array_t<int32_t> &sizes_,
   int64_t sample_index = 0;
   // Index into doc_idx.
   int64_t doc_idx_index = 0;
-  // Begining offset for each document.
+  // Beginning offset for each document.
   int32_t doc_offset = 0;
   // Start with first document and no offset.
   sample_idx[2 * sample_index] = doc_idx_index;
@@ -167,7 +167,7 @@ py::array build_sample_idx(const py::array_t<int32_t> &sizes_,
       }
       else
       {
-        // Otherwise, start from the begining of the next document.
+        // Otherwise, start from the beginning of the next document.
         ++doc_idx_index;
         doc_offset = 0;
       }
@@ -316,7 +316,7 @@ py::array build_mapping_impl(const py::array_t<int64_t> &docs_,
         const auto sent_index_first = docs[doc];
         const auto sent_index_last = docs[doc + 1];
 
-        // At the begining of the document previous index is the
+        // At the beginning of the document previous index is the
         // start index.
         auto prev_start_index = sent_index_first;
 
@@ -609,7 +609,7 @@ py::array build_blocks_mapping_impl(const py::array_t<int64_t> &docs_,
         const auto sent_index_last = docs[doc + 1];
         const auto target_seq_len = max_seq_length - titles_sizes[doc];
 
-        // At the begining of the document previous index is the
+        // At the beginning of the document previous index is the
         // start index.
         auto prev_start_index = sent_index_first;
 
