@@ -40,8 +40,8 @@ def generate(queries: List[str], tokenizer: AutoTokenizer, model: LlamaForCausal
     return output
 
 if __name__ == '__main__':
-	model_path = '/cognitive_comp/wanghao/models/llama_sft/llama_stage_step1900_ppo_step49_hf'
-	tk_path = '/cognitive_comp/liuhan/checkpoints/llama-neox-sft/13B-c-pretrain-tokenizer/'
+	model_path = 'your model path'
+	tk_path = 'your tokenizer path'
 
 	model = LlamaForCausalLM.from_pretrained(model_path).to(torch.bfloat16).cuda()
 	llama_tokenizer = AutoTokenizer.from_pretrained(tk_path)

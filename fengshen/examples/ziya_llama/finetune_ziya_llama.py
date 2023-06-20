@@ -40,7 +40,6 @@ class LlamaSFTCollator:
     '''
     tokenizer: None  # 分词
     max_seq_length: 1536
-    enter_token_id = 13
     def __call__(self, samples):
         input_ids_list = []
         labels_list = []
@@ -54,12 +53,10 @@ class LlamaSFTCollator:
                 }
             """
             prompt_cnt = min(len(s["prompt"]), len(s["output"]))
-            input_ids = self.tokenizer(prompt_prefix).input_ids
+            # input_ids = self.tokenizer(prompt_prefix).input_ids
+            input_ids = []
             labels_ids = [-100] * len(input_ids)
             for i in range(prompt_cnt):
-                # 补上一个换行符
-                # input_ids += [self.enter_token_id]
-                # labels_ids += [-100]
                 prompt_input_ids = self.tokenizer(prompt_without_output.format_map(
                     {"prompt": s["prompt"][i].strip()}), add_special_tokens=False).input_ids
                 output_ids = self.tokenizer(s["output"][i].strip(), add_special_tokens=False).input_ids + [self.tokenizer.eos_token_id]
@@ -78,7 +75,7 @@ class LlamaSFTCollator:
         # PAD
         for i in range(len(input_ids_list)):
             labels_list[i] = pad(labels_list[i], -100, max_length)
-            input_ids_list[i] = pad(input_ids_list[i], self.tokenizer.pad_token_id, max_length)
+            input_ids_list[i] = pad(input_ids_list[i], self.tokenizer.eos_token_id, max_length)
         model_inputs = {
             'input_ids': torch.tensor(input_ids_list).clone(),
             'attention_mask': torch.ones((len(input_ids_list), max_length)).clone(),
@@ -188,6 +185,8 @@ class Llama(pl.LightningModule):
 if __name__ == '__main__':
     args_parser = argparse.ArgumentParser()
     args_parser.add_argument('--do_eval_only', action='store_true', default=False)
+    args_parser.add_argument('--wandb_project', type=str, default="ziya_llama13b_finetune_example")
+    args_parser.add_argument('--wandb_name', type=str, default="exp1")
     args_parser = add_module_args(args_parser)
     args_parser = pl.Trainer.add_argparse_args(args_parser)
     args_parser = UniversalDataModule.add_data_specific_args(args_parser)
@@ -204,6 +203,7 @@ if __name__ == '__main__':
     print('data load complete')
     model = Llama(args, tokenizer=tokenizer)
     print('model load complete')
+    print(model)
 
     strategy = DeepSpeedStrategy(
         tensor_model_parallel_size=args.model_parallel_size,
@@ -215,7 +215,7 @@ if __name__ == '__main__':
         print('--------warning no checkpoint found--------, remove args')
         args.load_ckpt_path = None
     if not args.do_eval_only:
-        wandb_logger = WandbLogger(project="ziya_llama13b_finetune_example")
+        wandb_logger = WandbLogger(project=args.wandb_project, name=args.wandb_name)
         lr_monitor = LearningRateMonitor(logging_interval='step')
         checkpoint_callback = UniversalCheckpoint(args)
         
