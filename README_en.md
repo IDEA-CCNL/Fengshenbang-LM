@@ -52,23 +52,6 @@ for Commonsense Reasoning.(```ACL 2023```)
 - [IDEA Meeting Release｜"Fengshenbang" Open Source Project](https://mp.weixin.qq.com/s/Ct06-vLEKoYMyJQPBV2n0w) 2021.11.25
 - [IDEA Chinese pre-trained language model Erlangshen tops the FewCLUE benchmark](https://mp.weixin.qq.com/s/bA_9n_TlBE9P-UzCn7mKoA) 2021.11.11
 
-- [封神榜科技成果](#封神榜科技成果)
-- [封神榜大事件](#封神榜大事件)
-- [导航](#导航)
-- [模型系列简介](#模型系列简介)
-- [Fengshenbang-LM](#fengshenbang-lm)
-- [封神榜模型](#封神榜模型)
-  - [姜子牙系列](#姜子牙系列)
-  - [二郎神系列](#二郎神系列)
-  - [太乙系列](#太乙系列)
-- [封神框架](#封神框架)
-  - [安装](#安装)
-  - [Pipelines](#pipelines)
-- [封神榜系列文章](#封神榜系列文章)
-- [引用](#引用)
-- [联系我们](#联系我们)
-- [版权许可](#版权许可)
-
 # Navigation
 - [Fengshenbang Achievements](#fengshenbang-achievements)
 - [Fengshenbang Big Event](#fengshenbang-big-event)
