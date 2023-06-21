@@ -1,0 +1,5 @@
+transformers>=4.28.1
+bitsandbytes>=0.39.0
+torch>=1.12.1
+numpy>=1.24.3
+llama-cpp-python>=0.1.62
