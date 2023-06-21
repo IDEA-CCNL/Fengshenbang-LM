@@ -1,7 +1,5 @@
 # fengshen-infer
 
-# fengshen-infer
-
 ### 量化推理
 
 量化分为3阶段:
@@ -13,7 +11,7 @@
 
 **a).为方便大众使用，需要安装的库和依赖较少，容易上手。主要是hugging face社区提供的量化推理加速方案。**
 
-代码见：[hf_quantizatin_inference.py](http://git.team.idea.edu.cn/cognitive-computing/fengshen-infer/-/tree/dev_wzw)
+代码见：[hf_quantizatin_inference.py](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/examples/ziya_inference/hf_quantizatin_inference.py)
 
 以开源版本模型Ziya-13B为例，性能如下：
 
@@ -26,25 +24,25 @@
 
  accelerate的int4方案在transformer最新分支有，安装版本还没有。
 
-**b).基于[llama.cpp](https://github.com/ggerganov/llama.cpp)方案优化
+**b).基于[llama.cpp](https://github.com/ggerganov/llama.cpp)方案优化**
 
 llama.cpp能实现在MacOS等边缘平台部署llama模型，并使用cpu进行推理。
 CPU Benchmark见：
 [cpu_benchmark](https://github.com/ggerganov/llama.cpp#quantization)
 
 
-代码见：[llama_cpp_quantizatin_inference.py](http://git.team.idea.edu.cn/cognitive-computing/fengshen-infer/-/tree/dev_zyh)
+代码见：[llama_cpp_quantizatin_inference.py](https://github.com/IDEA-CCNL/Fengshenbang-LM/blob/main/fengshen/examples/ziya_inference/llama_cpp_quantizatin_inference.py)
 
 开源版本模型Ziya-13B为例，性能如下：
 
 |机器配置|精度|显存占用|batch_size|per_token_time_cost|c_eval得分|
 |:----:|:--:|:-----:|:--------:|:-----------------:|:--------:|
-|2X3090|fp16|26GB|1|53.29 ms|-|
+|2X3090|fp16|26GB|1|53.29 ms|29.51|
 |1X3090|q8_0|13GB|1|46.25 ms|29.47|
 |1X3090|q5_0|8.4GB|1|60.37 ms|29.65|
 |1X3090|q5_1|9.2GB|1|59.84 ms|30.46|
 |1X3090|q4_0|6.9GB|1|45.05 ms|25.53|
-|1X3090|q4_1|7.7GB|1|46.87 ms|30.89|
+|1X3090|q4_1|7.7GB|1|46.87 ms|27.51|
 - q4_0 = 32 numbers in chunk, 4 bits per weight, 1 scale value at 32-bit float (5 bits per value in average), each weight is given by the common scale * quantized value.
 
 - q4_1 = 32 numbers in chunk, 4 bits per weight, 1 scale value and 1 bias value at 32-bit float (6 bits per value in average), each weight is given by the common scale * quantized value + common bias.
