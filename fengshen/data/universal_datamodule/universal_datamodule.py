@@ -2,6 +2,7 @@ from pytorch_lightning import LightningDataModule
 from typing import Optional
 
 from torch.utils.data import DataLoader, DistributedSampler
+from fengshen.models.megatron import mpu
 
 
 def get_consume_samples(data_model: LightningDataModule) -> int:
@@ -37,6 +38,9 @@ class UniversalDataModule(LightningDataModule):
                             choices=['single',
                                      'random'],
                             default='random')
+        parser.add_argument('--use_mpu', action="store_true", default=False,
+            help="Whether to center crop images before resizing to resolution"
+        )
         return parent_args
 
     def __init__(
@@ -77,14 +81,16 @@ class UniversalDataModule(LightningDataModule):
         world_size = self.trainer.world_size
         consumed_samples = get_consume_samples(self)
         # use the user default sampler
+        data_parallel_rank = mpu.get_data_parallel_rank() if self.hparams.use_mpu else self.trainer.global_rank
+        data_parallel_size = mpu.get_data_parallel_world_size() if self.hparams.use_mpu else world_size
         if self.hparams.sampler_type == 'random':
             return PretrainingRandomSampler(
                 total_samples=len(ds),
                 # consumed_samples cal by global steps
                 consumed_samples=consumed_samples,
                 micro_batch_size=self.hparams.train_batchsize,
-                data_parallel_rank=self.trainer.global_rank,
-                data_parallel_size=world_size,
+                data_parallel_rank=data_parallel_rank,
+                data_parallel_size=data_parallel_size,
                 epoch=self.trainer.current_epoch,
             )
         elif self.hparams.sampler_type == 'single':
@@ -93,8 +99,8 @@ class UniversalDataModule(LightningDataModule):
                 # consumed_samples cal by global steps
                 consumed_samples=consumed_samples,
                 micro_batch_size=self.hparams.train_batchsize,
-                data_parallel_rank=self.trainer.global_rank,
-                data_parallel_size=world_size,
+                data_parallel_rank=data_parallel_rank,
+                data_parallel_size=data_parallel_size,
             )
         else:
             raise Exception('Unknown sampler type: {}'.format(self.hparams.sampler_type))
@@ -147,6 +153,24 @@ class UniversalDataModule(LightningDataModule):
         # )
 
     def test_dataloader(self):
+        ds = self.datasets[self.hparams.test_datasets_field]
+
+        collate_fn = self.collate_fn
+        if collate_fn is None and hasattr(ds, 'collater'):
+            collate_fn = ds.collater
+
+        return DataLoader(
+            ds,
+            batch_size=self.hparams.test_batchsize,
+            shuffle=False,
+            num_workers=self.hparams.dataloader_workers,
+            collate_fn=collate_fn,
+            sampler=DistributedSampler(
+                ds, shuffle=False),
+            pin_memory=True,
+        )
+
+    def predict_dataloader(self):
         ds = self.datasets[self.hparams.test_datasets_field]
 
         collate_fn = self.collate_fn
