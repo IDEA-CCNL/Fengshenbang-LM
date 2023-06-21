@@ -31,8 +31,14 @@
 
 > [**UniEX**](https://arxiv.org/abs/2305.10306): A Natural Language Understanding Model for Unified Extraction Tasks.(```ACL 2023```)
 
-# Fengshenbang Big Event
+> [**Solving Math Word Problems via Cooperative Reasoning induced Language Models**](https://2023.aclweb.org/program/accepted_main_conference/): Solving Math Word Problems via Cooperative Reasoning induced Language Models.(```ACL 2023```)
 
+> [**MVP-Tuning**](https://2023.aclweb.org/program/accepted_main_conference/): 基Multi-View Knowledge Retrieval with Prompt Tuning
+for Commonsense Reasoning.(```ACL 2023```)
+
+
+# Fengshenbang Big Event
+- [Fengshenbang team open-sources the "Ziya-Visual"](https://mp.weixin.qq.com/s/-gv9tG5-Vqo2iN_ETO84KQ) 2023.06.05
 - [Fengshenbang team open-sources the general large-scale model series "Ziya"](https://mp.weixin.qq.com/s/IeXgq8blGoeVbpIlAUCAjA) 2023.05.17
 - [First Chinese stable diffusion model is open-sourced，IDEA Fengshenbang team opens the era of Chinese AI art](https://mp.weixin.qq.com/s/WrzkiJOxqNcFpdU24BKbMA) 2022.11.2
 - [Breaking the impossible triangle, comparable to 540B models, IDEA Fengshenbang team only has 200B models to achieve zero-shot SOTA](https://mp.weixin.qq.com/s/m0_W31mP4xKKla8jIwUXkw) 2022.10.25
@@ -46,6 +52,22 @@
 - [IDEA Meeting Release｜"Fengshenbang" Open Source Project](https://mp.weixin.qq.com/s/Ct06-vLEKoYMyJQPBV2n0w) 2021.11.25
 - [IDEA Chinese pre-trained language model Erlangshen tops the FewCLUE benchmark](https://mp.weixin.qq.com/s/bA_9n_TlBE9P-UzCn7mKoA) 2021.11.11
 
+- [封神榜科技成果](#封神榜科技成果)
+- [封神榜大事件](#封神榜大事件)
+- [导航](#导航)
+- [模型系列简介](#模型系列简介)
+- [Fengshenbang-LM](#fengshenbang-lm)
+- [封神榜模型](#封神榜模型)
+  - [姜子牙系列](#姜子牙系列)
+  - [二郎神系列](#二郎神系列)
+  - [太乙系列](#太乙系列)
+- [封神框架](#封神框架)
+  - [安装](#安装)
+  - [Pipelines](#pipelines)
+- [封神榜系列文章](#封神榜系列文章)
+- [引用](#引用)
+- [联系我们](#联系我们)
+- [版权许可](#版权许可)
 
 # Navigation
 - [Fengshenbang Achievements](#fengshenbang-achievements)
@@ -54,15 +76,11 @@
 - [Model Infofrmation](#model-infofrmation)
 - [Fengshenbang-LM](#fengshenbang-lm)
 - [Fengshenbang Model](#fengshenbang-model)
+  - [Ziya](#Ziya)
   - [Erlangshen](#erlangshen)
-    - [Download the Models](#download-the-models)
-    - [Load the Models](#load-the-models)
-    - [Example of Usage](#example-of-usage)
-    - [Performance on Downstream Tasks](#performance-on-downstream-tasks)
+  - [Taiyi](#Taiyi)
 - [Fengshen Framework](#fengshen-framework)
   - [Installation](#installation)
-    - [Installing in an existing environment](#installing-in-an-existing-environment)
-    - [Using Docker](#using-docker)
   - [Pipelines](#pipelines)
 - [Fengshen Benchmark](#fengshen-benchmark)
 - [Fegnshenbang Series Articles](#fegnshenbang-series-articles)
@@ -73,6 +91,7 @@
 # Model Infofrmation
 |Series|Demand|Task|Parameter Scale|Extra|
 |:---:|:---:|:---:|:---:|---|
+|[Ziya](https://huggingface.co/IDEA-CCNL/Ziya-LLaMA-13B-v1.1)|General|AGI|>7B|Ziya has the capabilities of translation, programming, text classification, information extraction, summarization, copy generation, common sense question and answer, and mathematical calculation.|
 |[Erlangshen](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E4%BA%8C%E9%83%8E%E7%A5%9E%E7%B3%BB%E5%88%97/index.html)|General|NLU|97M-3.9B|Erlangshen was designed to solve NLU tasks; The largest BERT when publicly released; SOTA on FewCLUE and ZeroCLUE in 2021.|
 |[Wenzhong](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E9%97%BB%E4%BB%B2%E7%B3%BB%E5%88%97/index.html)|General|NLG|1B-3.5B|Wenzhong focuses on NLG tasks; Provides several generative models with different scales, such as GPT2, etc.|
 |[Randeng](https://fengshenbang-doc.readthedocs.io/zh/latest/docs/%E7%87%83%E7%81%AF%E7%B3%BB%E5%88%97/index.html)|General|NLT|770M-5B|Randeng handles natural language transformation (NLT) type tasks that convert from source text to target text, such as machine translation, text summarization, etc.|
@@ -97,28 +116,48 @@ The Chinese language as the world's largest spoken language (native speakers), h
 
 And the world needs an answer for this.
 
-On November 22nd, 2021, Harry Shum, the Founder and Chairman of the IDEA (International Digital Economy Academy) officially announces the launch of "Fengshenbang" open source project.  —— a Chinese language driven foundation ecosystem, incorporates pre-trained models, task-specific fine-tune applications, benchmarks, and datasets. Our goal is to build a comprehensive, standardized and user-centered ecosystem. Although this can be instantiated in a variety of ways, we present the following design that we find to be particularly effective:
+On November 22nd, 2021, Harry Shum, the Founder and Chairman of the IDEA (International Digital Economy Academy) officially announces the launch of "Fengshenbang" open source project.  —— a Chinese language driven foundation ecosystem, incorporates pre-trained models, task-specific fine-tune applications, benchmarks, and datasets. 
+![avatar](pics/start_opensource.png)
 
-![avatar](pics/fengshenbang_enprocess1.png)
-
-Although this seems complicated, with only 3 sequential steps, users can build their applications based on our resources.
-- Step 1: Choosing a pre-trained Chinese NLP model from our open-source library of Fengshenbang Models.
-- Step 2: Employing Fengshen Framework to adjust the model by exploring the our tutorial examples.
-- Step 3: Evaluating on downstream tasks, such as Fengshenbang Benchmarks or custom tasks.
 
 # Fengshenbang Model
 
 "Fengshenbang Model" will open-source a series of NLP-related pre-trained models in all aspects. There are a wide range of research tasks in the NLP community, which can be divided into two categories: general demands and special demands. In general demands, there are common NLP tasks, which are classified into Natural Language Understanding (NLU), Natural Language Generation (NLG), and Natural Language Transformation (NLT). 
 Due to the fast development, NLP community brings special demands to the entire AI community, which are often assigned to MultiModal (MM), Domains and Exploration. We consider all of these tasks and provide models that are fine tuning for downstream tasks, making our base model easy to use for users with limited computing resources. We consider all of these demands and provide models that are fine-tuned for downstream tasks, making our base model easy to use for users with limited computing resources. Moreover, we guarantee that we will optimize the models continuously with new datasets and latest algorithms. We aim to build universal infrastructure for Chinese cognitive intelligence and prevent duplicative construction, and hence save computing resources for the community.
 
-![avatar](pics/model_pic1.png)
+![avatar](pics/all_models.png)
 
 We also call for businesses, universities and institutions to join us with the project and build the sytem of large-scale open-source models collaboratively. We envision that, in the near future, the first choice when in need of a new pretrained model should be selecting one in closest proximity to the desired scale,architecture and domain from the series, followed by further training. After obtaining a trained new model, we shall add it back to the series of open-source models for future usage. In this way we build the open-source system iteratively and collaboratively while individuals could get desired models using minimal computing resources. 
 
-![avatar](pics/model_pic2.png)
-
 For better open source experience, all models of the Fengshenbang series are synchronized within the Huggingface community, and can be obtained for use within few lines of code. Welcome to download and use our models from our repo at [IDEA-CCNL at HuggingFace](https://huggingface.co/IDEA-CCNL).
 
+## Ziya
+
+The general large-scale model "Ziya" series has the capabilities of translation, programming, text classification, information extraction, summarization, copy generation, common sense question and answer, and mathematical calculation. At present, Ziya's general-purpose large model (v1/v1.1) has completed a three-stage training process of large-scale pre-training, multi-task supervised fine-tuning, and human feedback learning. Ziya series models include the following models:
+- [Ziya-LLaMA-13B-v1.1](https://huggingface.co/IDEA-CCNL/Ziya-LLaMA-13B-v1.1)
+- [Ziya-LLaMA-13B-v1](https://huggingface.co/IDEA-CCNL/Ziya-LLaMA-13B-v1)
+- [Ziya-LLaMA-7B-Reward](https://huggingface.co/IDEA-CCNL/Ziya-LLaMA-7B-Reward)
+- [Ziya-LLaMA-13B-Pretrain-v1](https://huggingface.co/IDEA-CCNL/Ziya-LLaMA-13B-Pretrain-v1)
+- [Ziya-BLIP2-14B-Visual-v1](https://huggingface.co/IDEA-CCNL/Ziya-BLIP2-14B-Visual-v1)
+
+### Example of Usage
+
+Refer to [Ziya-LLaMA-13B-v1](https://huggingface.co/IDEA-CCNL/Ziya-LLaMA-13B-v1)
+
+### Online Demo
+
+- [Huggingface Ziya Space](https://huggingface.co/spaces/IDEA-CCNL/Ziya-v1)
+- [Huggingface Ziya-visual Space](https://huggingface.co/spaces/IDEA-CCNL/Ziya-BLIP2-14B-Visual-v1-Demo)
+- [ModelScope Ziya Space](https://modelscope.cn/studios/Fengshenbang/Ziya_LLaMA_13B_v1_online/summary)
+
+
+### Finetune Example
+
+Refer to [ziya_finetune](https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples/ziya_llama)
+
+### Inference & Quantization Example
+
+Refer to [ziya_inference](https://github.com/IDEA-CCNL/Fengshenbang-LM/tree/main/fengshen/examples/ziya_inference)
  
 ## Erlangshen
 
@@ -264,15 +303,8 @@ fengshen-pipeline text_classification train --model='IDEA-CCNL/Erlangshen-Robert
 
 [Get Started with Fengshen in 3 Minutes](fengshen/README.md)
 
-# Fengshen Benchmark
-Our "Fengshenbang" ecosystem also includes a benchmark module - "Fengshen Benchmark", which allows users to make fair comparisons on our platform and allows the entire Chinese community to track the latest advances in NLP models.
 
-To collect high-quality and robust benchmarks, we consider different aspects of testing the models. As a result, we identify the following requirements while building the Fengshenbang benchmark:
-- **Widely evaluated**: While some existing datasets are not designed in Chinese, they have been used extensively in NLP for years, e.g. SuperGLUE. We will gather some professional English and Chinese linguists to meticulously translate these popular datasets.
-- **Future-oriented**: In fact, a few NLP models already surpass human performance on several benchmarks. This declares that AI has reached or even can surpass human cognitive intelligence. One reason we believe is their limited scope of evaluation. A more urgent and necessary work is to construct challenging datasets instead of fitting existing datasets to $100\%$ accuracy. Future benchmarks need to consider broader ethical, technical, and societal challenges. Our datasets will be published soon to better support the research community.
-- **Applicable**: Benchmarks are required to represent real-world scenarios. This allows us to collaborate with industry-active companies to publish datasets and collect real-world data.
-
-# Fegnshenbang Series Articles
+# Fengshenbang Series Articles
 
 [Fengshen Series: Getting Started on Training Large Model with Data Parallelism](https://zhuanlan.zhihu.com/p/512194216)
 
