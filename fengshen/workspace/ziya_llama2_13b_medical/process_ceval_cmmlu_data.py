@@ -8,25 +8,9 @@ def get_choice_text(choice):
         choice_text += abc[i]+'.'+str(c)+'\n'
     return choice_text
 
-
-def get_prompt(query,dev=None,few_shot=5):
-    prompt=f'<human>:以下是关于{query["type"]}的选择题，请选择正确的答案\n'
-    # prompt=''
-    if dev:
-        for i in range(few_shot):
-            d=dev[i]
-            # try:
-            prompt+='问题：'+f"{str(d['text'])}"+'？\n'+get_choice_text(d['choice'])+'答案：'+abc[d['label']]+'.'+str(d['choice'][d['label']])+'\n'
-            # except:
-            #     print(d,flush=True)
-
-    prompt+='问题：'+str(query['text'])+'？\n'+get_choice_text(query['choice'])+'\n答案：\n<bot>:'
-    return prompt
-
-
 def get_prompt2(query,dev=None,few_shot=5):
-    prompt=f'下面是一道关于{query["type"]}的单选题，请选择正确的答案选项：\n\n题目：'
-    prompt+= str(query['text'])+'\n\n'+get_choice_text(query['choice'])
+    prompt=f'[human]:下面是一道关于{query["type"]}的单选题，请选择正确的答案选项。\n问题：'
+    prompt+= str(query['text'])+'\n\n'+get_choice_text(query['choice']) + '[bot]:'
     return prompt
 
 def get_ans(query):

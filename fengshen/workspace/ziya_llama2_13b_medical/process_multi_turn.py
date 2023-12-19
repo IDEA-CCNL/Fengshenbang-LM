@@ -14,7 +14,7 @@ def convert_to_json(file_path):
         if line.startswith('id\t'):
             if json_dict:
                 if pre_p != '' and pre_line_type == 'P':
-                    json_dict['input'].append(pre_p)
+                    json_dict['prompt'].append(pre_p)
                     pre_p = ''
                 if pre_d != '' and pre_line_type == 'D':
                     json_dict['output'].append(pre_d)
@@ -24,7 +24,7 @@ def convert_to_json(file_path):
 
             id = line.strip().split('\t')[1]
             json_dict['id'] = id
-            json_dict['input'] = []
+            json_dict['prompt'] = []
             json_dict['output'] = []
             pre_p = pre_d = ''
             pre_line_type = 'id'
@@ -39,7 +39,7 @@ def convert_to_json(file_path):
         elif line.startswith('D\t'):
             output_text = line.strip().split('\t')[1]
             if pre_line_type == 'P':
-                json_dict['input'].append(pre_p)
+                json_dict['prompt'].append(pre_p)
                 pre_p = ''
             pre_d += output_text + '\n'
             pre_line_type = 'D'

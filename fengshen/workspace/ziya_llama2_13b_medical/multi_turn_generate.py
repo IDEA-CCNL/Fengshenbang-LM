@@ -8,7 +8,7 @@ from fengshen.models.baichuan.tokenization_baichuan import BaichuanTokenizer
 args_parser = argparse.ArgumentParser()
 
 task_data_dict = {
-    'chimed': '/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/workspace/ziya_llama2_13b_medical/data/chimed.test.json',
+    'chimed': '/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/workspace/ziya_llama2_13b_medical/data/test3_multi_turn_chimed.json',
 }
 
 from fengshen.utils import chinese_char_tokenize
@@ -21,8 +21,9 @@ args_parser.add_argument('--save_path', type=str, default='')
 
 args = args_parser.parse_args()
 
-assert args.model_name in ['ziya-v1', 'ziya-v2', 'medicalgpt-ziya', 'medicalgpt-baichuan', 'gpt-3.5-turbo', 'gpt-4', 'bentsao', 'chimed-gpt', 'baichuan']
+assert args.model_name in ['ziya', 'ziya2', 'medicalgpt-ziya', 'medicalgpt-baichuan', 'gpt-3.5-turbo', 'gpt-4', 'bentsao', 'chimed-gpt', 'baichuan', 'Taiyi']
 
+openai.api_key ='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'
 def call(content: str, max_tokens: int, model='gpt-4'):
     print(content)
     prompt = '假设你是一个专业的医生，下面是一些病人的咨询，请给你非常有用的回答，解决病人的问题，不要让出现让病人去医院就诊或者咨询其他专业医生的建议，不能超过200字。'
@@ -66,9 +67,9 @@ def generate(query, args, model, tokenizer, dev=None, few_shot=5):
     if dev:
         for i in range(few_shot):
             d=dev[i]
-            prompt+=f'<human>:{d["prompt"][0]}\n<bot>:{d["output"][0]}\n'
+            prompt+=f'[human]:{d["prompt"][0]}\n[bot]:{d["output"][0]}\n'
     # print(f'prompt:{prompt}\n')
-    # inputs = prompt + '<human>:' + query.strip() + '\n<bot>:'
+    # inputs = prompt + '[human]:' + query.strip() + '\n[bot]:'
     inputs = prompt + query
 
     input_ids = tokenizer(inputs, return_tensors="pt").input_ids.cuda()
@@ -83,7 +84,7 @@ def generate(query, args, model, tokenizer, dev=None, few_shot=5):
                 bos_token_id=1, 
                 pad_token_id=0)
     output = tokenizer.batch_decode(generate_ids)[0]
-    output = output.split('<bot>  :')[-1]
+    output = output.replace('[bot]: ', '[bot]:').replace('</s>','').split('[bot]:')[-1]
     print(output)
     return output
 
@@ -105,8 +106,8 @@ if __name__ == '__main__':
     input_path = task_data_dict[args.task]
     out_file = open(args.save_path, 'w')
     with open(input_path, 'r') as file:
-        predicts = []
-        outputs = []
+        all_predicts = []
+        all_outputs = []
         for line in file.readlines():
             data = json.loads(line)
             prompts = data['prompt']
@@ -115,27 +116,27 @@ if __name__ == '__main__':
             prompt = ''
             output = ''
             for i in range(cnt):
-                prompt += '<human>:' + prompts[i]
+                prompt += '[human]:' + prompts[i] + '[bot]:'
                 if i < cnt - 1:
-                    prompt += '<bot>:' + outputs[i]
+                    prompt += outputs[i]
                 else:
-                    output = '<bot>:' + outputs[i]
+                    output = outputs[i]
 
             if args.model_name not in ['gpt-4', 'gpt-3.5-turbo']:
                 predict = generate(query=prompt, args=args, model=model, tokenizer=tokenizer)
             else:
                 predict = call(prompt, 256, args.model_name)
-            predicts.append(chinese_char_tokenize(predict))
-            outputs.append(chinese_char_tokenize(output))
+            all_predicts.append(chinese_char_tokenize(predict))
+            all_outputs.append(chinese_char_tokenize(output))
             output_json = {'prompt': prompt, 'output': output, 'predict': predict}
             write_str = json.dumps(output_json, ensure_ascii=False)
             out_file.write(f'{write_str}\n')
     # rouge
     from rouge import Rouge
     rouge = Rouge()
-    scores = rouge.get_scores(predicts, outputs, avg=True) 
+    scores = rouge.get_scores(all_predicts, all_outputs, avg=True) 
     print(scores)
     # bleu
-    outputs = [[o] for o in outputs]
-    print(compute_bleu(predicts, outputs))
+    all_outputs = [[o] for o in all_outputs]
+    print(compute_bleu(all_predicts, all_outputs))
     out_file.close()

@@ -52,7 +52,8 @@ def chinese_char_tokenize(line):
             line_in_chars += " "
         else:
             line_in_chars += char
-
+    if line_in_chars == '':
+        line_in_chars = '错误'
     return line_in_chars
 
 # s = '中国的首都是哪里？1，2，3d回答'

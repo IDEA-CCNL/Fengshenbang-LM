@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=chimed_sft_exp5 # create a short name for your job
+#SBATCH --job-name=chimed_sft_datav6 # create a short name for your job
 #SBATCH --nodes=1 # node count
 #SBATCH --ntasks-per-node=8 # total number of tasks across all nodes
 #SBATCH --cpus-per-task=4 # cpu-cores per task (>1 if multi-threaded tasks)
@@ -71,18 +71,19 @@ export LAUNCHER="torchrun \
     "
 CODE_PATH="/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/examples/ziya_llama/finetune_ziya_with_hf.py"
 # DATA_PATH="/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/workspace/ziya_llama2_13b_medical/data/train_cmd_sft.json"
-DATA_PATH="/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/workspace/ziya_llama2_13b_medical/data/train_data_v5.json"
+DATA_PATH="/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/workspace/ziya_llama2_13b_medical/data/train_data_v6.json"
 
 VALID_DATA_PATH="/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/workspace/ziya_llama2_13b_medical/data/valid_cmd_sft.json"
-MODEL_PATH="/cognitive_comp/wuziwei/pretrained_model_hf/ziya_llama2_13B_global_step264150/"
-OUTPUT_PATH="$MODEL_ROOT_DIR/output_exp5"
+# MODEL_PATH="/cognitive_comp/wuziwei/pretrained_model_hf/ziya_llama2_13B_global_step264150/"
+MODEL_PATH="/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/workspace/ziya_llama2_13b_medical/output_exp5/checkpoint-158105"
+OUTPUT_PATH="$MODEL_ROOT_DIR/output_datav6"
 LOG_PATH="$OUTPUT_PATH/logs"
 
 # OLD_PATH="/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/workspace/ziya_llama2_13b_medical/output/checkpoint-23000/"
 
 export WANDB_PROJECT=$MODEL_NAME
 export WANDB_LOG_MODEL='all'
-export run_name='medical_sft_hf_exp5'
+export run_name='medical_sft_datav6'
 
 # --model_name_or_path $MODEL_PATH \
 
@@ -98,8 +99,8 @@ srun --jobid $SLURM_JOBID bash -c `python -m torch.distributed.run \
 --num_train_epochs 8 \
 --per_device_train_batch_size 2 \
 --gradient_accumulation_steps 1 \
---learning_rate 1e-4 \
---lr_scheduler_type cosine \
+--learning_rate 2e-5 \
+--lr_scheduler_type linear \
 --adam_beta1 0.9 \
 --adam_beta2 0.98 \
 --adam_epsilon 1e-8 \

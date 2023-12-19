@@ -9,7 +9,8 @@ args_parser = argparse.ArgumentParser()
 
 task_data_dict = {
     'chimed': '/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/workspace/ziya_llama2_13b_medical/data/chimed.test.json',
-    'cmedqa2': '',
+    'ner': '/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/workspace/ziya_llama2_13b_medical/data/chimst.test_top100.json',
+    'ccks': '/cognitive_comp/ganruyi/Fengshenbang-LM/fengshen/workspace/ziya_llama2_13b_medical/data/med_llm_ner_data/ccks2019-data/ccks2019.test_top200.json',
 }
 
 from fengshen.utils import chinese_char_tokenize
@@ -22,7 +23,7 @@ args_parser.add_argument('--save_path', type=str, default='')
 
 args = args_parser.parse_args()
 
-assert args.model_name in ['ziya-v1', 'ziya-v2', 'medicalgpt-ziya', 'medicalgpt-baichuan', 'gpt-3.5-turbo', 'gpt-4', 'bentsao', 'chimed-gpt', 'baichuan']
+assert args.model_name in ['ziya-v1', 'ziya-v2', 'medicalgpt-ziya', 'medicalgpt-baichuan', 'gpt-3.5-turbo', 'gpt-4', 'bentsao', 'chimed-gpt', 'baichuan', 'Taiyi']
 
 def call(content: str, max_tokens: int, model='gpt-4'):
     print(content)
@@ -67,9 +68,9 @@ def generate(query, args, model, tokenizer, dev=None, few_shot=5):
     if dev:
         for i in range(few_shot):
             d=dev[i]
-            prompt+=f'<human>:{d["prompt"][0]}\n<bot>:{d["output"][0]}\n'
+            prompt+=f'[human]:{d["prompt"][0]}\n[bot]:{d["output"][0]}\n'
     # print(f'prompt:{prompt}\n')
-    inputs = prompt + '<human>:' + query.strip() + '\n<bot>:'
+    inputs = prompt + '[human]:' + query.strip() + '\n[bot]:'
 
     input_ids = tokenizer(inputs, return_tensors="pt").input_ids.cuda()
     generate_ids = model.generate(
@@ -83,7 +84,7 @@ def generate(query, args, model, tokenizer, dev=None, few_shot=5):
                 bos_token_id=1, 
                 pad_token_id=0)
     output = tokenizer.batch_decode(generate_ids)[0]
-    output = output.replace('<bot>  :', '<bot>:').split('<bot>:')[-1]
+    output = output.replace('[bot]: ', '[bot]:').replace('</s>','').split('[bot]:')[-1]
     print(output)
     return output
 
@@ -131,3 +132,45 @@ if __name__ == '__main__':
     outputs = [[o] for o in outputs]
     print(compute_bleu(predicts, outputs))
     out_file.close()
+
+    if args.task == 'ner' or args.task == 'ccks':
+        def calculate_f1_from_predictions(data):
+            true_positives = 0
+            false_positives = 0
+            false_negatives = 0
+
+            for record in data:
+                # Extract entities from gold standard and model predictions
+                gold_standard_entities = set(tuple(entity.split()[:2]) for entity in record['output'].split('\n'))
+                model_output_entities = set(tuple(entity.split()[:2]) for entity in record['predict'].split('\n'))
+
+                # Update counts for true positives, false positives, and false negatives
+                for entity in model_output_entities:
+                    if entity in gold_standard_entities:
+                        true_positives += 1
+                    else:
+                        false_positives += 1
+                for entity in gold_standard_entities:
+                    if entity not in model_output_entities:
+                        false_negatives += 1
+
+            # Calculate precision, recall, and F1 score
+            precision = true_positives / (true_positives + false_positives) if true_positives + false_positives > 0 else 0
+            recall = true_positives / (true_positives + false_negatives) if true_positives + false_negatives > 0 else 0
+            f1_score = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0
+
+            return precision, recall, f1_score
+
+        # Function to parse the JSON file
+        def parse_json_file(file_path):
+            data = []
+            with open(file_path, 'r', encoding='utf-8') as file:
+                for line in file.readlines():
+                    d = json.loads(line)
+                    data.append(d)
+            return data
+
+        # Parse the JSON file and calculate the F1 score
+        parsed_data = parse_json_file(args.save_path)
+        f1_score_results = calculate_f1_from_predictions(parsed_data)
+        print(f1_score_results)

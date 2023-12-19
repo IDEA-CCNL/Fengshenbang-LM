@@ -44,7 +44,7 @@ def pad(ids, pad_id, max_length):
         return ids[:max_length]
     return ids + [pad_id] * (max_length - len(ids))
 
-prompt_without_output = "<human>:{prompt}\n<bot>:"
+prompt_without_output = "[human]:{prompt}\n[bot]:"
 
 class SupervisedDataset(Dataset):
     """Dataset for supervised fine-tuning."""
@@ -110,6 +110,7 @@ class SupervisedDataset(Dataset):
         input_ids_list = torch.tensor(input_ids).clone()
         labels_list = torch.tensor(labels_ids).clone()
         attention_mask = input_ids_list.ne(self.tokenizer.pad_token_id)
+        padding_mask = attention_mask
 
         model_inputs = {
             'input_ids': input_ids_list,
@@ -131,6 +132,8 @@ def train():
     # model = transformers.AutoModelForCausalLM.from_pretrained(
     model = transformers.LlamaForCausalLM.from_pretrained(
         model_args.model_name_or_path,
+        # use_flash_attention_2=True,
+        # use_flash_attention_2=True,
         use_cache = False,
     )
     model.config.use_cache = False
@@ -139,8 +142,8 @@ def train():
         model_args.model_name_or_path,
         use_fast=False,
     )
-    tokenizer.pad_token = '<s>'
-    tokenizer.pad_token_id = 1
+    tokenizer.pad_token = '</s>'
+    tokenizer.pad_token_id = 2
     
     if training_args.use_lora:
         from peft import LoraConfig, TaskType, get_peft_model
@@ -170,7 +173,7 @@ def train():
     trainer.train()
     # trainer.train(resume_from_checkpoint=training_args.resume_from_checkpoint)
     trainer.save_state()
-    trainer.save_model(output_dir=training_args.output_dir)
+    # trainer.save_model(output_dir=training_args.output_dir)
 
 
 if __name__ == "__main__":
