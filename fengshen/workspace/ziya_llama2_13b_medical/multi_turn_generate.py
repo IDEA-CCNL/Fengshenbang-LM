@@ -23,7 +23,7 @@ args = args_parser.parse_args()
 
 assert args.model_name in ['ziya', 'ziya2', 'medicalgpt-ziya', 'medicalgpt-baichuan', 'gpt-3.5-turbo', 'gpt-4', 'bentsao', 'chimed-gpt', 'baichuan', 'Taiyi']
 
-openai.api_key ='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'
+openai.api_key ='your api key'
 def call(content: str, max_tokens: int, model='gpt-4'):
     print(content)
     prompt = '假设你是一个专业的医生，下面是一些病人的咨询，请给你非常有用的回答，解决病人的问题，不要让出现让病人去医院就诊或者咨询其他专业医生的建议，不能超过200字。'

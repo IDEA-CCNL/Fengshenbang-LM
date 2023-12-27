@@ -91,7 +91,7 @@ TRAINER_ARGS="\
         --wandb_project ziya_llama13b_finetune_example \
         --wandb_name finetune_stage3 \
         "
-export WANDB_API_KEY='97fed34d4c032dfc7fd9422f3319c9dbaac23ce9'
+export WANDB_API_KEY='your wandb key'
 export options=" \
         $DATA_ARGS \
         $MODEL_ARGS \
