@@ -1,8 +1,7 @@
-from huggingface_hub import HfApi, login, ModelFilter
+from huggingface_hub import HfApi, login
 login()
 api = HfApi()
-fs_filter = ModelFilter(author='IDEA-CCNL')
-models = api.list_models(filter=fs_filter, sort='downloads', direction=-1)
+models = api.list_models(author='IDEA-CCNL', sort='downloads', direction=-1)
 downloads = 0
 likes = 0
 for model in models:
