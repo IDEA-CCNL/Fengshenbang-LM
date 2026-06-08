@@ -33,6 +33,8 @@
 
 > [**MVP-Tuning**](https://2023.aclweb.org/program/accepted_main_conference/): 基于多视角知识检索的参数高效常识问答系统。(```ACL 2023```)
 
+> [**Never Lost in the Middle: Mastering Long-Context Question Answering with Position-Agnostic Decompositional Training**]: 解决长文本中心信息丢失问题，Ziya-Reader多个中文长文本问答第一(```ACL 2024```)
+
 
 # 封神榜大事件
 
